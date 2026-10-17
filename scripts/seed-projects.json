@@ -1,0 +1,36 @@
+[
+  {
+    "order": 1,
+    "slug": "example-project",
+    "year": "2026",
+    "image": null,
+    "website": "https://example.com",
+    "github": "https://github.com/your-handle/example-project",
+    "tags": ["TypeScript", "Cloudflare"],
+    "en": {
+      "title": "Example Project",
+      "description": "A short one-line description of what this project does."
+    },
+    "zh": {
+      "title": "示例项目",
+      "description": "一句话说明这个项目是做什么的。"
+    }
+  },
+  {
+    "order": 2,
+    "slug": "another-project",
+    "year": "2025",
+    "image": null,
+    "website": "https://example.org",
+    "tags": ["Android", "Kotlin"],
+    "en": {
+      "title": "Another Project",
+      "description": "Replace this file with your own projects."
+    },
+    "zh": {
+      "title": "另一个项目",
+      "description": "把这份文件换成你自己的项目。"
+    },
+    "zhTags": ["Android", "Kotlin"]
+  }
+]

@@ -1,0 +1,211 @@
+/* ============================================================
+   Design System — 嫩芽 (Spring Bud)
+   淡淡青绿 + 嫩黄/暖棕点缀 · 春天万物复苏的生长感
+   ============================================================ */
+
+:root {
+  /* ========== Layout ========== */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+
+  --z-bg: 0;
+  --z-content: 20;
+  --z-nav: 1000;
+
+  --content-max-width: 760px;
+  --content-padding: 24px;
+
+  /* ========== Typography ========== */
+  --font-serif: 'Fraunces', Georgia, 'Songti SC', serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.75rem;
+  --text-5xl: 3.5rem;
+
+  /* ========== Palette (light — 嫩芽) ========== */
+  --color-paper: #f1f5ee;            /* 嫩绿白纸底 */
+  --color-paper-deep: #e5ece2;       /* 深一档纸 */
+  --color-paper-line: #d4ded1;       /* 淡绿线框 */
+  --color-ink: #29372f;              /* 深墨绿文字 */
+  --color-ink-soft: #5b6d62;         /* 次级文字 */
+  --color-ink-faint: #88978c;        /* 弱化文字 */
+
+  --color-bud: #5e8b74;              /* 主青绿（嫩芽） */
+  --color-bud-deep: #3f6a55;         /* 深青绿 */
+  --color-bud-soft: #b3cdbc;         /* 淡青绿 */
+  --color-bud-pale: #dbe8de;         /* 更淡青绿底 */
+
+  --color-sprout: #d6b35c;           /* 嫩黄（点缀） */
+  --color-sprout-deep: #b08a4f;      /* 暖棕（点缀） */
+  --color-sprout-pale: #f3ead4;      /* 嫩黄浅底 */
+
+  --grid-line: rgba(94, 139, 116, 0.07); /* 蓝图网格线 */
+
+  /* 品牌渐变（favicon 水印用，暗色模式另配） */
+  --grad-bud-a: #6f9c86;
+  --grad-bud-b: #b9d2c1;
+  --grad-bud-c: #e0c97f;
+
+  /* ========== Semantic aliases ========== */
+  --color-background: var(--color-paper);
+  --color-on-background: var(--color-ink);
+  --color-surface: var(--color-paper);
+  --color-on-surface: var(--color-ink);
+  --color-surface-container: var(--color-paper-deep);
+  --color-surface-container-low: #ecf1e9;
+  --color-surface-container-lowest: #f7f9f4;
+  --color-surface-container-high: #dfe7dc;
+  --color-surface-container-highest: #d9e2d5;
+  --color-surface-dim: #dfe7dc;
+  --color-surface-bright: #f7f9f4;
+  --color-surface-variant: var(--color-paper-deep);
+  --color-on-surface-variant: var(--color-ink-soft);
+
+  --color-primary: var(--color-bud);
+  --color-on-primary: #f5f8f4;
+  --color-primary-container: var(--color-bud-pale);
+  --color-on-primary-container: #24402f;
+  --color-primary-fixed: var(--color-bud-pale);
+  --color-on-primary-fixed: #24402f;
+  --color-primary-fixed-dim: var(--color-bud-soft);
+  --color-on-primary-fixed-variant: #3a5f4a;
+
+  --color-secondary: var(--color-sprout-deep);
+  --color-on-secondary: #fbf7ec;
+  --color-secondary-container: var(--color-sprout-pale);
+  --color-on-secondary-container: #4a3515;
+
+  --color-tertiary: var(--color-sprout);
+  --color-on-tertiary: #3a2c10;
+  --color-tertiary-container: var(--color-sprout-pale);
+  --color-on-tertiary-container: #4a3515;
+
+  --color-error: #b3261e;
+  --color-on-error: #ffffff;
+  --color-error-container: #f9dedc;
+  --color-on-error-container: #410e0b;
+
+  --color-outline: var(--color-paper-line);
+  --color-outline-variant: #c9d5c6;
+  --color-shadow: rgba(41, 55, 47, 0.14);
+  --color-scrim: rgba(20, 30, 25, 0.4);
+  --color-inverse-surface: #29372f;
+  --color-inverse-on-surface: #e2e9e2;
+  --color-inverse-primary: var(--color-bud-soft);
+
+  /* Aliases used by components */
+  --primary: var(--color-primary);
+  --border-color: var(--color-paper-line);
+  --text-muted: var(--color-ink-soft);
+
+  /* ========== Transitions ========== */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.3s ease;
+  --transition-slow: 0.8s ease;
+
+  /* ========== Border Radius ========== */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+}
+
+/* ========== Dark reading theme (follows system) ========== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: #141d18;
+    --color-paper-deep: #1a2721;
+    --color-paper-line: #2b3b32;
+    --color-ink: #e2e9e2;
+    --color-ink-soft: #93a49a;
+    --color-ink-faint: #6d7d73;
+
+    --color-bud: #8fb89f;
+    --color-bud-deep: #6d9c84;
+    --color-bud-soft: #2c4236;
+    --color-bud-pale: #24362d;
+
+    --color-sprout: #d6b35c;
+    --color-sprout-deep: #c9a04f;
+    --color-sprout-pale: #332a16;
+
+    --color-background: var(--color-paper);
+    --color-on-background: var(--color-ink);
+    --color-surface: var(--color-paper);
+    --color-on-surface: var(--color-ink);
+    --color-surface-container: #1a2721;
+    --color-surface-container-low: #16211b;
+    --color-surface-container-lowest: #101812;
+    --color-surface-container-high: #20302a;
+    --color-surface-container-highest: #273931;
+    --color-surface-dim: #101812;
+    --color-surface-bright: #2b3b32;
+    --color-surface-variant: #22312a;
+    --color-on-surface-variant: var(--color-ink-soft);
+
+    --color-primary: var(--color-bud);
+    --color-on-primary: #10221a;
+    --color-primary-container: #24362d;
+    --color-on-primary-container: #cfe0d4;
+    --color-primary-fixed: #24362d;
+    --color-on-primary-fixed: #cfe0d4;
+    --color-primary-fixed-dim: #3a5f4a;
+    --color-on-primary-fixed-variant: #8fb89f;
+
+    --color-secondary: #d6b35c;
+    --color-on-secondary: #2a2108;
+    --color-secondary-container: #332a16;
+    --color-on-secondary-container: #ecd9ac;
+
+    --color-tertiary: #c9a04f;
+    --color-on-tertiary: #241c06;
+    --color-tertiary-container: #332a16;
+    --color-on-tertiary-container: #ecd9ac;
+
+    --color-error: #f2b8b5;
+    --color-on-error: #601410;
+    --color-error-container: #8c1d18;
+    --color-on-error-container: #f9dedc;
+
+    --color-outline: #2b3b32;
+    --color-outline-variant: #22312a;
+    --color-shadow: rgba(0, 0, 0, 0.5);
+    --color-scrim: rgba(0, 0, 0, 0.6);
+    --color-inverse-surface: #e2e9e2;
+    --color-inverse-on-surface: #141d18;
+    --color-inverse-primary: #5e8b74;
+
+    --primary: var(--color-primary);
+    --border-color: var(--color-paper-line);
+    --text-muted: var(--color-ink-soft);
+
+    --grid-line: rgba(143, 184, 159, 0.08);
+    --grad-bud-a: #8fb89f;
+    --grad-bud-b: #547765;
+    --grad-bud-c: #c9a04f;
+  }
+}
+
+/* ========== Accessibility ========== */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0s;
+    --transition-base: 0s;
+    --transition-slow: 0s;
+  }
+}
+

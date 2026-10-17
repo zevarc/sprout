@@ -1,0 +1,267 @@
+/* Main Stylesheet */
+/* 主样式表 - 导入所有全局样式 */
+
+/* 1. CSS Variables (设计系统) */
+@import './variables.css';
+
+/* 2. Global Reset & Base */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border: 0 solid;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: clamp(16px, 1.2vw, 18px);
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-break: loose;
+  word-break: break-word;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-on-surface);
+  background-color: var(--color-paper);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 36px 36px;
+  overflow-x: hidden;
+}
+
+/* 4. Typography */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-size: 2.25rem;
+  margin-top: 2.5em;
+}
+
+h2 {
+  font-size: 1.6rem;
+  margin-top: 2em;
+}
+
+h3 {
+  font-size: 1.25rem;
+  margin-top: 1.5em;
+}
+
+p {
+  margin: 1.2em 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+a:hover {
+  border-bottom-color: var(--color-bud);
+  color: var(--color-bud);
+}
+
+strong {
+  font-weight: 600;
+}
+
+em {
+  font-style: italic;
+}
+
+pre {
+  margin: 2rem 0;
+  padding: 1rem;
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--color-outline);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Code blocks: emitted as escaped text by the server, highlighted in the
+   browser (see $lib/highlight.js). */
+.code-block {
+  position: relative;
+  margin: 2rem 0;
+}
+
+.code-block > pre {
+  margin: 0;
+}
+
+.code-pre {
+  background: #0d1117;
+  color: #e6edf3;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.code-pre code,
+.code-pre code.hljs {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+.code-copy {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-family: var(--font-sans);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #c9d1d9;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s, background 0.2s, color 0.2s;
+}
+
+.code-copy:hover {
+  opacity: 1;
+  background: rgba(100, 116, 139, 0.2);
+}
+
+.code-copy.copied {
+  opacity: 1;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-primary);
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+code:not(pre code) {
+  font-size: 0.9em;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  background: var(--color-surface-container);
+}
+
+blockquote {
+  padding: 0.1em 1em;
+  border-left: 3px solid var(--color-outline);
+  background: var(--color-surface-container);
+}
+
+/* 5. Utility Classes */
+.container {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 0 var(--content-padding);
+}
+
+.text-center {
+  text-align: center;
+}
+
+/* 6. Form Elements */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+input,
+textarea {
+  font-family: inherit;
+}
+
+/* 7. Selection */
+::selection {
+  background-color: var(--color-bud-soft);
+  color: var(--color-on-primary-container);
+}
+
+/* 8. Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-outline);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-outline);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+/* 9. Focus States */
+:focus-visible {
+  outline: 2px solid var(--color-bud);
+  outline-offset: 2px;
+}
+
+/* 10. Print Styles */
+@media (max-width: 768px) {
+  body {
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  article {
+    padding: 0 1rem;
+  }
+}
+
+/* 11. Lightbox */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  cursor: zoom-out;
+  animation: lightbox-fade 0.2s ease;
+}
+
+.lightbox-img {
+  max-width: 92vw;
+  max-height: 92vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+@keyframes lightbox-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

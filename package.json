@@ -1,0 +1,68 @@
+{
+	"name": "sprout",
+	"type": "module",
+	"version": "0.1.0",
+	"description": "A Cloudflare-native, data-portable personal content platform — blog, notes, moments and comments on SvelteKit + D1 + R2.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/zevarc/sprout.git"
+	},
+	"homepage": "https://github.com/zevarc/sprout#readme",
+	"bugs": {
+		"url": "https://github.com/zevarc/sprout/issues"
+	},
+	"keywords": [
+		"blog",
+		"personal-site",
+		"cloudflare-workers",
+		"cloudflare-d1",
+		"cloudflare-r2",
+		"sveltekit",
+		"sqlite",
+		"data-portability"
+	],
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"dev": "vite dev",
+		"dev:clean": "node scripts/dev-clean.mjs && vite dev",
+		"bootstrap": "node scripts/setup.mjs",
+		"prepare": "svelte-kit sync",
+		"build": "vite build",
+		"preview": "vite preview",
+		"deploy": "wrangler deploy",
+		"notify:indexnow": "node scripts/notify-indexnow.mjs",
+		"check": "svelte-check --tsconfig ./tsconfig.json",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"check:links": "node scripts/check-links.mjs",
+		"check:sitemap": "node scripts/check-sitemap.mjs",
+		"db:migrate:local": "wrangler d1 migrations apply DB --local",
+		"db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+		"db:console:local": "wrangler d1 execute DB --local --command",
+		"content:import": "node scripts/import.mjs",
+		"content:export": "node scripts/export.mjs",
+		"content:restore": "node scripts/restore.mjs",
+		"content:verify": "node scripts/verify-mirror.mjs"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-cloudflare": "^7.2.9",
+		"@sveltejs/kit": "^2.70.3",
+		"@sveltejs/vite-plugin-svelte": "^7.3.0",
+		"@types/markdown-it": "^14.2.0",
+		"@types/node": "^26.6.5",
+		"sharp": "^0.35.4",
+		"svelte": "^5.57.0",
+		"svelte-check": "^4.7.6",
+		"vite": "^8.2.2",
+		"vitest": "^5.0.5",
+		"wrangler": "^4.127.1"
+	},
+	"dependencies": {
+		"highlight.js": "^11.12.0",
+		"markdown-it": "^15.0.3",
+		"markdown-it-anchor": "^10.0.0"
+	}
+}
