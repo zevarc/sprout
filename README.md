@@ -6,6 +6,8 @@ Posts, notes, moments and comments — on SvelteKit, Cloudflare Workers, D1 (SQL
 > 中文简介：一个「数据真正属于你」的个人内容平台。文章、笔记、动态、评论都存进标准 SQLite，
 > 并且可以**完整导出成纯文本再恢复**——换掉 Cloudflare 也能带走。
 
+**Live demo: <https://sprout.zevarc.com>** · Real-world example: <https://zevarc.com>
+
 ---
 
 ## Why another personal site?

@@ -114,3 +114,18 @@ pnpm install
 pnpm db:migrate:remote
 pnpm build && pnpm run deploy
 ```
+
+## The official demo
+
+The live demo at <https://sprout.zevarc.com> is a **second, independent Worker**
+deployed from this repository:
+
+```bash
+pnpm build
+pnpm run deploy:demo      # uses wrangler.demo.toml
+```
+
+`wrangler.demo.toml` points at its own D1 database and R2 bucket, so it can never
+touch a real site. If you fork sprout, either point it at your own resources or
+delete the file and the `deploy:demo` script.
+

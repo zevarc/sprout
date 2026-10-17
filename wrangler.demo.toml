@@ -1,0 +1,28 @@
+# Demo deployment — a second, independent Worker.
+#
+#   pnpm deploy:demo
+#
+# It has its own database and bucket, so the demo never touches a real site.
+# The custom domain below is created automatically by `wrangler deploy`
+# (the zone must be on the same Cloudflare account).
+name = "sprout-demo"
+compatibility_date = "2025-09-22"
+compatibility_flags = ["nodejs_compat"]
+
+main = ".svelte-kit/cloudflare/_worker.js"
+
+# Must be at the root level — anything after a [table] header belongs to it.
+routes = [{ pattern = "sprout.zevarc.com", custom_domain = true }]
+
+[assets]
+directory = ".svelte-kit/cloudflare"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sprout-demo"
+database_id = "df9358dd-99db-4060-8827-3d96260c9c16"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "sprout-demo-media"

@@ -33,6 +33,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"deploy": "wrangler deploy",
+		"deploy:demo": "wrangler deploy --config wrangler.demo.toml",
 		"notify:indexnow": "node scripts/notify-indexnow.mjs",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"test": "vitest run",
