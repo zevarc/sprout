@@ -168,7 +168,7 @@ console.log('\n' + '─'.repeat(50));
 console.log(' 完成。接下来：\n');
 console.log('   1) 在 src/site.config.js 填上你的站点名与域名（当前：');
 console.log(`      name = "${site.name}"   url = "${site.url}"）`);
-console.log('   2) 构建并部署：  pnpm build && pnpm deploy');
+console.log('   2) 构建并部署：  pnpm build && pnpm run deploy');
 console.log('   3) 打开 /admin 登录，令牌就是 .dev.vars 里的 ADMIN_TOKEN');
 console.log('   4) 迁移已有内容： ADMIN_TOKEN=… API_URL=https://你的域名 pnpm content:import');
 console.log('\n 本地开发： pnpm dev');

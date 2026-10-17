@@ -49,8 +49,11 @@ Preview it first with `pnpm bootstrap --dry-run` (changes nothing).
 
 ```bash
 pnpm build
-pnpm deploy
+pnpm run deploy
 ```
+
+> pnpm ships its own `deploy` command, so the script must be invoked as
+> `pnpm run deploy` — `pnpm deploy` alone will not run it.
 
 ## 4. Custom domain
 
@@ -90,7 +93,7 @@ IndexNow pushes new URLs to Bing/Yandex on deploy.
 
 1. Generate a key, put it in `static/<key>.txt` (the file content is the key).
 2. `pnpm exec wrangler secret put INDEXNOW_KEY`
-3. `pnpm deploy && pnpm notify:indexnow`
+3. `pnpm run deploy && pnpm notify:indexnow`
 
 ## Local gotcha: changing `database_id`
 
@@ -109,5 +112,5 @@ ADMIN_TOKEN=dev-admin-token API_URL=http://localhost:5173 pnpm content:import
 git pull
 pnpm install
 pnpm db:migrate:remote
-pnpm build && pnpm deploy
+pnpm build && pnpm run deploy
 ```

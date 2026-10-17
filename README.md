@@ -69,7 +69,7 @@ Deploy:
 
 ```bash
 pnpm build
-pnpm deploy
+pnpm run deploy
 ```
 
 Import the sample content:
@@ -132,7 +132,7 @@ Adding `link`, `photo`, `quote`… is one registry entry plus its content.
 | `pnpm bootstrap` | one-command Cloudflare setup |
 | `pnpm check` | type check |
 | `pnpm test` | unit tests (vitest) |
-| `pnpm build` / `pnpm deploy` | build / deploy the Worker |
+| `pnpm build` / `pnpm run deploy` | build / deploy the Worker |
 | `pnpm db:migrate:local` / `:remote` | apply migrations |
 | `pnpm content:import` / `export` / `restore` / `verify` | content lifecycle |
 | `pnpm check:links` / `check:sitemap` | crawl a running site for broken links / sitemap entries |
