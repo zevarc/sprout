@@ -36,6 +36,13 @@ export const PATCH: RequestHandler = async (event) => {
 		bodyMd: body.bodyMd !== undefined ? String(body.bodyMd) : undefined,
 		status: body.status !== undefined ? (body.status as NodeStatus) : undefined,
 		slug: body.slug !== undefined ? String(body.slug) : undefined,
+		lang: body.lang !== undefined ? String(body.lang) : undefined,
+		publishedAt:
+			body.publishedAt !== undefined
+				? body.publishedAt == null
+					? null
+					: String(body.publishedAt)
+				: undefined,
 		extra: body.extra !== undefined ? (body.extra as Record<string, unknown>) : undefined
 	});
 

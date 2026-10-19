@@ -68,6 +68,14 @@ export const en = {
     websiteLabel: 'Website (opens in a new tab)',
     githubLabel: 'GitHub repository (opens in a new tab)',
   },
+  tags: {
+    title: 'Tags',
+    kicker: 'Tags',
+    subtitle: 'Everything filed under one topic.',
+    count: 'posts',
+    empty: 'Nothing filed under this tag yet.',
+    all: '← All tags',
+  },
   about: {
     title: 'About',
     kicker: 'About',

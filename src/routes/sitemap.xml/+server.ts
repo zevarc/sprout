@@ -1,4 +1,5 @@
 import { getDb } from '$lib/server/db';
+import { listTags } from '$lib/server/repositories/nodes';
 import { listViews, type PostView } from '$lib/content/view';
 import { site } from '$lib/site';
 
@@ -45,11 +46,14 @@ export async function GET({ platform }) {
 	const notes = await listViews(db, { types: ['note'], lang: 'en', limit: 200 });
 	const projects = await listViews(db, { types: ['project'], lang: 'en', limit: 200 });
 	const moments = await listViews(db, { types: ['moment'], lang: 'en', limit: 200 });
+	const enTags = await listTags(db, { lang: 'en', types: ['post', 'note'] });
+	const zhTags = await listTags(db, { lang: 'zh', types: ['post', 'note'] });
 
 	const fixedI18n: UrlEntry[] = [
 		{ path: '' },
 		{ path: 'posts' },
 		{ path: 'projects' },
+		{ path: 'tags' },
 		{ path: 'about' },
 		{ path: 'search' }
 	];
@@ -62,7 +66,9 @@ export async function GET({ platform }) {
 	const urls =
 		[...fixedI18n, ...contentI18n].map((u) => entry(u.path, u.lastmod)).join('') +
 		entrySingle('moments') +
-		moments.map((m) => entrySingle(`moments/${m.slug}`, lastmodOf(m))).join('');
+		moments.map((m) => entrySingle(`moments/${m.slug}`, lastmodOf(m))).join('') +
+		enTags.map((tag) => entrySingle(`tags/${encodeURIComponent(tag.tag)}`)).join('') +
+		zhTags.map((tag) => entrySingle(`zh/tags/${encodeURIComponent(tag.tag)}`)).join('');
 
 	const xml = `<?xml version="1.0" encoding="UTF-8" ?>
 <urlset

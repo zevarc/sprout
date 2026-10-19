@@ -62,3 +62,76 @@ export const POST: RequestHandler = async (event) => {
 
 	return json({ ok: true, key, url: `/media/${key}`, sha256 });
 };
+
+/** GET /api/admin/media?nodeId=… — media rows attached to a node. */
+export const GET: RequestHandler = async (event) => {
+	const db = getDb(event.platform);
+	if (!(await isAdmin(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
+
+	const nodeId = event.url.searchParams.get('nodeId');
+	if (!nodeId) return json({ error: 'nodeId required' }, { status: 400 });
+
+	const rows = await db
+		.prepare(
+			'SELECT id, r2_key, kind, alt, position FROM media WHERE node_id = ? ORDER BY position, id'
+		)
+		.bind(nodeId)
+		.all<{ id: string; r2_key: string; kind: string; alt: string | null; position: number }>();
+
+	return json({
+		media: (rows.results ?? []).map((row) => ({ ...row, url: `/media/${row.r2_key}` }))
+	});
+};
+
+/** PATCH /api/admin/media — { id, alt?, position? }. */
+export const PATCH: RequestHandler = async (event) => {
+	const db = getDb(event.platform);
+	if (!(await isAdmin(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
+
+	let body: Record<string, unknown>;
+	try {
+		body = await event.request.json();
+	} catch {
+		return json({ error: 'invalid json' }, { status: 400 });
+	}
+
+	const id = String(body.id ?? '');
+	if (!id) return json({ error: 'id required' }, { status: 400 });
+
+	const sets: string[] = [];
+	/** @type {unknown[]} */
+	const params: unknown[] = [];
+	if (body.alt !== undefined) {
+		sets.push('alt = ?');
+		params.push(body.alt == null ? null : String(body.alt));
+	}
+	if (body.position !== undefined) {
+		sets.push('position = ?');
+		params.push(Number(body.position) || 0);
+	}
+	if (sets.length === 0) return json({ error: 'nothing to update' }, { status: 400 });
+
+	params.push(id);
+	await run(db, `UPDATE media SET ${sets.join(', ')} WHERE id = ?`, params);
+	return json({ ok: true });
+};
+
+/** DELETE /api/admin/media?id=… — drop the row and the stored object. */
+export const DELETE: RequestHandler = async (event) => {
+	const db = getDb(event.platform);
+	if (!(await isAdmin(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
+
+	const id = event.url.searchParams.get('id');
+	if (!id) return json({ error: 'id required' }, { status: 400 });
+
+	const bucket = event.platform?.env?.MEDIA;
+	const row = await db
+		.prepare('SELECT r2_key FROM media WHERE id = ?')
+		.bind(id)
+		.first<{ r2_key: string }>();
+	if (!row) return json({ error: 'not found' }, { status: 404 });
+
+	if (bucket) await bucket.delete(row.r2_key);
+	await run(db, 'DELETE FROM media WHERE id = ?', [id]);
+	return json({ ok: true });
+};

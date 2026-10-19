@@ -54,6 +54,8 @@ export interface ListNodesOptions {
 	types?: string[];
 	lang?: string;
 	status?: NodeStatus | 'all';
+	/** Only nodes whose `extra.tags` contains this exact tag. */
+	tag?: string;
 	limit?: number;
 	offset?: number;
 }
@@ -76,6 +78,13 @@ export async function listNodes(db: D1Database, opts: ListNodesOptions = {}): Pr
 	if (opts.status !== 'all') {
 		where.push('status = ?');
 		params.push(opts.status ?? 'published');
+	}
+	if (opts.tag) {
+		// `extra.tags` is a JSON array; json_each gives one row per tag.
+		where.push(
+			`EXISTS (SELECT 1 FROM json_each(nodes.extra, '$.tags') AS je WHERE je.value = ?)`
+		);
+		params.push(opts.tag);
 	}
 
 	const sql = `SELECT * FROM nodes ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
@@ -105,6 +114,32 @@ export async function listFeatured(
 		[...opts.types, opts.lang, opts.limit ?? 5]
 	);
 	return rows.map(toNode);
+}
+
+export interface TagCount {
+	tag: string;
+	count: number;
+}
+
+/** Distinct tags with how many published nodes carry each, most used first. */
+export async function listTags(
+	db: D1Database,
+	opts: { lang: string; types: string[]; limit?: number }
+): Promise<TagCount[]> {
+	const placeholders = opts.types.map(() => '?').join(', ');
+	const rows = await query<{ tag: string; n: number }>(
+		db,
+		`SELECT je.value AS tag, count(*) AS n
+		 FROM nodes, json_each(nodes.extra, '$.tags') AS je
+		 WHERE nodes.status = 'published'
+		   AND nodes.lang = ?
+		   AND nodes.type IN (${placeholders})
+		 GROUP BY je.value
+		 ORDER BY n DESC, je.value ASC
+		 LIMIT ?`,
+		[opts.lang, ...opts.types, opts.limit ?? 200]
+	);
+	return rows.map((r) => ({ tag: r.tag, count: Number(r.n) }));
 }
 
 export async function getNode(db: D1Database, id: string): Promise<ContentNode | null> {

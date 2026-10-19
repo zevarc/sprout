@@ -83,12 +83,13 @@ export function nodeToView(node: ContentNode, hasAlt = false): PostView {
 
 export async function listViews(
 	db: D1Database,
-	opts: { types: string[]; lang: string; limit?: number }
+	opts: { types: string[]; lang: string; tag?: string; limit?: number }
 ): Promise<PostView[]> {
 	const nodes = await listNodes(db, {
 		types: opts.types,
 		lang: opts.lang,
 		status: 'published',
+		tag: opts.tag,
 		limit: opts.limit ?? 100
 	});
 	return nodes.map((n) => nodeToView(n));

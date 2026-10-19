@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.3.0
+
+Tags, and a proper authoring pass on the admin editor.
+
+**Tags**
+- `/tags` and `/tags/[tag]` (plus the `/zh/…` pair): every tag gets an archive
+  page; tags are matched exactly against `extra.tags` through `json_each`
+- post tags are links; archive pages emit `CollectionPage` and are in the sitemap
+
+**Admin editor**
+- unsaved-changes guard and local autosave (restore or discard), ⌘/Ctrl+S to save,
+  ⌘/Ctrl+Enter to preview
+- list search plus type/language/status filters, and bulk publish/archive
+- Markdown toolbar; uploaded images are inserted at the cursor as
+  `![alt](/media/…)`, with the alt stored on the media row
+- split preview that refreshes as you type
+- pre-publish checks (missing alt, heading level skips, empty summary, duplicate
+  slug) — warnings you can override, not blockers
+- editable publish date, and a confirmation when a published slug changes
+- media panel: edit alt, reorder, delete (the R2 object goes with it)
+- translation pairing: link a node to its counterpart in the other language
+- `extra` is now written per content type instead of always
+
+**API**
+- `PATCH /api/nodes/[id]` accepts `lang` and `publishedAt` (both were silently dropped)
+- new `/api/admin/link` (GET/POST/DELETE) and GET/PATCH/DELETE on `/api/admin/media`
+
 ## 0.2.0
 
 Hardening, discovery and performance pass — plus the fixes that came out of

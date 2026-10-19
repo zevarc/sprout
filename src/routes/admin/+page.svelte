@@ -23,13 +23,124 @@
   let showPreview = $state(false);
   let previewHtml = $state('');
 
+  // 列表筛选
+  let search = $state('');
+  let typeFilter = $state('');
+  let langFilter = $state('');
+  let statusFilter = $state('');
+
+  // 编辑安全与工具
+  let dirty = $state(false);
+  let autoSavedAt = $state('');
+  let savedSnapshot = $state('');
+  let slugAtLoad = $state('');
+  /** @type {string | null} 本地草稿的时间戳 */
+  let localHint = $state(null);
+  /** @type {string | null} 本地草稿的状态快照 */
+  let localJson = null;
+  /** @type {HTMLTextAreaElement | null} */
+  let bodyEl = $state(null);
+  let altInput = $state('');
+  let uploading = $state(false);
+
+  const TOOLBAR = [
+    { label: 'B', title: '加粗', text: '**粗体**' },
+    { label: 'I', title: '斜体', text: '*斜体*' },
+    { label: '`', title: '行内代码', text: '`code`' },
+    { label: 'H2', title: '二级标题', text: '\n## 标题\n' },
+    { label: '链接', title: '链接', text: '[文字](https://)' },
+    { label: '代码块', title: '代码块', text: '\n```\n\n```\n' },
+    { label: '列表', title: '列表', text: '\n- 条目\n' },
+    { label: '引用', title: '引用', text: '\n> 引用\n' }
+  ];
+
   /** @type {any[]} */
   let queue = $state([]);
   /** @type {any} */
   let stats = $state(null);
-  let uploading = $state(false);
 
   const types = Object.values(contentTypes).map((t) => t.type);
+
+  const filteredNodes = $derived(
+    nodes.filter((n) => {
+      if (typeFilter && n.type !== typeFilter) return false;
+      if (langFilter && n.lang !== langFilter) return false;
+      if (statusFilter && n.status !== statusFilter) return false;
+      const q = search.trim().toLowerCase();
+      return !q || `${n.title ?? ''} ${n.slug} ${n.id}`.toLowerCase().includes(q);
+    })
+  );
+
+  /** @param {string | null | undefined} iso */
+  const toLocal = (iso) => (iso ? new Date(iso).toISOString().slice(0, 16) : '');
+
+  function currentState() {
+    return JSON.stringify({
+      id: draft?.id ?? null,
+      type: draft?.type ?? '',
+      slug: draft?.slug ?? '',
+      lang: draft?.lang ?? '',
+      title: draft?.title ?? '',
+      summary: draft?.summary ?? '',
+      bodyMd: draft?.bodyMd ?? '',
+      status: draft?.status ?? '',
+      publishedAt: draft?.publishedAt ?? '',
+      tagsInput,
+      featured,
+      projectStatus,
+      imagesInput,
+      website,
+      github
+    });
+  }
+
+  /** 发布前的非阻断检查；保存时若状态是 published 会先确认。 */
+  const warnings = $derived.by(() => {
+    /** @type {string[]} */
+    const out = [];
+    if (!draft) return out;
+    if (!String(draft.slug ?? '').trim()) out.push('slug 为空');
+    if (!String(draft.summary ?? '').trim()) out.push('摘要为空（列表与分享卡片会缺描述）');
+
+    const md = String(draft.bodyMd ?? '');
+    const imgs = [...md.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g)];
+    const noAlt = imgs.filter((m) => !m[1].trim()).length;
+    if (noAlt > 0) out.push(`${noAlt} 张图片没有 alt 文本`);
+
+    const levels = [...md.matchAll(/^(#{1,6})\s/gm)].map((m) => m[1].length);
+    for (let i = 1; i < levels.length; i++) {
+      if (levels[i] - levels[i - 1] > 1) {
+        out.push('正文标题有跳级（例如 h2 直接到 h4）');
+        break;
+      }
+    }
+
+    const dup = nodes.some(
+      (n) =>
+        n.id !== draft.id &&
+        n.type === draft.type &&
+        n.lang === draft.lang &&
+        n.slug === draft.slug
+    );
+    if (dup) out.push('同语言下已有相同 slug');
+
+    return out;
+  });
+
+  // 媒体面板
+  /** @type {any[]} */
+  let mediaList = $state([]);
+  // 翻译配对
+  let linkTarget = $state('');
+  /** @type {string | null} */
+  let linkedTo = $state(null);
+  const linkedNode = $derived(linkedTo ? nodes.find((n) => n.id === linkedTo) : null);
+  const linkCandidates = $derived(
+    draft ? nodes.filter((n) => n.id !== draft.id && n.type === draft.type) : []
+  );
+  // 批量操作
+  /** @type {Set<string>} */
+  let selected = $state(new Set());
 
   async function checkSession() {
     try {
@@ -96,7 +207,8 @@
       title: '',
       summary: '',
       bodyMd: '',
-      status: 'published'
+      status: 'published',
+      publishedAt: toLocal(new Date().toISOString())
     };
     tagsInput = '';
     featured = false;
@@ -105,11 +217,21 @@
     website = '';
     github = '';
     previewHtml = '';
+    showPreview = false;
+    slugAtLoad = '';
+    savedSnapshot = currentState();
+    dirty = false;
+    clearLocal();
+    mediaList = [];
+    linkedTo = null;
+    linkTarget = '';
+    message = '';
   }
 
   /** @param {any} node */
   function editNode(node) {
-    draft = { ...node };
+    if (dirty && !confirm('当前草稿未保存，仍要切换吗？')) return;
+    draft = { ...node, publishedAt: toLocal(node.publishedAt) };
     tagsInput = Array.isArray(node.extra?.tags) ? node.extra.tags.join(', ') : '';
     featured = node.extra?.featured === true;
     projectStatus = node.extra?.status ?? '';
@@ -118,28 +240,109 @@
     github = node.extra?.github ?? '';
     previewHtml = '';
     showPreview = false;
+    slugAtLoad = node.slug ?? '';
+    savedSnapshot = currentState();
+    dirty = false;
+    clearLocal();
+    message = '';
+    mediaList = [];
+    linkedTo = null;
+    linkTarget = '';
+    if (draft.id) {
+      void loadMedia();
+      void loadLink();
+    }
+
+    // 有未写回的本地自动保存时，给出提示而不是静默覆盖。
+    try {
+      const stored = localStorage.getItem(autosaveKey());
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.state && parsed.state !== currentState()) {
+          localJson = parsed.state;
+          localHint = parsed.at ?? '';
+        }
+      }
+    } catch {
+      /* ignore malformed autosave */
+    }
   }
 
+  function autosaveKey() {
+    return `admin:draft:${draft?.id ?? 'new'}`;
+  }
+
+  function clearLocal() {
+    localHint = null;
+    localJson = null;
+    autoSavedAt = '';
+  }
+
+  function restoreLocal() {
+    if (!localJson) return;
+    const s = JSON.parse(localJson);
+    draft.type = s.type;
+    draft.slug = s.slug;
+    draft.lang = s.lang;
+    draft.title = s.title;
+    draft.summary = s.summary;
+    draft.bodyMd = s.bodyMd;
+    draft.status = s.status;
+    draft.publishedAt = s.publishedAt;
+    tagsInput = s.tagsInput;
+    featured = s.featured;
+    projectStatus = s.projectStatus;
+    imagesInput = s.imagesInput;
+    website = s.website;
+    github = s.github;
+    localHint = null;
+    localJson = null;
+    message = '已恢复本地草稿';
+  }
+
+  function discardLocal() {
+    localStorage.removeItem(autosaveKey());
+    clearLocal();
+  }
+
+  /** 只写当前类型真正需要的字段，避免 post 也带项目字段。 */
   function buildExtra() {
-    return {
-      featured,
-      status: projectStatus || null,
-      tags: tagsInput
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-      images: imagesInput
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean),
-      website: website || undefined,
-      github: github || undefined
-    };
+    const extra = {};
+    const tags = tagsInput.split(',').map((s) => s.trim()).filter(Boolean);
+    if (tags.length > 0) extra.tags = tags;
+
+    if (draft?.type === 'project') {
+      extra.status = projectStatus || null;
+      extra.featured = featured;
+      if (website) extra.website = website;
+      if (github) extra.github = github;
+    } else if (draft?.type === 'moment') {
+      const images = imagesInput.split('\n').map((s) => s.trim()).filter(Boolean);
+      if (images.length > 0) extra.images = images;
+      if (featured) extra.featured = true;
+    } else if (featured) {
+      extra.featured = true;
+    }
+
+    return extra;
   }
 
   async function save() {
     if (!draft) return;
     message = '';
+
+    if (draft.id && slugAtLoad && draft.slug !== slugAtLoad && draft.status === 'published') {
+      const ok = confirm(
+        `slug 从「${slugAtLoad}」改成「${draft.slug}」。已发布的外链会 404，确定保存？`
+      );
+      if (!ok) return;
+    }
+
+    if (draft.status === 'published' && warnings.length > 0) {
+      const ok = confirm(`发布前检查：\n\n· ${warnings.join('\n· ')}\n\n仍然发布？`);
+      if (!ok) return;
+    }
+
     const payload = {
       type: draft.type,
       slug: draft.slug,
@@ -148,6 +351,7 @@
       summary: draft.summary,
       bodyMd: draft.bodyMd,
       status: draft.status,
+      publishedAt: draft.publishedAt ? new Date(draft.publishedAt).toISOString() : null,
       extra: buildExtra()
     };
     const res = draft.id
@@ -167,7 +371,14 @@
       return;
     }
     message = '已保存';
-    draft = data.node ?? draft;
+    const node = data.node ?? draft;
+    draft = { ...node, publishedAt: toLocal(node.publishedAt) };
+    slugAtLoad = draft.slug;
+    savedSnapshot = currentState();
+    dirty = false;
+    localStorage.removeItem('admin:draft:new');
+    if (draft.id) localStorage.removeItem(`admin:draft:${draft.id}`);
+    clearLocal();
     await loadNodes();
   }
 
@@ -175,6 +386,7 @@
   async function remove(id) {
     if (!confirm('确定删除？')) return;
     await fetch(`/api/nodes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    localStorage.removeItem(`admin:draft:${id}`);
     draft = null;
     await loadNodes();
   }
@@ -200,6 +412,38 @@
     showPreview = true;
   }
 
+  /** 在正文光标处插入一段 Markdown。 */
+  /** @param {string} text */
+  function insertAtCursor(text) {
+    if (!draft) return;
+    if (!bodyEl) {
+      draft.bodyMd = `${draft.bodyMd ?? ''}${text}`;
+      return;
+    }
+    const start = bodyEl.selectionStart ?? bodyEl.value.length;
+    const end = bodyEl.selectionEnd ?? start;
+    const value = bodyEl.value;
+    draft.bodyMd = value.slice(0, start) + text + value.slice(end);
+    const caret = start + text.length;
+    requestAnimationFrame(() => {
+      bodyEl?.focus();
+      bodyEl?.setSelectionRange(caret, caret);
+    });
+  }
+
+  /** @param {KeyboardEvent} e */
+  function onKeydown(e) {
+    if (!draft) return;
+    const meta = e.metaKey || e.ctrlKey;
+    if (meta && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      save();
+    } else if (meta && e.key === 'Enter') {
+      e.preventDefault();
+      doPreview();
+    }
+  }
+
   /** @param {Event} e */
   async function upload(e) {
     const input = /** @type {HTMLInputElement} */ (e.target);
@@ -210,10 +454,16 @@
       const form = new FormData();
       form.append('file', file);
       if (draft) form.append('nodeId', draft.id ?? '');
+      form.append('alt', altInput.trim());
       const res = await fetch('/api/admin/media', { method: 'POST', body: form });
       const data = await res.json();
       if (res.ok) {
-        imagesInput = (imagesInput ? imagesInput + '\n' : '') + data.url;
+        insertAtCursor(`![${altInput.trim()}](${data.url})`);
+        if (draft && draft.type === 'moment') {
+          imagesInput = imagesInput ? `${imagesInput}\n${data.url}` : data.url;
+        }
+        altInput = '';
+        void loadMedia();
       } else {
         alert(`上传失败：${data.error ?? res.status}`);
       }
@@ -222,9 +472,164 @@
       input.value = '';
     }
   }
+
+  // ---- 媒体面板 ----
+  async function loadMedia() {
+    if (!draft?.id) {
+      mediaList = [];
+      return;
+    }
+    const res = await fetch(`/api/admin/media?nodeId=${encodeURIComponent(draft.id)}`);
+    mediaList = res.ok ? ((await res.json()).media ?? []) : [];
+  }
+
+  /** @param {any} item @param {string} alt */
+  async function updateMediaAlt(item, alt) {
+    if (alt === (item.alt ?? '')) return;
+    await fetch('/api/admin/media', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: item.id, alt })
+    });
+    await loadMedia();
+  }
+
+  /** @param {number} index @param {number} delta */
+  async function moveMedia(index, delta) {
+    const a = mediaList[index];
+    const b = mediaList[index + delta];
+    if (!a || !b) return;
+    await Promise.all([
+      fetch('/api/admin/media', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: a.id, position: index + delta })
+      }),
+      fetch('/api/admin/media', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: b.id, position: index })
+      })
+    ]);
+    await loadMedia();
+  }
+
+  /** @param {any} item */
+  async function removeMedia(item) {
+    if (!confirm('删除这个媒体？存储对象也会被删除。')) return;
+    await fetch(`/api/admin/media?id=${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+    await loadMedia();
+  }
+
+  // ---- 翻译配对 ----
+  async function loadLink() {
+    if (!draft?.id) {
+      linkedTo = null;
+      return;
+    }
+    const res = await fetch(`/api/admin/link?id=${encodeURIComponent(draft.id)}`);
+    const data = res.ok ? await res.json() : { ids: [] };
+    linkedTo = data.ids?.[0] ?? null;
+  }
+
+  async function linkTranslation() {
+    if (!draft?.id || !linkTarget) return;
+    const res = await fetch('/api/admin/link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: draft.id, otherId: linkTarget })
+    });
+    if (!res.ok) {
+      message = '关联失败';
+      return;
+    }
+    linkTarget = '';
+    message = '已关联译文';
+    await loadLink();
+  }
+
+  async function unlinkTranslation() {
+    if (!draft?.id || !linkedTo) return;
+    await fetch(
+      `/api/admin/link?id=${encodeURIComponent(draft.id)}&otherId=${encodeURIComponent(linkedTo)}`,
+      { method: 'DELETE' }
+    );
+    linkedTo = null;
+    await loadLink();
+  }
+
+  // ---- 批量操作 ----
+  /** @param {string} id */
+  function toggleSelect(id) {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    selected = next;
+  }
+
+  /** @param {string} status */
+  async function bulkStatus(status) {
+    if (selected.size === 0) return;
+    if (!confirm(`把选中的 ${selected.size} 个节点设为 ${status}？`)) return;
+    for (const id of selected) {
+      await fetch(`/api/nodes/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+    }
+    selected = new Set();
+    await loadNodes();
+  }
+
+  // 脏标记：和载入时的快照比较
+  $effect(() => {
+    const state = currentState();
+    if (savedSnapshot) dirty = state !== savedSnapshot;
+  });
+
+  // 自动保存到 localStorage（防刷新丢稿）
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let autosaveTimer;
+  $effect(() => {
+    if (role !== 'owner' || !draft || !dirty) return;
+    const state = currentState();
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => {
+      const at = new Date().toLocaleTimeString();
+      localStorage.setItem(autosaveKey(), JSON.stringify({ state, at }));
+      autoSavedAt = at;
+    }, 800);
+  });
+
+  // 分屏预览：正文变化后自动刷新
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let previewTimer;
+  $effect(() => {
+    if (!showPreview || !draft) return;
+    const md = draft.bodyMd;
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(() => {
+      void md;
+      doPreview();
+    }, 600);
+  });
+
+  // 离开页面前提醒未保存
+  $effect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (/** @type {BeforeUnloadEvent} */ e) => {
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  });
 </script>
 
 <PageLogo href="/" />
+<svelte:window onkeydown={onKeydown} />
 
 <main class="admin">
   <header class="head">
@@ -254,84 +659,228 @@
       <div class="layout">
         <aside class="list">
           <button class="primary" onclick={newDraft}>+ 新建</button>
-          {#each nodes as node (node.id)}
-            <button class="node-item" class:active={draft?.id === node.id} onclick={() => editNode(node)}>
-              <span class="node-type">{node.type}</span>
-              <span class="node-title">{node.title || node.slug}</span>
-              <span class="node-status" class:draft={node.status !== 'published'}>{node.status}</span>
-            </button>
+
+          <div class="filters">
+            <input type="search" placeholder="搜索标题 / slug" bind:value={search} />
+            <div class="filter-row">
+              <select bind:value={typeFilter} aria-label="类型">
+                <option value="">全部类型</option>
+                {#each types as t}<option value={t}>{t}</option>{/each}
+              </select>
+              <select bind:value={langFilter} aria-label="语言">
+                <option value="">全部语言</option>
+                <option value="en">en</option>
+                <option value="zh">zh</option>
+              </select>
+              <select bind:value={statusFilter} aria-label="状态">
+                <option value="">全部状态</option>
+                <option value="published">published</option>
+                <option value="draft">draft</option>
+                <option value="archived">archived</option>
+              </select>
+            </div>
+            <span class="muted">{filteredNodes.length} / {nodes.length}</span>
+          </div>
+
+          {#if selected.size > 0}
+            <div class="bulk">
+              <span>已选 {selected.size}</span>
+              <button class="ghost" onclick={() => bulkStatus('published')}>发布</button>
+              <button class="ghost" onclick={() => bulkStatus('archived')}>下架</button>
+              <button class="ghost" onclick={() => (selected = new Set())}>取消</button>
+            </div>
+          {/if}
+
+          {#each filteredNodes as node (node.id)}
+            <div class="node-row">
+              <input
+                type="checkbox"
+                checked={selected.has(node.id)}
+                onchange={() => toggleSelect(node.id)}
+                aria-label="选择节点"
+              />
+              <button class="node-item" class:active={draft?.id === node.id} onclick={() => editNode(node)}>
+                <span class="node-type">{node.type}</span>
+                <span class="node-title">{node.title || node.slug}</span>
+                <span class="node-status" class:draft={node.status !== 'published'}>{node.status}</span>
+              </button>
+            </div>
           {/each}
         </aside>
 
         {#if draft}
-          <section class="editor">
-            <div class="grid">
-              <label>类型
-                <select bind:value={draft.type}>
-                  {#each types as t}<option value={t}>{t}</option>{/each}
-                </select>
-              </label>
-              <label>语言
-                <select bind:value={draft.lang}>
-                  <option value="en">en</option>
-                  <option value="zh">zh</option>
-                </select>
-              </label>
-              <label>状态
-                <select bind:value={draft.status}>
-                  <option value="draft">draft</option>
-                  <option value="published">published</option>
-                  <option value="archived">archived</option>
-                </select>
-              </label>
-            </div>
-            <label>Slug<input type="text" bind:value={draft.slug} placeholder="my-article" /></label>
-            <label>标题<input type="text" bind:value={draft.title} /></label>
-            <label>摘要<textarea rows="2" bind:value={draft.summary}></textarea></label>
-            <label>正文（Markdown）<textarea rows="14" bind:value={draft.bodyMd}></textarea></label>
-
-            <div class="grid">
-              <label>标签（逗号分隔）<input type="text" bind:value={tagsInput} /></label>
-              <label>链接 website<input type="text" bind:value={website} /></label>
-              <label>仓库 github<input type="text" bind:value={github} /></label>
-            </div>
-
-            {#if draft.type === 'project'}
-              <label>项目状态
-                <select bind:value={projectStatus}>
-                  <option value="">（未标注）</option>
-                  <option value="active">active</option>
-                  <option value="maintained">maintained</option>
-                  <option value="archived">archived</option>
-                </select>
-              </label>
+          <section class="editor" class:split={showPreview}>
+            {#if localHint}
+              <div class="notice">
+                <span>检测到本地自动保存的草稿（{localHint}）</span>
+                <button class="ghost" onclick={restoreLocal}>恢复</button>
+                <button class="ghost" onclick={discardLocal}>丢弃</button>
+              </div>
             {/if}
 
-            <label class="check">
-              <input type="checkbox" bind:checked={featured} />
-              首页精选（Featured on home）
-            </label>
+            <div class="editor-body">
+              <div class="fields">
+                <div class="grid">
+                  <label>类型
+                    <select bind:value={draft.type}>
+                      {#each types as t}<option value={t}>{t}</option>{/each}
+                    </select>
+                  </label>
+                  <label>语言
+                    <select bind:value={draft.lang}>
+                      <option value="en">en</option>
+                      <option value="zh">zh</option>
+                    </select>
+                  </label>
+                  <label>状态
+                    <select bind:value={draft.status}>
+                      <option value="draft">draft</option>
+                      <option value="published">published</option>
+                      <option value="archived">archived</option>
+                    </select>
+                  </label>
+                  <label>发布日期
+                    <input type="datetime-local" bind:value={draft.publishedAt} />
+                  </label>
+                </div>
+                <label>Slug<input type="text" bind:value={draft.slug} placeholder="my-article" /></label>
+                <label>标题<input type="text" bind:value={draft.title} /></label>
+                <label>摘要<textarea rows="2" bind:value={draft.summary}></textarea></label>
 
-            <label>图片（每行一个 URL）
-              <textarea rows="3" bind:value={imagesInput}></textarea>
-            </label>
-            <div class="row">
-              <input type="file" accept="image/*" onchange={upload} />
-              {#if uploading}<span class="muted">上传中…</span>{/if}
-            </div>
+                <div class="body-label">
+                  <span>正文（Markdown）</span>
+                  <span class="hint">⌘/Ctrl+S 保存 · ⌘/Ctrl+Enter 预览</span>
+                </div>
+                <div class="toolbar">
+                  {#each TOOLBAR as item}
+                    <button
+                      type="button"
+                      class="ghost"
+                      title={item.title}
+                      onclick={() => insertAtCursor(item.text)}
+                    >{item.label}</button>
+                  {/each}
+                </div>
+                <textarea rows="18" bind:this={bodyEl} bind:value={draft.bodyMd}></textarea>
 
-            <div class="actions">
-              <button class="primary" onclick={save}>保存</button>
-              <button class="ghost" onclick={doPreview}>预览</button>
-              {#if draft.id}
-                <button class="danger" onclick={() => remove(draft.id)}>删除</button>
+                <div class="grid">
+                  <label>标签（逗号分隔）<input type="text" bind:value={tagsInput} /></label>
+                  {#if draft.type === 'project'}
+                    <label>链接 website<input type="text" bind:value={website} /></label>
+                    <label>仓库 github<input type="text" bind:value={github} /></label>
+                  {/if}
+                </div>
+
+                {#if draft.type === 'project'}
+                  <label>项目状态
+                    <select bind:value={projectStatus}>
+                      <option value="">（未标注）</option>
+                      <option value="active">active</option>
+                      <option value="maintained">maintained</option>
+                      <option value="archived">archived</option>
+                    </select>
+                  </label>
+                {/if}
+
+                <label class="check">
+                  <input type="checkbox" bind:checked={featured} />
+                  首页精选（Featured on home）
+                </label>
+
+                {#if draft.type === 'moment'}
+                  <label>图片（每行一个 URL，动态正文用）
+                    <textarea rows="3" bind:value={imagesInput}></textarea>
+                  </label>
+                {/if}
+
+                <div class="upload-row">
+                  <input type="text" bind:value={altInput} placeholder="图片 alt（插入正文用）" />
+                  <input type="file" accept="image/*" onchange={upload} />
+                  {#if uploading}<span class="muted">上传中…</span>{/if}
+                </div>
+
+                {#if draft.id}
+                  <div class="media-panel">
+                    <div class="body-label">
+                      <span>媒体</span><span class="hint">{mediaList.length} 个</span>
+                    </div>
+                    {#if mediaList.length === 0}
+                      <p class="muted">还没有媒体。上传后会插入正文并出现在这里。</p>
+                    {:else}
+                      <ul class="media-list">
+                        {#each mediaList as item, index (item.id)}
+                          <li>
+                            <img src={item.url} alt={item.alt ?? ''} width="48" height="48" loading="lazy" />
+                            <input
+                              type="text"
+                              value={item.alt ?? ''}
+                              placeholder="alt"
+                              onchange={(e) => updateMediaAlt(item, e.currentTarget.value)}
+                            />
+                            <button
+                              class="ghost"
+                              onclick={() => moveMedia(index, -1)}
+                              disabled={index === 0}
+                              aria-label="上移"
+                            >↑</button>
+                            <button
+                              class="ghost"
+                              onclick={() => moveMedia(index, 1)}
+                              disabled={index === mediaList.length - 1}
+                              aria-label="下移"
+                            >↓</button>
+                            <button class="danger" onclick={() => removeMedia(item)}>删除</button>
+                          </li>
+                        {/each}
+                      </ul>
+                    {/if}
+                  </div>
+
+                  <div class="link-panel">
+                    <div class="body-label"><span>翻译配对</span></div>
+                    {#if linkedTo}
+                      <p class="muted">
+                        已关联「{linkedNode?.title || linkedNode?.slug || linkedTo}」
+                        <button class="ghost" onclick={unlinkTranslation}>解除</button>
+                      </p>
+                    {:else}
+                      <div class="link-row">
+                        <select bind:value={linkTarget}>
+                          <option value="">选择另一语言的同类型节点…</option>
+                          {#each linkCandidates as n (n.id)}
+                            <option value={n.id}>{n.lang} · {n.title || n.slug}</option>
+                          {/each}
+                        </select>
+                        <button class="ghost" onclick={linkTranslation} disabled={!linkTarget}>关联</button>
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
+
+                {#if warnings.length > 0}
+                  <ul class="warnings">
+                    {#each warnings as warning}<li>{warning}</li>{/each}
+                  </ul>
+                {/if}
+
+                <div class="actions">
+                  <button class="primary" onclick={save}>保存</button>
+                  <button class="ghost" onclick={doPreview}>预览</button>
+                  {#if draft.id}
+                    <button class="danger" onclick={() => remove(draft.id)}>删除</button>
+                  {/if}
+                  {#if dirty}
+                    <span class="dirty">未保存{autoSavedAt ? ` · 已自动保存 ${autoSavedAt}` : ''}</span>
+                  {:else if message}
+                    <span class="muted">{message}</span>
+                  {/if}
+                </div>
+              </div>
+
+              {#if showPreview}
+                <div class="preview">{@html previewHtml}</div>
               {/if}
-              {#if message}<span class="muted">{message}</span>{/if}
             </div>
-
-            {#if showPreview}
-              <div class="preview">{@html previewHtml}</div>
-            {/if}
           </section>
         {:else}
           <p class="muted">选择左侧条目，或新建。</p>
@@ -524,12 +1073,6 @@
     gap: 12px;
   }
 
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
   label {
     display: flex;
     flex-direction: column;
@@ -715,5 +1258,200 @@
     .grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  /* ---- 编辑器增强 ---- */
+  .filters {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px 0 10px;
+  }
+
+  .filter-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .filters input,
+  .filters select {
+    font-size: 0.78rem;
+    padding: 6px 8px;
+  }
+
+  .editor-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  .editor.split .editor-body {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .fields {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .body-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-ink-faint);
+  }
+
+  .body-label .hint {
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: -4px 0 2px;
+  }
+
+  .toolbar button {
+    padding: 4px 9px;
+    font-size: 0.74rem;
+  }
+
+  .upload-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .upload-row input[type='text'] {
+    flex: 1 1 220px;
+  }
+
+  .warnings {
+    margin: 0;
+    padding: 10px 12px 10px 28px;
+    border: 1px solid var(--color-paper-line);
+    border-radius: 10px;
+    background: var(--color-bud-pale);
+    color: var(--color-bud-deep);
+    font-size: 0.82rem;
+    line-height: 1.6;
+  }
+
+  .dirty {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--color-sprout-deep);
+  }
+
+  .notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    border: 1px solid var(--color-paper-line);
+    border-radius: 10px;
+    background: var(--color-surface-container-low);
+    font-size: 0.82rem;
+  }
+
+  .preview {
+    margin-top: 0;
+    max-height: 78vh;
+    overflow: auto;
+  }
+
+  @media (max-width: 1100px) {
+    .editor.split .editor-body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .node-row {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 6px;
+    align-items: center;
+  }
+
+  .node-row input[type='checkbox'] {
+    accent-color: var(--color-bud);
+    margin: 0;
+  }
+
+  .bulk {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    border: 1px solid var(--color-paper-line);
+    border-radius: 10px;
+    background: var(--color-bud-pale);
+    color: var(--color-bud-deep);
+    font-size: 0.8rem;
+  }
+
+  .bulk button {
+    padding: 4px 10px;
+    font-size: 0.72rem;
+  }
+
+  .media-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .media-list li {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) auto auto auto;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .media-list img {
+    border-radius: 8px;
+    border: 1px solid var(--color-paper-line);
+    object-fit: cover;
+  }
+
+  .media-list input {
+    font-size: 0.78rem;
+    padding: 6px 8px;
+  }
+
+  .media-list button {
+    padding: 4px 9px;
+    font-size: 0.72rem;
+  }
+
+  .link-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .link-row select {
+    flex: 1 1 240px;
+  }
+
+  .link-row button {
+    padding: 4px 10px;
+    font-size: 0.74rem;
   }
 </style>

@@ -170,7 +170,10 @@
             {#if post.tags?.length}
                 <div class="post-tags">
                     {#each post.tags as tag}
-                        <span class="tag pill">{tag}</span>
+                        <a
+                            class="tag pill"
+                            href={`/${lang === 'zh' ? 'zh/tags' : 'tags'}/${encodeURIComponent(tag)}`}
+                        >{tag}</a>
                     {/each}
                 </div>
             {/if}
@@ -438,6 +441,7 @@
         padding: 3px 10px;
         font-size: 0.75rem;
         border: 1px solid var(--color-paper-line);
+        text-decoration: none;
     }
 
     /* Anchor offset lives in main.css (html { scroll-padding-top }) so every

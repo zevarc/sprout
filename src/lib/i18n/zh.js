@@ -68,6 +68,14 @@ export const zh = {
     websiteLabel: '官网（新窗口打开）',
     githubLabel: 'GitHub 仓库（新窗口打开）',
   },
+  tags: {
+    title: '标签',
+    kicker: '标签',
+    subtitle: '按主题归档的所有内容。',
+    count: '篇',
+    empty: '这个标签下还没有内容。',
+    all: '← 全部标签',
+  },
   about: {
     title: '关于',
     kicker: '关于',
