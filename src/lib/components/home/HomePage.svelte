@@ -9,8 +9,41 @@
   let t = $derived(getDictionary(lang));
   const brand = $derived(site.brand[lang] ?? site.brand[site.defaultLocale]);
   const postsPath = $derived(getLink('posts', lang));
+  const projectsPath = $derived(getLink('projects', lang));
+  const aboutPath = $derived(getLink('about', lang));
   const searchPath = $derived(getLink('search', lang));
   const switchPath = $derived(lang === 'zh' ? '/' : '/zh');
+
+  /** Site-level structured data: the site itself plus its owner. */
+  const siteJsonLd = $derived({
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebSite',
+        '@id': `${site.url}/#website`,
+        url: lang === 'zh' ? `${site.url}/zh` : `${site.url}/`,
+        name: site.name,
+        description: brand.seoDescription,
+        inLanguage: lang === 'zh' ? 'zh-CN' : 'en',
+        publisher: { '@id': `${site.url}/#person` },
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: {
+            '@type': 'EntryPoint',
+            urlTemplate: `${site.url}/${searchPath}?q={search_term_string}`
+          },
+          'query-input': 'required name=search_term_string'
+        }
+      },
+      {
+        '@type': 'Person',
+        '@id': `${site.url}/#person`,
+        name: site.author,
+        url: site.url,
+        sameAs: [site.contact.github]
+      }
+    ]
+  });
 
   /* ---------- 区块 reveal ---------- */
   /** @type {HTMLElement | null} */
@@ -72,6 +105,7 @@
   <link rel="alternate" hreflang="en" href={`${site.url}/`} />
   <link rel="alternate" hreflang="zh" href={`${site.url}/zh`} />
   <link rel="alternate" hreflang="x-default" href={`${site.url}/`} />
+  {@html `<script type="application/ld+json">${JSON.stringify(siteJsonLd)}</script>`}
 </svelte:head>
 
 <svelte:window onscroll={handleScroll} />
@@ -95,15 +129,16 @@
     </div>
 
     <div class="hero-copy">
-      <p class="phonetic">{brand.phonetic}</p>
       <h1 class="name">{site.name}</h1>
-      <p class="etymology">
-        <span>{brand.etymology.zero}</span><em>→</em>
-        <span>{brand.etymology.evolution}</span><em>→</em>
-        <span>{brand.etymology.arc}</span>
+      <p class="claim">{brand.claim}</p>
+      {#if brand.claimSource}
+        <p class="claim-source">— {brand.claimSource}</p>
+      {/if}
+      <p class="creed">
+        {#each brand.creed as word, i}
+          {#if i > 0}<span class="creed-dot" aria-hidden="true">·</span>{/if}<span>{word}</span>
+        {/each}
       </p>
-      <p class="slogan">{brand.slogan}</p>
-      <p class="desc">{brand.description}</p>
     </div>
 
     <div class="hero-scroll" aria-hidden="true">
@@ -115,8 +150,8 @@
   {#if posts.length > 0}
     <section class="posts-section" bind:this={postsEl} class:visible={postsVisible}>
       <div class="section-head">
-        <h2 class="section-label">{t.nav.posts}</h2>
-        <span class="section-count">{String(posts.length).padStart(2, '0')} REC</span>
+        <h2 class="section-label">{t.home.selectedWriting}</h2>
+        <a class="section-more" href={`/${postsPath}`}>{t.home.allWriting}</a>
       </div>
       <ul class="post-list">
         {#each posts as p, i}
@@ -136,10 +171,10 @@
   {#if site.features.projects && projects.length > 0}
     <section class="projects-section" bind:this={projectsEl} class:visible={projectsVisible}>
       <div class="section-head">
-        <h2 class="section-label">{t.nav.projects}</h2>
-        <span class="section-count">{String(projects.length).padStart(2, '0')} PCS</span>
+        <h2 class="section-label">{t.home.selectedProjects}</h2>
+        <a class="section-more" href={`/${projectsPath}`}>{t.home.allProjects}</a>
       </div>
-      <ProjectsList {projects} />
+      <ProjectsList {projects} {lang} />
     </section>
   {/if}
 
@@ -167,6 +202,14 @@
       </svg>
     </button>
   </div>
+
+  <footer class="site-footer">
+    <a href={`/${postsPath}`}>{t.nav.posts}</a>
+    <a href={`/${projectsPath}`}>{t.nav.projects}</a>
+    <a href={`/${aboutPath}`}>{t.nav.about}</a>
+    <a href={`mailto:${site.contact.email}`}>{t.about.contact.title}</a>
+    <a href={lang === 'zh' ? '/zh/feed.xml' : '/feed.xml'}>RSS</a>
+  </footer>
 </div>
 
 <style>
@@ -235,14 +278,6 @@
     max-width: 720px;
   }
 
-  .phonetic {
-    margin: 0 0 12px;
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    letter-spacing: 0.1em;
-    color: var(--color-ink-faint);
-  }
-
   .name {
     font-family: var(--font-serif);
     font-weight: 600;
@@ -253,38 +288,36 @@
     color: var(--color-ink);
   }
 
-  .etymology {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin: 24px 0 0;
-    font-family: var(--font-mono);
-    font-size: clamp(0.8rem, 2vw, 0.95rem);
-    color: var(--color-ink-soft);
-  }
-
-  .etymology em {
-    color: var(--color-bud);
-    font-style: normal;
-  }
-
-  .slogan {
+  .claim {
     font-family: var(--font-serif);
-    font-style: italic;
     font-weight: 400;
-    font-size: clamp(1.2rem, 3.2vw, 1.6rem);
-    margin: 30px 0 0;
+    font-size: clamp(1.25rem, 3.2vw, 1.6rem);
+    letter-spacing: 0.01em;
+    margin: 26px 0 0;
     color: var(--color-ink);
+    text-wrap: balance;
   }
 
-  .desc {
-    max-width: 560px;
-    margin: 20px auto 0;
-    font-size: 1.02rem;
-    line-height: 1.75;
-    color: var(--color-ink-soft);
+  .claim-source {
+    margin: 10px 0 0;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    color: var(--color-ink-faint);
+  }
+
+  .creed {
+    margin: 30px 0 0;
+    font-family: var(--font-mono);
+    font-size: 1.05rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    color: var(--color-bud-deep);
+  }
+
+  .creed-dot {
+    margin: 0 0.7em;
+    color: var(--color-ink-faint);
   }
 
   .hero-scroll {
@@ -369,11 +402,18 @@
     margin: 0;
   }
 
-  .section-count {
+  .section-more {
     font-family: var(--font-mono);
     font-size: 0.7rem;
     color: var(--color-bud);
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  .section-more:hover {
+    border-bottom-color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   /* ---------- 文章列表 (生长记录) ---------- */
@@ -502,6 +542,29 @@
     font-size: 0.8rem;
   }
 
+  /* ---------- Footer ---------- */
+  .site-footer {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 22px;
+    padding: 0 clamp(20px, 5vw, 48px) 56px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .site-footer a {
+    color: var(--color-ink-faint);
+    border: none;
+    transition: color 0.2s;
+  }
+
+  .site-footer a:hover {
+    color: var(--color-bud);
+  }
+
   /* ---------- Responsive ---------- */
   @media (max-width: 820px) {
     .hero {
@@ -546,6 +609,18 @@
 
     .scroll-line {
       animation: none;
+    }
+
+    .posts-section,
+    .projects-section {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+
+    .float-actions,
+    .post-row::before {
+      transition: none;
     }
   }
 </style>

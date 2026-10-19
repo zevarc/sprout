@@ -15,6 +15,8 @@
   /** @type {any} */
   let draft = $state(null);
   let tagsInput = $state('');
+  let featured = $state(false);
+  let projectStatus = $state('');
   let imagesInput = $state('');
   let website = $state('');
   let github = $state('');
@@ -97,6 +99,8 @@
       status: 'published'
     };
     tagsInput = '';
+    featured = false;
+    projectStatus = '';
     imagesInput = '';
     website = '';
     github = '';
@@ -107,6 +111,8 @@
   function editNode(node) {
     draft = { ...node };
     tagsInput = Array.isArray(node.extra?.tags) ? node.extra.tags.join(', ') : '';
+    featured = node.extra?.featured === true;
+    projectStatus = node.extra?.status ?? '';
     imagesInput = Array.isArray(node.extra?.images) ? node.extra.images.join('\n') : '';
     website = node.extra?.website ?? '';
     github = node.extra?.github ?? '';
@@ -116,6 +122,8 @@
 
   function buildExtra() {
     return {
+      featured,
+      status: projectStatus || null,
       tags: tagsInput
         .split(',')
         .map((s) => s.trim())
@@ -287,6 +295,22 @@
               <label>链接 website<input type="text" bind:value={website} /></label>
               <label>仓库 github<input type="text" bind:value={github} /></label>
             </div>
+
+            {#if draft.type === 'project'}
+              <label>项目状态
+                <select bind:value={projectStatus}>
+                  <option value="">（未标注）</option>
+                  <option value="active">active</option>
+                  <option value="maintained">maintained</option>
+                  <option value="archived">archived</option>
+                </select>
+              </label>
+            {/if}
+
+            <label class="check">
+              <input type="checkbox" bind:checked={featured} />
+              首页精选（Featured on home）
+            </label>
 
             <label>图片（每行一个 URL）
               <textarea rows="3" bind:value={imagesInput}></textarea>
@@ -515,6 +539,22 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--color-ink-faint);
+  }
+
+  .check {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-sans);
+    font-size: 0.88rem;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--color-on-surface);
+  }
+
+  .check input {
+    width: auto;
   }
 
   input,

@@ -7,7 +7,7 @@
 export interface FieldDef {
 	key: string;
 	label: { en: string; zh: string };
-	type: 'text' | 'textarea' | 'markdown' | 'tags' | 'url' | 'number' | 'date';
+	type: 'text' | 'textarea' | 'markdown' | 'tags' | 'url' | 'number' | 'date' | 'boolean';
 	required?: boolean;
 }
 
@@ -35,7 +35,8 @@ export const contentTypes: Record<string, ContentTypeDef> = {
 		fields: [
 			{ key: 'description', label: { en: 'Description', zh: '摘要' }, type: 'textarea' },
 			{ key: 'cover', label: { en: 'Cover', zh: '封面' }, type: 'url' },
-			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' }
+			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
+			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
 		]
 	},
 	note: {
@@ -46,7 +47,8 @@ export const contentTypes: Record<string, ContentTypeDef> = {
 		comments: true,
 		fields: [
 			{ key: 'description', label: { en: 'Description', zh: '摘要' }, type: 'textarea' },
-			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' }
+			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
+			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
 		]
 	},
 	moment: {
@@ -55,7 +57,8 @@ export const contentTypes: Record<string, ContentTypeDef> = {
 		i18n: false,
 		feed: true,
 		comments: true,
-		fields: [{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' }]
+		fields: [{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
+			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }]
 	},
 	project: {
 		type: 'project',
@@ -65,11 +68,13 @@ export const contentTypes: Record<string, ContentTypeDef> = {
 		comments: false,
 		fields: [
 			{ key: 'year', label: { en: 'Year', zh: '年份' }, type: 'text' },
+			{ key: 'status', label: { en: 'Status', zh: '状态' }, type: 'text' },
 			{ key: 'description', label: { en: 'Description', zh: '描述' }, type: 'textarea', required: true },
 			{ key: 'image', label: { en: 'Image', zh: '配图' }, type: 'url' },
 			{ key: 'website', label: { en: 'Website', zh: '网站' }, type: 'url' },
 			{ key: 'github', label: { en: 'GitHub', zh: 'GitHub' }, type: 'url' },
-			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' }
+			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
+			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
 		]
 	}
 };

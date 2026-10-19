@@ -3,6 +3,7 @@ import {
 	hashEmail,
 	hashIp,
 	randomToken,
+	safeNextPath,
 	signActorToken,
 	verifyActorToken
 } from '$lib/server/auth';
@@ -49,10 +50,32 @@ describe('privacy hashing', () => {
 		);
 	});
 
-	it('produces unique random tokens', () => {
+  it('produces unique random tokens', () => {
 		const a = randomToken();
 		const b = randomToken();
 		expect(a).not.toBe(b);
 		expect(a).toHaveLength(64);
+	});
+});
+
+describe('post-login redirect guard', () => {
+	it('accepts same-origin paths', () => {
+		expect(safeNextPath('/zh/posts/hello')).toBe('/zh/posts/hello');
+		expect(safeNextPath('/')).toBe('/');
+	});
+
+	it('rejects anything that leaves the site', () => {
+		expect(safeNextPath('//evil.example')).toBeNull();
+		expect(safeNextPath('https://evil.example')).toBeNull();
+		expect(safeNextPath('/\\evil.example')).toBeNull();
+		expect(safeNextPath('/a\nb')).toBeNull();
+		expect(safeNextPath('posts/hello')).toBeNull();
+	});
+
+	it('rejects empty and oversized values', () => {
+		expect(safeNextPath('')).toBeNull();
+		expect(safeNextPath(null)).toBeNull();
+		expect(safeNextPath(undefined)).toBeNull();
+		expect(safeNextPath('/' + 'a'.repeat(400))).toBeNull();
 	});
 });

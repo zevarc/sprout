@@ -11,10 +11,9 @@
  *
  * @typedef {{ code: string, label: string }} Locale
  * @typedef {{
- *   phonetic: string,
- *   etymology: { zero: string, evolution: string, arc: string },
- *   slogan: string,
- *   description: string,
+ *   claim: string,
+ *   claimSource: string,
+ *   creed: string[],
  *   ogTagline: string,
  *   seoTitle: string,
  *   seoDescription: string,
@@ -26,6 +25,7 @@
  *   author: string,
  *   locales: Locale[],
  *   defaultLocale: string,
+ *   contact: { email: string, github: string },
  *   brand: Record<string, Brand>,
  *   features: { moments: boolean, comments: boolean, analytics: boolean, projects: boolean }
  * }} SiteConfig
@@ -50,14 +50,18 @@ export const site = {
 
 	defaultLocale: 'en',
 
+	/** 联系方式：显示在 About 页与页脚 */
+	contact: {
+		email: 'hello@example.com',
+		github: 'https://github.com/yourname'
+	},
+
 	/** 首页与分享卡片上的品牌文案（按语言） */
 	brand: {
 		en: {
-			phonetic: '/spraʊt/',
-			etymology: { zero: 'Zero', evolution: 'Evolution', arc: 'Arc' },
-			slogan: 'Start small, grow in public',
-			description:
-				'A personal space for writing, notes and moments — with comments, and with every byte of it exportable.',
+			claim: 'Start small, grow in public.',
+			claimSource: '',
+			creed: ['Write', 'Keep', 'Export'],
 			ogTagline: 'Write · Keep · Export',
 			seoTitle: 'sprout — a personal content platform',
 			seoDescription:
@@ -65,10 +69,9 @@ export const site = {
 			feedDescription: 'Posts, notes and moments from a personal site built with sprout.'
 		},
 		zh: {
-			phonetic: '/spraʊt/',
-			etymology: { zero: '零', evolution: '演进', arc: '弧线' },
-			slogan: '从一点开始，公开地生长',
-			description: '一个属于自己的写作、笔记与动态空间，带评论，且每个字节都能导出。',
+			claim: '从一点开始，公开地生长。',
+			claimSource: '',
+			creed: ['写', '存', '带走'],
 			ogTagline: '写 · 存 · 带走',
 			seoTitle: 'sprout — 可迁移的个人内容平台',
 			seoDescription:

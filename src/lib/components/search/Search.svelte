@@ -1,6 +1,7 @@
 <script>
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
   import PageLogo from '$lib/components/PageLogo.svelte';
+  import { onMount } from 'svelte';
   import { getDictionary } from '$lib/i18n/index.js';
   import { pageTitle } from '$lib/seo';
 
@@ -46,9 +47,20 @@
   function onInput(event) {
     const value = /** @type {HTMLInputElement} */ (event.target).value;
     query = value;
+    // Keep the URL in step so a search can be linked to / shared.
+    const next = value.trim() ? `?q=${encodeURIComponent(value.trim())}` : location.pathname;
+    history.replaceState(null, '', next);
     clearTimeout(timer);
     timer = setTimeout(() => runSearch(value), 180);
   }
+
+  onMount(() => {
+    const initial = new URLSearchParams(location.search).get('q') ?? '';
+    if (initial) {
+      query = initial;
+      runSearch(initial);
+    }
+  });
 </script>
 
 <svelte:head>
@@ -103,13 +115,9 @@
     margin-bottom: 28px;
   }
 
+  /* .kicker lives in main.css */
   .kicker {
-    margin: 0 0 12px;
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    color: var(--color-bud);
+    margin-bottom: 12px;
   }
 
   .search-title {
@@ -158,6 +166,12 @@
     border: 1px solid var(--border-color);
     border-radius: 12px;
     transition: border-color 0.2s, transform 0.2s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .search-result {
+      transition: none;
+    }
   }
 
   .search-result:hover {

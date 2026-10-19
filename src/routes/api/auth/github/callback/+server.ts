@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
-import { issueActorCookie } from '$lib/server/auth';
+import { issueActorCookie, safeNextPath } from '$lib/server/auth';
 import { site } from '$lib/site';
 import {
 	createActor,
@@ -66,5 +66,8 @@ export const GET: RequestHandler = async (event) => {
 	}
 
 	await issueActorCookie(event, actor.id);
-	throw redirect(302, '/');
+	// Send the visitor back to the page they started from (defaults to home).
+	const next = safeNextPath(event.cookies.get('zc_oauth_next')) ?? '/';
+	event.cookies.delete('zc_oauth_next', { path: '/' });
+	throw redirect(302, next);
 };

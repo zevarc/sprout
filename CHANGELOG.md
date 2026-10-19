@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.2.0
+
+Hardening, discovery and performance pass — plus the fixes that came out of
+running the platform on a real site.
+
+**Security**
+- `/media` no longer passes R2's stored `Content-Type` straight through: only
+  image/video extensions are served with their real type, everything else is
+  forced to `application/octet-stream` + `Content-Disposition: attachment`, and
+  every response carries `nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`
+  (an uploaded/restored `.html` or `.svg` can no longer execute on your origin)
+- site-wide security headers: `X-Content-Type-Options`, `Referrer-Policy`,
+  `X-Frame-Options: DENY`, `Permissions-Policy`; `/admin` also sends `X-Robots-Tag: noindex`
+
+**Discovery**
+- homepage emits `WebSite` + `Person` structured data (with `SearchAction`)
+- search pages accept `?q=` — searches are linkable, and the `SearchAction` works
+- headings on list pages no longer skip a level (h1 → h2)
+
+**Performance**
+- fonts are self-hosted: Latin/Latin-ext variable woff2 (six files, ~300 KB)
+  replaces the render-blocking Google Fonts stylesheet and its preconnects
+- Markdown images get `loading="lazy" decoding="async"`
+- new `POST /api/admin/rerender` rebuilds the derived `body_html` column from
+  `body_md` (needed after a renderer change; touches nothing else)
+
+**Fixes**
+- comment avatars were being hit by the article-body `img` rule (40 px margins
+  turned a 28 px avatar row into 108 px); body-only rules are now scoped
+- GitHub login is reachable from the comment form, returns you to the page you
+  came from, and signing out clears the linked identity
+- in-page anchors are no longer hidden under the fixed header
+- icon-only external links have accessible names and a 24×24 target
+- `prefers-reduced-motion` now actually disables the animations (the token
+  override it relied on was consumed by nothing)
+- removed ~55 unused design tokens and de-duplicated the page-header, card and
+  pill styles into shared classes
+
 ## 0.1.0
 
 First public release — the platform extracted from a personal site.

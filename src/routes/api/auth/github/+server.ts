@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { randomToken } from '$lib/server/auth';
+import { randomToken, safeNextPath } from '$lib/server/auth';
 
 export const prerender = false;
 
@@ -17,6 +17,20 @@ export const GET: RequestHandler = async (event) => {
 		secure: true,
 		maxAge: 600
 	});
+
+	// Remember where the visitor was, so the callback can send them back there.
+	const next = safeNextPath(event.url.searchParams.get('next'));
+	if (next) {
+		event.cookies.set('zc_oauth_next', next, {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			secure: true,
+			maxAge: 600
+		});
+	} else {
+		event.cookies.delete('zc_oauth_next', { path: '/' });
+	}
 
 	const redirectUri = `${event.url.origin}/api/auth/github/callback`;
 	const authorize = new URL('https://github.com/login/oauth/authorize');

@@ -8,7 +8,8 @@ export async function GET({ params, platform }) {
 	const db = getDb(platform);
 	const node =
 		(await getNodeBySlug(db, 'post', params.slug, 'en')) ??
-		(await getNodeBySlug(db, 'note', params.slug, 'en'));
+		(await getNodeBySlug(db, 'note', params.slug, 'en')) ??
+		(await getNodeBySlug(db, 'project', params.slug, 'en'));
 	if (!node) return new Response('Not found', { status: 404 });
 	return new Response(generateOgSvg(node.title ?? node.slug, 'en'), {
 		headers: {

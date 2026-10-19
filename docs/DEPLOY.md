@@ -115,6 +115,18 @@ pnpm db:migrate:remote
 pnpm build && pnpm run deploy
 ```
 
+If a release changed the Markdown renderer, rebuild the derived HTML that is
+already in your database (it is stored per node at save time):
+
+```bash
+curl -X POST https://your-domain/api/admin/rerender \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+# {"ok":true,"scanned":64,"updated":24,"skipped":40} — idempotent, safe to re-run
+```
+
+It only rewrites `nodes.body_html`; `updated_at`, publish dates and your source
+Markdown are untouched.
+
 ## The official demo
 
 The live demo at <https://sprout.zevarc.com> is a **second, independent Worker**

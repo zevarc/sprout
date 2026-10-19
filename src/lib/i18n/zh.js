@@ -7,6 +7,13 @@ export const zh = {
     posts: '博客',
     projects: '项目',
     moments: '动态',
+    about: '关于',
+  },
+  home: {
+    selectedWriting: '精选文章',
+    allWriting: '全部文章 →',
+    selectedProjects: '精选项目',
+    allProjects: '全部项目 →',
   },
   posts: {
     station: '第一站',
@@ -42,6 +49,10 @@ export const zh = {
     postError: '提交失败，请稍后再试。',
     loadError: '评论加载失败。',
     ownerBadge: '作者',
+    githubSignIn: '用 GitHub 登录',
+    githubHint: '可选，登录后不用每次填昵称',
+    actingAs: '以 {name} 身份评论',
+    signOut: '退出',
   },
   moments: {
     title: '动态',
@@ -53,8 +64,55 @@ export const zh = {
     title: '成果的码头',
     subtitle: '在这里装载，出发远方',
     next: '回航',
+    status: { active: '活跃', maintained: '维护中', archived: '已归档' },
+    websiteLabel: '官网（新窗口打开）',
+    githubLabel: 'GitHub 仓库（新窗口打开）',
+  },
+  about: {
+    title: '关于',
+    kicker: '关于',
+    name: {
+      pronunciation: '/spraʊt/',
+      meaning: '一个可以生长的模板',
+    },
+    who: {
+      title: '我是谁',
+      paragraphs: [
+        '把这里换成两句自我介绍：你在做什么，以及你喜欢做什么。',
+        '这一页就是词典文案，直接改 src/lib/i18n/zh.js 与 src/lib/i18n/en.js。',
+      ],
+      projectsLink: '看项目',
+    },
+    why: {
+      title: '为什么建这个站',
+      paragraphs: [
+        '说说你为什么要写：想留下什么，写给谁看。',
+        '这个模板的重点是"写的东西始终归你"——内容存在你自己的 SQLite 库里，随时可以完整导出。',
+      ],
+    },
+    writes: {
+      title: '这里写什么',
+      paragraphs: ['列出你覆盖的主题。文章和笔记自带标签，这一节可以很短。'],
+    },
+    brands: {
+      title: '换过的名字',
+      items: [
+        { date: '2026.01', name: 'first-domain.example', note: '第一个域名' },
+        { date: '2026.06', name: 'your-domain.example', note: '现在的名字' },
+      ],
+    },
+    contact: {
+      title: '联系',
+      body: '有问题、想指正，或者只是想打个招呼：',
+      githubLabel: 'GitHub',
+      rssLabel: 'RSS',
+    },
   },
   seo: {
+    about: {
+      label: '关于',
+      description: '谁在写、为什么建这个站，以及它换过的名字。'
+    },
     posts: {
       label: '博客',
       description: '关于 Android、C++、Python、前端开发等技术文章和见解。'

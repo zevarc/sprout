@@ -57,6 +57,17 @@ export function randomToken(): string {
 	return toHex(bytes.buffer);
 }
 
+/**
+ * Guards post-login redirects: only same-origin absolute paths are accepted,
+ * so `?next=` can never bounce a visitor to another site.
+ */
+export function safeNextPath(value: string | null | undefined): string | null {
+	if (!value || value.length > 300) return null;
+	if (!value.startsWith('/') || value.startsWith('//')) return null;
+	if (value.includes('\\') || value.includes('\n') || value.includes('\r')) return null;
+	return value;
+}
+
 // ---- Anonymous actor token (actorId.expiry.signature) ----
 
 export async function signActorToken(
@@ -158,6 +169,7 @@ export async function logout(event: RequestEvent, db: D1Database): Promise<void>
 	const token = event.cookies.get(SESSION_COOKIE);
 	if (secret && token) await deleteSession(db, await hmac(secret, token));
 	event.cookies.delete(SESSION_COOKIE, { path: '/' });
+	event.cookies.delete(ACTOR_COOKIE, { path: '/' });
 }
 
 /** Returns the owner session or throws a 401 response. */

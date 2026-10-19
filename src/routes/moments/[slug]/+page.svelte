@@ -83,9 +83,4 @@
     border-radius: 12px;
     border: 1px solid var(--border-color);
   }
-
-  article :global(img) {
-    max-width: 100%;
-    height: auto;
-  }
 </style>

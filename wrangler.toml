@@ -17,7 +17,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "sprout"
-database_id = "YOUR_D1_DATABASE_ID"
+database_id = "d0aa6b73-33b0-4971-8f8d-c06561680d50"
 
 [[r2_buckets]]
 binding = "MEDIA"

@@ -87,6 +87,17 @@ function build(): { trusted: Md; safe: Md } {
 
 		md.use(anchor, { slugify, uniqueSlugStartIndex: 1, tabIndex: false });
 
+		// Content images sit below the title/header, so defer them: no layout
+		// change, just fewer bytes fetched on first paint.
+		const defaultImage = md.renderer.rules.image;
+		if (defaultImage) {
+			md.renderer.rules.image = (tokens, idx, options, env, self) => {
+				tokens[idx].attrSet('loading', 'lazy');
+				tokens[idx].attrSet('decoding', 'async');
+				return defaultImage(tokens, idx, options, env, self);
+			};
+		}
+
 		md.renderer.rules.fence = (tokens, idx) => {
 			const token = tokens[idx];
 			const lang = normalizeLang(token.info ?? '');

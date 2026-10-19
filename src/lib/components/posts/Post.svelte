@@ -140,7 +140,7 @@
 {/if}
 
 <div class="post-layout">
-  <article>
+  <article class="post-article">
     <header class="post-header">
         <div class="post-watermark" aria-hidden="true">
           <svg viewBox="0 0 24 24">
@@ -170,13 +170,13 @@
             {#if post.tags?.length}
                 <div class="post-tags">
                     {#each post.tags as tag}
-                        <span class="tag">{tag}</span>
+                        <span class="tag pill">{tag}</span>
                     {/each}
                 </div>
             {/if}
         </div>
     </header>
-    <main>
+    <main class="post-content">
         {@html post.bodyHtml}
     </main>
 
@@ -313,7 +313,8 @@
 
     @media (max-width: 768px) {
         .post-layout {
-            grid-template-columns: 1fr;
+            /* minmax(0, …) keeps long code lines from stretching the grid item */
+            grid-template-columns: minmax(0, 1fr);
         }
         .toc {
             display: none;
@@ -430,25 +431,23 @@
         gap: 8px;
     }
 
+    /* pill shape + colours come from the shared .pill class */
     .tag {
         display: inline-flex;
         align-items: center;
         padding: 3px 10px;
-        border-radius: 999px;
-        background: var(--color-bud-pale);
-        color: var(--color-bud-deep);
         font-size: 0.75rem;
         border: 1px solid var(--color-paper-line);
     }
 
-    :global(h2[id], h3[id], h4[id], h5[id]) {
-        scroll-margin-top: 40px;
-    }
-
-    :global(article > * + *) {
+    /* Anchor offset lives in main.css (html { scroll-padding-top }) so every
+       in-page link is covered, not just headings with an id. */
+    :global(.post-article > * + *) {
         margin-top: 1.2em;
     }
-    :global(img) {
+    /* Scoped to the article body: an unqualified `img` rule also hit the
+       comment avatars (40px margin → a 108px-tall comment header). */
+    :global(.post-content img) {
         display: block;
         max-width: 100%;
         height: auto;
@@ -459,7 +458,7 @@
         object-fit: contain;
     }
 
-    :global(img + em) {
+    :global(.post-content img + em) {
         display: block;
         text-align: center;
         font-size: 0.9rem;
@@ -468,16 +467,18 @@
         margin-bottom: 2rem;
     }
 
-    :global(ul, ol) {
+    /* Scoped to the article body — these used to be bare `ul, ol, li` rules
+       that leaked into the TOC, related list and comment list. */
+    :global(.post-content ul, .post-content ol) {
         padding-left: 1.4em;
         margin: 1em 0;
     }
 
-    :global(li) {
+    :global(.post-content li) {
         margin: 0.4em 0;
     }
 
-    :global(li::marker) {
+    :global(.post-content li::marker) {
         color: var(--color-outline);
     }
 

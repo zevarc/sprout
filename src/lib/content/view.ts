@@ -10,7 +10,7 @@ import { calcReadTime, extractExcerpt, extractHeadings, type TocItem } from '$li
 import { getLink } from '$lib/i18n';
 import { site } from '$lib/site';
 import type { D1Database } from '$lib/server/db';
-import { listNodes } from '$lib/server/repositories/nodes';
+import { listFeatured, listNodes } from '$lib/server/repositories/nodes';
 
 export interface PostView {
 	id: string;
@@ -94,6 +94,15 @@ export async function listViews(
 	return nodes.map((n) => nodeToView(n));
 }
 
+/** Featured views (nodes marked `extra.featured`). */
+export async function listFeaturedViews(
+	db: D1Database,
+	opts: { types: string[]; lang: string; limit?: number }
+): Promise<PostView[]> {
+	const nodes = await listFeatured(db, opts);
+	return nodes.map((n) => nodeToView(n));
+}
+
 export interface ProjectView {
 	id: string;
 	slug: string;
@@ -106,31 +115,80 @@ export interface ProjectView {
 	website: string | null;
 	github: string | null;
 	order: number;
+	/** active | maintained | archived — null when not stated. */
+	status: string | null;
+	/** Route to the project detail page, e.g. `projects/pinyfy`. */
+	url: string;
+}
+
+export function nodeToProjectView(n: ContentNode): ProjectView {
+	return {
+		id: n.id,
+		slug: n.slug,
+		lang: n.lang,
+		year: String(n.extra?.year ?? ''),
+		title: n.title ?? n.slug,
+		description: String(n.extra?.description ?? n.summary ?? ''),
+		image: typeof n.extra?.image === 'string' ? n.extra.image : null,
+		tags: Array.isArray(n.extra?.tags) ? (n.extra.tags as string[]) : [],
+		website: typeof n.extra?.website === 'string' ? n.extra.website : null,
+		github: typeof n.extra?.github === 'string' ? n.extra.github : null,
+		order: Number(n.extra?.order ?? 999),
+		status: typeof n.extra?.status === 'string' ? n.extra.status : null,
+		url: `${getLink('projects', n.lang)}/${n.slug}`
+	};
+}
+
+function byProjectOrder(a: ProjectView, b: ProjectView): number {
+	return a.order - b.order || a.title.localeCompare(b.title);
 }
 
 /** Projects are a content type too — no special storage. */
-export async function listProjects(db: D1Database, lang: string): Promise<ProjectView[]> {
+export async function listProjects(
+	db: D1Database,
+	lang: string,
+	limit = 100
+): Promise<ProjectView[]> {
 	const nodes = await listNodes(db, {
 		type: 'project',
 		lang,
 		status: 'published',
 		limit: 100
 	});
-	return nodes
-		.map((n) => ({
-			id: n.id,
-			slug: n.slug,
-			lang: n.lang,
-			year: String(n.extra?.year ?? ''),
-			title: n.title ?? n.slug,
-			description: String(n.extra?.description ?? n.summary ?? ''),
-			image: typeof n.extra?.image === 'string' ? n.extra.image : null,
-			tags: Array.isArray(n.extra?.tags) ? (n.extra.tags as string[]) : [],
-			website: typeof n.extra?.website === 'string' ? n.extra.website : null,
-			github: typeof n.extra?.github === 'string' ? n.extra.github : null,
-			order: Number(n.extra?.order ?? 999)
-		}))
-		.sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
+	return nodes.map(nodeToProjectView).sort(byProjectOrder).slice(0, limit);
+}
+
+/**
+ * Home page selection: featured items, falling back to the latest when nothing
+ * has been marked as featured yet.
+ */
+export async function homeSelection(
+	db: D1Database,
+	lang: string,
+	opts: { posts?: number; projects?: number } = {}
+): Promise<{ posts: PostView[]; projects: ProjectView[] }> {
+	const postLimit = opts.posts ?? 5;
+	const projectLimit = opts.projects ?? 4;
+
+	const featuredPosts = await listFeaturedViews(db, {
+		types: ['post', 'note'],
+		lang,
+		limit: postLimit
+	});
+	const featuredProjects = await listFeatured(db, {
+		types: ['project'],
+		lang,
+		limit: projectLimit
+	});
+
+	return {
+		posts: featuredPosts.length
+			? featuredPosts
+			: await listViews(db, { types: ['post', 'note'], lang, limit: postLimit }),
+		projects: featuredProjects.length
+			? featuredProjects.map(nodeToProjectView).sort(byProjectOrder)
+			: await listProjects(db, lang, projectLimit)
+	};
 }
 
 /** Related posts by shared tags, then recency. */

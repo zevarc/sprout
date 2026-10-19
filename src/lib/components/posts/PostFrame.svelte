@@ -4,18 +4,16 @@
   const { title, description, posts, readMoreLabel, readTimeLabel } = $props();
 </script>
 
-<div class="blog-frame">
-  <h3 class="blog-title">{title}</h3>
+<div class="blog-frame card">
+  <h2 class="blog-title">{title}</h2>
   <p class="blog-description">{description}</p>
   <BlogList {posts} {readMoreLabel} {readTimeLabel} />
 </div>
 
 <style>
+  /* surface + border + radius come from the shared .card class */
   .blog-frame {
     padding: 24px 28px;
-    background: var(--color-surface-container-low);
-    border: 1px solid var(--color-paper-line);
-    border-radius: 14px;
     margin-bottom: 36px;
   }
 

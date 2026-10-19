@@ -146,5 +146,9 @@
       opacity: 1;
       transform: none;
     }
+
+    .post-row::before {
+      transition: none;
+    }
   }
 </style>

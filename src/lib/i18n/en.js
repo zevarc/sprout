@@ -7,6 +7,13 @@ export const en = {
     posts: 'Posts',
     projects: 'Projects',
     moments: 'Moments',
+    about: 'About',
+  },
+  home: {
+    selectedWriting: 'Selected writing',
+    allWriting: 'All writing →',
+    selectedProjects: 'Selected projects',
+    allProjects: 'All projects →',
   },
   posts: {
     station: 'First Station',
@@ -42,6 +49,10 @@ export const en = {
     postError: 'Something went wrong. Please try again.',
     loadError: 'Comments could not be loaded.',
     ownerBadge: 'Author',
+    githubSignIn: 'Sign in with GitHub',
+    githubHint: 'optional — no need to retype your name',
+    actingAs: 'Commenting as {name}',
+    signOut: 'Sign out',
   },
   moments: {
     title: 'Moments',
@@ -53,8 +64,57 @@ export const en = {
     title: 'Dock of Creations',
     subtitle: 'Load up here, then set sail for the horizon',
     next: 'Go home',
+    status: { active: 'Active', maintained: 'Maintained', archived: 'Archived' },
+    websiteLabel: 'Website (opens in a new tab)',
+    githubLabel: 'GitHub repository (opens in a new tab)',
+  },
+  about: {
+    title: 'About',
+    kicker: 'About',
+    name: {
+      pronunciation: '/spraʊt/',
+      meaning: 'a template you can grow',
+    },
+    who: {
+      title: 'Who I am',
+      paragraphs: [
+        'Replace this with a couple of sentences about yourself: what you work on, and what you like doing.',
+        'This page is plain dictionary copy — edit it in src/lib/i18n/en.js and src/lib/i18n/zh.js.',
+      ],
+      projectsLink: 'Projects',
+    },
+    why: {
+      title: 'Why this site',
+      paragraphs: [
+        'Say why you write: what you want to keep, and who you are writing for.',
+        'The point of this template is that the writing stays yours — content lives in your own SQLite database and can be exported in full at any time.',
+      ],
+    },
+    writes: {
+      title: 'What I write about',
+      paragraphs: [
+        'List the topics you cover. Posts and notes carry tags, so this section can stay short.',
+      ],
+    },
+    brands: {
+      title: 'Names it has had',
+      items: [
+        { date: '2026.01', name: 'first-domain.example', note: 'the first domain' },
+        { date: '2026.06', name: 'your-domain.example', note: 'the current name' },
+      ],
+    },
+    contact: {
+      title: 'Contact',
+      body: 'Questions, corrections, or just want to say hello:',
+      githubLabel: 'GitHub',
+      rssLabel: 'RSS',
+    },
   },
   seo: {
+    about: {
+      label: 'About',
+      description: 'Who writes here, why the site exists, and the names it has had.'
+    },
     posts: {
       label: 'Posts',
       description: 'Technical articles and insights on Android, C++, Python, and frontend development.'

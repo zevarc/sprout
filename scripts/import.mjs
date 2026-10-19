@@ -8,18 +8,26 @@
  *   ADMIN_TOKEN=xxx pnpm dev            # in one terminal
  *   ADMIN_TOKEN=xxx pnpm content:import # in another
  */
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = process.cwd();
 const API = process.env.API_URL ?? 'http://localhost:5173';
 const TOKEN = process.env.ADMIN_TOKEN ?? '';
 const REPLACE = process.argv.includes('--replace');
+/** Optional: `--only=project` limits the import to one content type. */
+const ONLY = process.argv.find((a) => a.startsWith('--only='))?.split('=')[1] ?? '';
 
 const SOURCES = [
 	{ dir: 'src/content/posts', type: 'post' },
 	{ dir: 'src/content/notes', type: 'note' }
 ];
+
+/** Optional long-form body for a project: src/content/projects/<slug>.<lang>.md */
+function projectBody(slug, lang) {
+	const path = join(ROOT, 'src/content/projects', `${slug}.${lang}.md`);
+	return existsSync(path) ? readFileSync(path, 'utf8').trim() : null;
+}
 
 /** Minimal frontmatter parser for the shapes used in this repo. */
 function parseFrontmatter(raw) {
@@ -114,10 +122,12 @@ async function main() {
 			lang,
 			title: data.title,
 			summary: data.description ?? '',
-			bodyMd: data.description ?? '',
+			bodyMd: projectBody(project.slug, lang) ?? data.description ?? '',
 			status: 'published',
 			extra: {
 				year: project.year ?? '',
+				status: project.status ?? null,
+				featured: project.featured === true,
 				description: data.description ?? '',
 				image: project.image ?? null,
 				tags: tags ?? [],
@@ -130,13 +140,15 @@ async function main() {
 		nodes.push(build('zh', project.zh, project.zhTags ?? project.tags));
 	}
 
+	const selected = ONLY ? nodes.filter((n) => n.type === ONLY) : nodes;
+
 	// Relations are derived server-side from groupId, so batching is safe.
 	// Batch to stay within Workers CPU limits while rendering markdown.
 	const BATCH = Number(process.env.IMPORT_BATCH ?? 8);
 	let total = 0;
 	let relations = 0;
-	for (let i = 0; i < nodes.length; i += BATCH) {
-		const chunk = nodes.slice(i, i + BATCH);
+	for (let i = 0; i < selected.length; i += BATCH) {
+		const chunk = selected.slice(i, i + BATCH);
 		const res = await fetch(`${API}/api/admin/import`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
@@ -151,13 +163,13 @@ async function main() {
 		const result = await res.json();
 		total += result.count ?? 0;
 		relations += result.relations ?? 0;
-		process.stdout.write(`\r  imported ${total}/${nodes.length}…`);
+		process.stdout.write(`\r  imported ${total}/${selected.length}…`);
 	}
 
 	console.log(`\nImported ${total} nodes → ${API}`);
-	console.log(`  posts: ${nodes.filter((n) => n.type === 'post').length}`);
-	console.log(`  notes: ${nodes.filter((n) => n.type === 'note').length}`);
-	console.log(`  projects: ${nodes.filter((n) => n.type === 'project').length}`);
+	console.log(`  posts: ${selected.filter((n) => n.type === 'post').length}`);
+	console.log(`  notes: ${selected.filter((n) => n.type === 'note').length}`);
+	console.log(`  projects: ${selected.filter((n) => n.type === 'project').length}`);
 	console.log(`  relations written: ${relations}`);
 }
 

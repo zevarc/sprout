@@ -1,11 +1,14 @@
 <script>
   import { onMount } from 'svelte';
+  import { getDictionary } from '$lib/i18n/index.js';
 
   let visible = $state(false);
   /** @type {HTMLDivElement | null} */
   let sectionEl = null;
 
-  let { projects } = $props();
+  let { projects, lang = 'en' } = $props();
+
+  const t = $derived(getDictionary(lang));
 
   onMount(() => {
     const observer = new IntersectionObserver(
@@ -26,18 +29,33 @@
 <div class="projects-container" bind:this={sectionEl} class:visible>
   <div class="projects-list">
     {#each projects as project, i}
-      <article class="project-card" style="animation-delay: {i * 120}ms">
+      <article class="project-card card" style="animation-delay: {i * 120}ms">
         <div class="project-header">
           <div class="project-meta">
             <span class="project-year">{project.year}</span>
-            <h3 class="project-title">{project.title}</h3>
+            <h2 class="project-title"><a href={`/${project.url}`}>{project.title}</a></h2>
           </div>
           <div class="project-links">
+            {#if project.status}
+              <span class="project-status pill">{project.status}</span>
+            {/if}
             {#if project.website}
-              <a class="project-link" href={project.website} target="_blank" rel="noopener">↗</a>
+              <a
+                class="project-link"
+                href={project.website}
+                target="_blank"
+                rel="noopener"
+                aria-label={`${project.title} — ${t.projects.websiteLabel}`}
+              ><span aria-hidden="true">↗</span></a>
             {/if}
             {#if project.github}
-              <a class="project-link" href={project.github} target="_blank" rel="noopener">github</a>
+              <a
+                class="project-link"
+                href={project.github}
+                target="_blank"
+                rel="noopener"
+                aria-label={`${project.title} — ${t.projects.githubLabel}`}
+              >github</a>
             {/if}
           </div>
         </div>
@@ -49,7 +67,7 @@
         <div class="project-footer">
           <div class="tech-stack">
             {#each project.tags as tech}
-              <span class="tech-tag">{tech}</span>
+              <span class="tech-tag pill">{tech}</span>
             {/each}
           </div>
         </div>
@@ -78,12 +96,10 @@
     gap: 18px;
   }
 
+  /* surface + border + radius come from the shared .card class */
   .project-card {
     display: flex;
     flex-direction: column;
-    background: var(--color-surface-container-low);
-    border: 1px solid var(--color-paper-line);
-    border-radius: 14px;
     padding: 22px 24px;
     opacity: 0;
     transform: translateY(16px);
@@ -135,6 +151,24 @@
     margin: 0;
   }
 
+  .project-title a {
+    color: inherit;
+    border: none;
+  }
+
+  .project-title a:hover {
+    color: var(--color-bud);
+  }
+
+  /* pill shape + colours come from the shared .pill class */
+  .project-status {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+  }
+
   .project-links {
     display: flex;
     align-items: center;
@@ -142,6 +176,12 @@
   }
 
   .project-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* WCAG 2.2 target size: the ↗ link used to be 8×20px */
+    min-width: 24px;
+    min-height: 24px;
     font-size: 0.8rem;
     font-family: var(--font-mono);
     color: var(--color-ink-soft);
@@ -181,9 +221,6 @@
     font-family: var(--font-mono);
     font-size: 0.72rem;
     padding: 4px 10px;
-    border-radius: 999px;
-    background: var(--color-bud-pale);
-    color: var(--color-bud-deep);
   }
 
   @media (max-width: 767px) {

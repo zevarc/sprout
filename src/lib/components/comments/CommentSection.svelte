@@ -1,11 +1,15 @@
 <script>
   import { onMount } from 'svelte';
+  import { page } from '$app/stores';
   import { getDictionary } from '$lib/i18n/index.js';
 
   let { targetType, targetId, lang = 'en' } = $props();
 
   const t = $derived(getDictionary(lang));
   const c = $derived(t.comments);
+
+  /** @type {{ ready: boolean, actor: { name: string, avatarUrl: string | null } | null, githubLogin: boolean }} */
+  let identity = $state({ ready: false, actor: null, githubLogin: false });
 
   /** @type {Array<{id:string,parentId:string|null,bodyHtml:string,createdAt:string,author:{name:string,avatarUrl:string|null,isOwner:boolean}}>} */
   let comments = $state([]);
@@ -23,6 +27,10 @@
     `/api/events?kind=comment&targetType=${encodeURIComponent(targetType)}&targetId=${encodeURIComponent(targetId)}`
   );
 
+  const loginHref = $derived(
+    `/api/auth/github?next=${encodeURIComponent($page.url.pathname)}`
+  );
+
   async function load() {
     try {
       const res = await fetch(endpoint);
@@ -37,14 +45,44 @@
     }
   }
 
-  onMount(load);
+  onMount(() => {
+    load();
+    loadIdentity();
+  });
+
+  async function loadIdentity() {
+    try {
+      const res = await fetch('/api/auth/session');
+      if (!res.ok) return;
+      const data = await res.json();
+      identity = {
+        ready: true,
+        actor: data.actor ?? null,
+        githubLogin: Boolean(data.githubLogin)
+      };
+    } catch {
+      /* identity is optional — an anonymous comment still works */
+    }
+  }
+
+  async function signOut() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      /* ignore */
+    }
+    identity = { ...identity, actor: null };
+    name = '';
+    email = '';
+  }
 
   /**
    * @param {SubmitEvent} event
    */
   async function submit(event) {
     event.preventDefault();
-    if (submitting || !body.trim() || !name.trim()) return;
+    if (submitting || !body.trim()) return;
+    if (!identity.actor && !name.trim()) return;
     submitting = true;
     notice = '';
     try {
@@ -112,7 +150,7 @@
             {/if}
             <span class="author">{comment.author.name}</span>
             {#if comment.author.isOwner}
-              <span class="badge">{c.ownerBadge}</span>
+              <span class="badge pill">{c.ownerBadge}</span>
             {/if}
             <time class="date" datetime={comment.createdAt}>{formatDate(comment.createdAt)}</time>
           </div>
@@ -122,17 +160,31 @@
     </ul>
   {/if}
 
-  <form class="comment-form" onsubmit={submit}>
-    <div class="row">
-      <label>
-        <span class="label">{c.name}</span>
-        <input type="text" bind:value={name} required maxlength="60" autocomplete="nickname" />
-      </label>
-      <label>
-        <span class="label">{c.email}</span>
-        <input type="email" bind:value={email} maxlength="120" autocomplete="email" />
-      </label>
-    </div>
+  <form class="comment-form card" onsubmit={submit}>
+    {#if identity.actor}
+      <p class="identity">
+        <span>{c.actingAs.replace('{name}', identity.actor.name)}</span>
+        <button type="button" class="linkish" onclick={signOut}>{c.signOut}</button>
+      </p>
+    {:else if identity.githubLogin}
+      <p class="identity">
+        <a class="github-login" href={loginHref}>{c.githubSignIn}</a>
+        <span class="hint">{c.githubHint}</span>
+      </p>
+    {/if}
+
+    {#if !identity.actor}
+      <div class="row">
+        <label>
+          <span class="label">{c.name}</span>
+          <input type="text" bind:value={name} maxlength="60" autocomplete="nickname" />
+        </label>
+        <label>
+          <span class="label">{c.email}</span>
+          <input type="email" bind:value={email} maxlength="120" autocomplete="email" />
+        </label>
+      </div>
+    {/if}
 
     <!-- honeypot: hidden from humans, tempting to bots -->
     <div class="hp" aria-hidden="true">
@@ -145,7 +197,7 @@
     </label>
 
     <div class="actions">
-      <button type="submit" disabled={submitting || !body.trim() || !name.trim()}>
+      <button type="submit" disabled={submitting || !body.trim() || (!identity.actor && !name.trim())}>
         {submitting ? c.submitting : c.submit}
       </button>
       {#if notice}<span class="notice">{notice}</span>{/if}
@@ -202,6 +254,10 @@
   }
 
   .avatar {
+    width: 28px;
+    height: 28px;
+    margin: 0;
+    object-fit: cover;
     border-radius: 50%;
     border: 1px solid var(--border-color);
   }
@@ -218,9 +274,6 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     padding: 1px 7px;
-    border-radius: 999px;
-    background: var(--color-bud-pale);
-    color: var(--color-bud-deep);
   }
 
   .date {
@@ -240,14 +293,54 @@
     margin: 0 0 0.5em;
   }
 
+  .identity {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--color-ink-soft);
+  }
+
+  .github-login {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-bud-deep);
+    border-bottom: 1px solid var(--color-bud-soft);
+  }
+
+  .github-login:hover {
+    color: var(--color-bud);
+    border-bottom-color: var(--color-bud);
+  }
+
+  .hint {
+    font-size: 0.78rem;
+    color: var(--color-ink-faint);
+  }
+
+  .linkish {
+    padding: 0;
+    border: none;
+    background: none;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--color-ink-faint);
+    text-decoration: underline;
+  }
+
+  .identity .linkish:hover {
+    background: none;
+    color: var(--color-bud);
+  }
+
+  /* surface + border + radius come from the shared .card class */
   .comment-form {
     display: flex;
     flex-direction: column;
     gap: 14px;
     padding: 20px;
-    border: 1px solid var(--color-paper-line);
-    border-radius: 14px;
-    background: var(--color-surface-container-low);
   }
 
   .row {

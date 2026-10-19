@@ -55,33 +55,13 @@
     padding: 120px clamp(20px, 5vw, 48px) 140px;
   }
 
+  /* .kicker / .page-title / .page-sub live in main.css */
   .page-head {
     margin-bottom: 56px;
   }
 
-  .kicker {
-    margin: 0 0 14px;
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    color: var(--color-bud);
-  }
-
   .page-title {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-size: clamp(2.2rem, 6vw, 3.2rem);
-    letter-spacing: -0.015em;
-    margin: 0 0 12px;
-    color: var(--color-ink);
-  }
-
-  .page-sub {
-    margin: 0;
-    font-size: 1.05rem;
-    line-height: 1.7;
-    color: var(--color-ink-soft);
+    margin-bottom: 12px;
   }
 
   @media (max-width: 768px) {

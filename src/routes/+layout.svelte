@@ -11,7 +11,8 @@
   const {children}=$props()
 
   let htmlLang = $derived($page.url.pathname.startsWith('/zh') ? 'zh' : 'en');
-  const isPostPage = $derived(/^\/(?:zh\/)?posts\/.+/.test($page.url.pathname));
+  const brandCopy = $derived(site.brand[htmlLang] ?? site.brand[site.defaultLocale]);
+  const isPostPage = $derived(/^\/(?:zh\/)?(?:posts|projects)\/.+/.test($page.url.pathname));
 
   $effect(() => {
     if (typeof document !== 'undefined') {
@@ -93,7 +94,7 @@
 		{/if}
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content={site.name} />
-		<meta name="twitter:description" content="A personal site about problem decomposition and iterative evolution." />
+		<meta name="twitter:description" content={brandCopy.seoDescription} />
 		{#if !isPostPage}
 			<meta name="twitter:image" content={`${site.url}/og-image.svg`} />
 		{/if}

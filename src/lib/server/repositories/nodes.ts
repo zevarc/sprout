@@ -87,6 +87,26 @@ export async function listNodes(db: D1Database, opts: ListNodesOptions = {}): Pr
 	return rows.map(toNode);
 }
 
+/** Published nodes explicitly marked `extra.featured = true`. */
+export async function listFeatured(
+	db: D1Database,
+	opts: { types: string[]; lang: string; limit?: number }
+): Promise<ContentNode[]> {
+	const placeholders = opts.types.map(() => '?').join(', ');
+	const rows = await query<NodeRow>(
+		db,
+		`SELECT * FROM nodes
+		 WHERE type IN (${placeholders})
+		   AND lang = ?
+		   AND status = 'published'
+		   AND json_extract(extra, '$.featured') = 1
+		 ORDER BY (published_at IS NULL), published_at DESC, created_at DESC
+		 LIMIT ?`,
+		[...opts.types, opts.lang, opts.limit ?? 5]
+	);
+	return rows.map(toNode);
+}
+
 export async function getNode(db: D1Database, id: string): Promise<ContentNode | null> {
 	const row = await first<NodeRow>(db, 'SELECT * FROM nodes WHERE id = ?', [id]);
 	return row ? toNode(row) : null;

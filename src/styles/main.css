@@ -4,6 +4,9 @@
 /* 1. CSS Variables (设计系统) */
 @import './variables.css';
 
+/* 1b. Self-hosted webfonts */
+@import './fonts.css';
+
 /* 2. Global Reset & Base */
 *,
 *::before,
@@ -17,6 +20,8 @@
 html {
   font-size: clamp(16px, 1.2vw, 18px);
   scroll-behavior: smooth;
+  /* 固定头部（logo + 语言切换）底边约 52px，锚点跳转需留出余量 */
+  scroll-padding-top: 72px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-break: loose;
@@ -171,18 +176,7 @@ blockquote {
   background: var(--color-surface-container);
 }
 
-/* 5. Utility Classes */
-.container {
-  max-width: var(--content-max-width);
-  margin: 0 auto;
-  padding: 0 var(--content-padding);
-}
-
-.text-center {
-  text-align: center;
-}
-
-/* 6. Form Elements */
+/* 5. Form Elements */
 button {
   font-family: inherit;
   cursor: pointer;
@@ -193,6 +187,46 @@ button {
 input,
 textarea {
   font-family: inherit;
+}
+
+/* 6. Content chrome (shared by every page header / card) */
+.kicker {
+  margin: 0 0 14px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--color-bud);
+}
+
+.page-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(2.2rem, 6vw, 3.2rem);
+  letter-spacing: -0.015em;
+  color: var(--color-ink);
+}
+
+.page-sub {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--color-ink-soft);
+}
+
+/* Card surface: post frames, project cards, the comment form */
+.card {
+  background: var(--color-surface-container-low);
+  border: 1px solid var(--color-paper-line);
+  border-radius: 14px;
+}
+
+/* Pill / tag chip: status, tech tags, author badge */
+.pill {
+  border-radius: 999px;
+  background: var(--color-bud-pale);
+  color: var(--color-bud-deep);
 }
 
 /* 7. Selection */
@@ -216,7 +250,7 @@ textarea {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-secondary);
+  background: var(--color-bud);
 }
 
 /* 9. Focus States */
@@ -225,14 +259,15 @@ textarea {
   outline-offset: 2px;
 }
 
-/* 10. Print Styles */
+/* 10. Responsive base */
 @media (max-width: 768px) {
   body {
     font-size: 15px;
     line-height: 1.6;
   }
 
-  article {
+  /* 只给文章页的正文容器加内边距；裸 article 会波及项目卡片等 */
+  .post-article {
     padding: 0 1rem;
   }
 }
