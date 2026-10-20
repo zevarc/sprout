@@ -26,8 +26,7 @@
  *   locales: Locale[],
  *   defaultLocale: string,
  *   contact: { email: string, github: string },
- *   brand: Record<string, Brand>,
- *   features: { moments: boolean, comments: boolean, analytics: boolean, projects: boolean }
+ *   brand: Record<string, Brand>
  * }} SiteConfig
  */
 
@@ -37,7 +36,7 @@ export const site = {
 	name: 'sprout',
 
 	/** 站点地址，结尾不带 `/`。所有 canonical / hreflang / sitemap / OG / RSS 都由它推导 */
-	url: 'https://example.com',
+	url: 'https://sprout.zevarc.com',
 
 	/** 作者名：用于文章结构化数据（SEO） */
 	author: 'Your Name',
@@ -78,14 +77,6 @@ export const site = {
 				'一个数据可迁移的个人站点：文章、笔记、动态与评论，运行在 Cloudflare Workers 与 SQLite 上。',
 			feedDescription: '来自 sprout 个人站点的文章、笔记与动态。'
 		}
-	},
-
-	/** 功能开关：关掉后对应路由与入口会隐藏 */
-	features: {
-		moments: true,
-		comments: true,
-		analytics: true,
-		projects: true
 	}
 };
 

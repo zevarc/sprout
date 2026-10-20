@@ -1,4 +1,7 @@
 import type { RequestHandler } from './$types';
+import { getDb } from '$lib/server/db';
+import { isEditor } from '$lib/server/auth';
+import { mediaAccess } from '$lib/server/mediaAccess';
 
 export const prerender = false;
 
@@ -23,13 +26,27 @@ const ALLOWED_TYPES: Record<string, string> = {
  * GET /media/<key> — serves a stored object from R2 on our own origin.
  * Storing only the relative key (never an absolute bucket URL) is what keeps
  * media portable: moving buckets means changing this handler, not the data.
+ *
+ * Readability is the owning node's visibility; unattached or unknown objects are
+ * private. Private media requires an owner/member session (or the `Bearer
+ * ADMIN_TOKEN` used by the export/restore scripts) and is never cached.
  */
-export const GET: RequestHandler = async ({ params, platform }) => {
+export const GET: RequestHandler = async (event) => {
+	const { params, platform } = event;
 	const bucket = platform?.env?.MEDIA;
 	if (!bucket) return new Response('Media unavailable', { status: 500 });
 
 	const key = params.key;
 	if (!key || key.includes('..')) return new Response('Bad request', { status: 400 });
+
+	const db = getDb(platform);
+	const access = await mediaAccess(db, key);
+	const isPublic = access.public;
+
+	if (!isPublic && !(await isEditor(event, db))) {
+		// 404, not 403: never confirm that a private asset exists.
+		return new Response('Not found', { status: 404 });
+	}
 
 	const object = await bucket.get(key);
 	if (!object) return new Response('Not found', { status: 404 });
@@ -39,7 +56,7 @@ export const GET: RequestHandler = async ({ params, platform }) => {
 
 	const headers: Record<string, string> = {
 		'Content-Type': known ?? 'application/octet-stream',
-		'Cache-Control': 'public, max-age=31536000, immutable',
+		'Cache-Control': isPublic ? 'public, max-age=31536000, immutable' : 'private, no-store',
 		'X-Content-Type-Options': 'nosniff',
 		// Neutralises any HTML/SVG that slips in: no scripts, no subresources.
 		'Content-Security-Policy': "default-src 'none'; sandbox"

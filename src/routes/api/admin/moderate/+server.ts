@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
-import { requireOwner } from '$lib/server/auth';
+import { getSession, isAdmin } from '$lib/server/auth';
 import { listEvents, setEventStatus } from '$lib/server/repositories/events';
 import type { EventModeration } from '$lib/content/types';
 
@@ -12,7 +12,8 @@ const VALID: EventModeration[] = ['pending', 'approved', 'spam', 'deleted'];
 /** GET /api/admin/moderate?status=pending — moderation queue. */
 export const GET: RequestHandler = async (event) => {
 	const db = getDb(event.platform);
-	await requireOwner(event, db);
+	if (!(await isAdmin(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
+
 	const status = (event.url.searchParams.get('status') as EventModeration) ?? 'pending';
 	const events = await listEvents(db, { kind: 'comment', includeUnapproved: true, limit: 200 });
 	return json({ events: events.filter((e) => (e.status ?? 'approved') === status) });
@@ -21,7 +22,8 @@ export const GET: RequestHandler = async (event) => {
 /** POST /api/admin/moderate { eventId, status } — append a moderation status. */
 export const POST: RequestHandler = async (event) => {
 	const db = getDb(event.platform);
-	const session = await requireOwner(event, db);
+	if (!(await isAdmin(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
+	const session = await getSession(event, db);
 
 	let body: { eventId?: string; status?: string };
 	try {
@@ -36,6 +38,6 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'invalid input' }, { status: 400 });
 	}
 
-	await setEventStatus(db, eventId, status, session.actorId);
+	await setEventStatus(db, eventId, status, session?.actorId ?? null);
 	return json({ ok: true });
 };

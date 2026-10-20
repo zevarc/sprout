@@ -1,11 +1,13 @@
 import { getDb } from '$lib/server/db';
 import { listViews } from '$lib/content/view';
+import { localeFromPath } from '$lib/i18n';
 
 export const prerender = false;
 
-export async function load({ platform }) {
+export async function load({ platform, url }) {
 	const db = getDb(platform);
-	const posts = await listViews(db, { types: ['post'], lang: 'en', limit: 100 });
-	const notes = await listViews(db, { types: ['note'], lang: 'en', limit: 100 });
-	return { posts, notes };
+	const lang = localeFromPath(url.pathname);
+	const posts = await listViews(db, { types: ['post'], lang, limit: 100 });
+	const notes = await listViews(db, { types: ['note'], lang, limit: 100 });
+	return { posts, notes, lang };
 }

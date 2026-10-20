@@ -2,6 +2,9 @@
 // Brand identity (name, homepage copy, SEO) lives in src/site.config.js.
 export const en = {
   language: '中文',
+  common: {
+    empty: 'Nothing here yet.',
+  },
   nav: {
     home: 'Home',
     posts: 'Posts',

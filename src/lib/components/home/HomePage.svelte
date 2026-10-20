@@ -1,19 +1,21 @@
 <script>
-  import { onMount } from 'svelte';
-  import ProjectsList from '$lib/components/projects/Projects.svelte';
-  import { getDictionary, getLink } from '$lib/i18n/index.js';
+  import HomeSection from './HomeSection.svelte';
+  import { getDictionary, getLink, homePath as localeHome } from '$lib/i18n/index.js';
+  import { getContentType } from '$lib/content/registry';
   import { site } from '$lib/site';
 
-  const { lang = 'en', posts = [], projects = [] } = $props();
+  const { lang = site.defaultLocale, sections = [] } = $props();
 
   let t = $derived(getDictionary(lang));
   const brand = $derived(site.brand[lang] ?? site.brand[site.defaultLocale]);
   const postsPath = $derived(getLink('posts', lang));
   const projectsPath = $derived(getLink('projects', lang));
-  const aboutPath = $derived(getLink('about', lang));
   const tagsPath = $derived(getLink('tags', lang));
+  const aboutPath = $derived(getLink('about', lang));
   const searchPath = $derived(getLink('search', lang));
-  const switchPath = $derived(lang === 'zh' ? '/' : '/zh');
+  const home = $derived(localeHome(lang));
+  const switchLocale = $derived(site.locales.find((l) => l.code !== lang));
+  const switchPath = $derived(switchLocale ? localeHome(switchLocale.code) : undefined);
 
   /** Site-level structured data: the site itself plus its owner. */
   const siteJsonLd = $derived({
@@ -22,10 +24,10 @@
       {
         '@type': 'WebSite',
         '@id': `${site.url}/#website`,
-        url: lang === 'zh' ? `${site.url}/zh` : `${site.url}/`,
+        url: `${site.url}${home}`,
         name: site.name,
         description: brand.seoDescription,
-        inLanguage: lang === 'zh' ? 'zh-CN' : 'en',
+        inLanguage: lang,
         publisher: { '@id': `${site.url}/#person` },
         potentialAction: {
           '@type': 'SearchAction',
@@ -46,14 +48,6 @@
     ]
   });
 
-  /* ---------- 区块 reveal ---------- */
-  /** @type {HTMLElement | null} */
-  let postsEl = $state(null);
-  /** @type {HTMLElement | null} */
-  let projectsEl = $state(null);
-  let postsVisible = $state(false);
-  let projectsVisible = $state(false);
-
   /* ---------- 滚动方向感知浮动按钮 ---------- */
   let showFloat = $state(false);
   let lastY = 0;
@@ -67,33 +61,6 @@
   function scrollToTop() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-
-  onMount(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (!e.isIntersecting) return;
-          if (e.target === postsEl) postsVisible = true;
-          if (e.target === projectsEl) projectsVisible = true;
-        });
-      },
-      { threshold: 0.06 }
-    );
-    if (postsEl) observer.observe(postsEl);
-    if (projectsEl) observer.observe(projectsEl);
-    return () => observer.disconnect();
-  });
-
-  /**
-   * @param {string} dateStr
-   */
-  function formatDate(dateStr) {
-    const d = new Date(dateStr);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}.${m}.${day}`;
-  }
 </script>
 
 <svelte:head>
@@ -102,10 +69,11 @@
   <meta property="og:title" content={brand.seoTitle} />
   <meta property="og:description" content={brand.seoDescription} />
   <meta property="og:type" content="website" />
-  <link rel="canonical" href={lang === 'zh' ? `${site.url}/zh` : `${site.url}/`} />
-  <link rel="alternate" hreflang="en" href={`${site.url}/`} />
-  <link rel="alternate" hreflang="zh" href={`${site.url}/zh`} />
-  <link rel="alternate" hreflang="x-default" href={`${site.url}/`} />
+  <link rel="canonical" href={`${site.url}${home}`} />
+  {#each site.locales as loc}
+    <link rel="alternate" hreflang={loc.code} href={`${site.url}${localeHome(loc.code)}`} />
+  {/each}
+  {#if site.locales.length > 1}<link rel="alternate" hreflang="x-default" href={`${site.url}${localeHome(site.defaultLocale)}`} />{/if}
   {@html `<script type="application/ld+json">${JSON.stringify(siteJsonLd)}</script>`}
 </svelte:head>
 
@@ -148,40 +116,13 @@
     </div>
   </header>
 
-  {#if posts.length > 0}
-    <section class="posts-section" bind:this={postsEl} class:visible={postsVisible}>
-      <div class="section-head">
-        <h2 class="section-label">{t.home.selectedWriting}</h2>
-        <a class="section-more" href={`/${postsPath}`}>{t.home.allWriting}</a>
-      </div>
-      <ul class="post-list">
-        {#each posts as p, i}
-          <li class="post-item">
-            <a class="post-row" href={`/${p.url}`}>
-              <span class="post-index">{String(i + 1).padStart(2, '0')}</span>
-              <span class="post-date">{formatDate(p.date)}</span>
-              <span class="post-title">{p.title}</span>
-              <span class="post-time">{p.readTime} {t.posts.readTime}</span>
-            </a>
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
-
-  {#if site.features.projects && projects.length > 0}
-    <section class="projects-section" bind:this={projectsEl} class:visible={projectsVisible}>
-      <div class="section-head">
-        <h2 class="section-label">{t.home.selectedProjects}</h2>
-        <a class="section-more" href={`/${projectsPath}`}>{t.home.allProjects}</a>
-      </div>
-      <ProjectsList {projects} {lang} />
-    </section>
-  {/if}
+  {#each sections as section, i (i)}
+    <HomeSection {section} {lang} />
+  {/each}
 
   <div class="float-actions" class:show={showFloat}>
-    {#if site.features.moments}
-      <a class="float-btn" href="/moments" title={t.moments.title} aria-label={t.moments.title}>
+    {#if getContentType('moment')}
+      <a class="float-btn" href={`/${getLink('moments', lang)}`} title={t.moments.title} aria-label={t.moments.title}>
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <circle cx="12" cy="12" r="9" />
           <path d="M12 8v4l3 2" />
@@ -194,9 +135,9 @@
         <path d="M21 21l-4.3-4.3" />
       </svg>
     </a>
-    <a class="float-btn lang" href={switchPath} title={lang === 'zh' ? 'English' : '中文'}>
-      {lang === 'zh' ? 'EN' : '中'}
-    </a>
+    {#if switchLocale}
+      <a class="float-btn lang" href={switchPath} title={switchLocale.label}>{switchLocale.label}</a>
+    {/if}
     <button class="float-btn" onclick={scrollToTop} aria-label="top">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 19V5M5 12l7-7 7 7" />
@@ -210,7 +151,7 @@
     <a href={`/${tagsPath}`}>{t.nav.tags}</a>
     <a href={`/${aboutPath}`}>{t.nav.about}</a>
     <a href={`mailto:${site.contact.email}`}>{t.about.contact.title}</a>
-    <a href={lang === 'zh' ? '/zh/feed.xml' : '/feed.xml'}>RSS</a>
+    <a href={`/${getLink('feed.xml', lang)}`}>RSS</a>
   </footer>
 </div>
 
@@ -367,135 +308,6 @@
     }
   }
 
-  /* ---------- 内容区块 (reveal + 大留白) ---------- */
-  .posts-section,
-  .projects-section {
-    width: 100%;
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 110px clamp(20px, 5vw, 48px) 40px;
-    opacity: 0;
-    transform: translateY(24px);
-    transition: opacity 0.7s ease, transform 0.7s ease;
-  }
-
-  .posts-section.visible,
-  .projects-section.visible {
-    opacity: 1;
-    transform: none;
-  }
-
-  .section-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin: 0 0 20px;
-    border-bottom: 1px solid var(--color-paper-line);
-    padding-bottom: 12px;
-  }
-
-  .section-label {
-    font-family: var(--font-mono);
-    font-weight: 500;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--color-ink-faint);
-    margin: 0;
-  }
-
-  .section-more {
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    color: var(--color-bud);
-    letter-spacing: 0.08em;
-    border-bottom: 1px solid transparent;
-    transition: border-color 0.2s, color 0.2s;
-  }
-
-  .section-more:hover {
-    border-bottom-color: var(--color-bud);
-    color: var(--color-bud-deep);
-  }
-
-  /* ---------- 文章列表 (生长记录) ---------- */
-  .post-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  .post-item {
-    position: relative;
-  }
-
-  .post-row {
-    display: grid;
-    grid-template-columns: 40px 92px 1fr auto;
-    align-items: baseline;
-    gap: 16px;
-    padding: 15px 4px;
-    border: none;
-    color: var(--color-ink);
-    border-bottom: 1px solid var(--color-paper-line);
-    transition: color 0.2s;
-  }
-
-  /* 生长线：hover 时从左侧伸出 */
-  .post-row::before {
-    content: '';
-    position: absolute;
-    left: -14px;
-    top: 50%;
-    width: 10px;
-    height: 2px;
-    border-radius: 2px;
-    background: var(--color-bud);
-    transform: scaleX(0);
-    transform-origin: left;
-    transition: transform 0.28s ease;
-  }
-
-  .post-row:hover::before {
-    transform: scaleX(1);
-  }
-
-  .post-row:hover {
-    color: var(--color-bud-deep);
-  }
-
-  .post-index {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    color: var(--color-bud);
-    opacity: 0.85;
-  }
-
-  .post-date {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    color: var(--color-ink-faint);
-  }
-
-  .post-title {
-    font-family: var(--font-serif);
-    font-size: 1.12rem;
-    font-weight: 500;
-    line-height: 1.35;
-  }
-
-  .post-time {
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    color: var(--color-ink-faint);
-    white-space: nowrap;
-  }
-
-  .projects-section {
-    padding-top: 120px;
-    padding-bottom: 140px;
-  }
-
   /* ---------- 浮动按钮 ---------- */
   .float-actions {
     position: fixed;
@@ -528,7 +340,7 @@
     background: var(--color-surface);
     border: 1px solid var(--color-paper-line);
     color: var(--color-ink-soft);
-    box-shadow: 0 4px 16px rgba(41, 55, 47, 0.12);
+    box-shadow: var(--shadow-float);
     cursor: pointer;
     transition: color 0.2s, border-color 0.2s, box-shadow 0.2s;
   }
@@ -536,7 +348,7 @@
   .float-btn:hover {
     color: var(--color-bud);
     border-color: var(--color-bud-soft);
-    box-shadow: 0 6px 20px rgba(94, 139, 116, 0.22);
+    box-shadow: var(--shadow-glow);
   }
 
   .float-btn.lang {
@@ -578,26 +390,6 @@
       width: 96vw;
     }
 
-    .post-row {
-      grid-template-columns: 32px 1fr;
-      gap: 12px;
-    }
-
-    .post-date {
-      grid-column: 2;
-      grid-row: 1;
-      margin-top: -10px;
-    }
-
-    .post-time {
-      display: none;
-    }
-
-    .posts-section,
-    .projects-section {
-      padding-top: 80px;
-    }
-
     .float-actions {
       right: 16px;
       bottom: 16px;
@@ -613,15 +405,7 @@
       animation: none;
     }
 
-    .posts-section,
-    .projects-section {
-      opacity: 1;
-      transform: none;
-      transition: none;
-    }
-
-    .float-actions,
-    .post-row::before {
+    .float-actions {
       transition: none;
     }
   }

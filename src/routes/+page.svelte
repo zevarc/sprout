@@ -2,6 +2,7 @@
   import HomePage from '$lib/components/home/HomePage.svelte';
 
   const { data } = $props();
+  const { sections, lang } = $derived(data);
 </script>
 
-<HomePage lang="en" posts={data.posts} projects={data.projects} />
+<HomePage {sections} {lang} />

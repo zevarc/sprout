@@ -2,20 +2,20 @@
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
   import PageLogo from '$lib/components/PageLogo.svelte';
   import PostList from '$lib/components/posts/PostList.svelte';
-  import { getDictionary } from '$lib/i18n/index.js';
+  import { getDictionary, getLink, homePath } from '$lib/i18n/index.js';
   import { site } from '$lib/site';
   import { pageTitle } from '$lib/seo';
 
   let {
-    lang = 'en',
+    lang = site.defaultLocale,
     /** @type {string | null} */ tag = null,
     /** @type {Array<{ tag: string, count: number }>} */ tags = [],
     /** @type {Array<any>} */ posts = []
   } = $props();
 
   const t = $derived(getDictionary(lang));
-  const homePath = $derived(lang === 'zh' ? '/zh' : '/');
-  const basePath = $derived(lang === 'zh' ? '/zh/tags' : '/tags');
+  const home = $derived(homePath(lang));
+  const basePath = $derived(`/${getLink('tags', lang)}`);
 
   /** @param {string} name */
   const hrefFor = (name) => `${basePath}/${encodeURIComponent(name)}`;
@@ -26,7 +26,7 @@
     '@type': 'CollectionPage',
     name: tag ? `${t.tags.kicker}: ${tag}` : t.tags.title,
     url: canonical,
-    inLanguage: lang === 'zh' ? 'zh-CN' : 'en',
+    inLanguage: lang,
     isPartOf: { '@id': `${site.url}/#website` }
   });
 </script>
@@ -39,7 +39,7 @@
 </svelte:head>
 
 <LanguageSwitcher />
-<PageLogo href={homePath} />
+<PageLogo href={home} />
 
 <main class="tags-page">
   <header class="page-head">

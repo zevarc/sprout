@@ -1,12 +1,13 @@
 <script>
   import { onMount } from 'svelte';
   import { getDictionary } from '$lib/i18n/index.js';
+  import { site } from '$lib/site';
 
   let visible = $state(false);
   /** @type {HTMLDivElement | null} */
   let sectionEl = null;
 
-  let { projects, lang = 'en' } = $props();
+  let { projects, lang = site.defaultLocale } = $props();
 
   const t = $derived(getDictionary(lang));
 
@@ -117,7 +118,7 @@
 
   .project-card:hover {
     border-color: var(--color-bud-soft);
-    box-shadow: 0 8px 26px rgba(94, 139, 116, 0.14);
+    box-shadow: var(--shadow-card);
     transform: translateY(-2px);
   }
 

@@ -4,7 +4,7 @@
  * so they never go stale.
  */
 
-import type { ContentNode } from '$lib/content/types';
+import type { ContentNode, NodeVisibility } from '$lib/content/types';
 import { getContentType } from '$lib/content/registry';
 import { calcReadTime, extractExcerpt, extractHeadings, type TocItem } from '$lib/reading';
 import { getLink } from '$lib/i18n';
@@ -21,6 +21,10 @@ export interface PostView {
 	title: string;
 	description: string;
 	date: string;
+	/** When the thing happened, if recorded (falls back to `date` in views). */
+	occurredAt: string | null;
+	authorActorId: string | null;
+	visibility: NodeVisibility;
 	updated: string;
 	tags: string[];
 	cover: string | null;
@@ -61,6 +65,9 @@ export function nodeToView(node: ContentNode, hasAlt = false): PostView {
 		title: node.title ?? node.slug,
 		description,
 		date,
+		occurredAt: node.occurredAt,
+		authorActorId: node.authorActorId,
+		visibility: node.visibility,
 		updated,
 		tags,
 		cover,
@@ -81,24 +88,30 @@ export function nodeToView(node: ContentNode, hasAlt = false): PostView {
 	};
 }
 
+/**
+ * Public list views. Defaults to `visibility: 'public'` so a private node can
+ * never reach a public page by forgetting a filter — pass `visibility: 'private'`
+ * (or use `listNodes` directly) for the owner/member area.
+ */
 export async function listViews(
 	db: D1Database,
-	opts: { types: string[]; lang: string; tag?: string; limit?: number }
+	opts: { types: string[]; lang: string; tag?: string; visibility?: NodeVisibility; limit?: number }
 ): Promise<PostView[]> {
 	const nodes = await listNodes(db, {
 		types: opts.types,
 		lang: opts.lang,
 		status: 'published',
 		tag: opts.tag,
+		visibility: opts.visibility ?? 'public',
 		limit: opts.limit ?? 100
 	});
 	return nodes.map((n) => nodeToView(n));
 }
 
-/** Featured views (nodes marked `extra.featured`). */
+/** Featured views (nodes marked `extra.featured`). Public by default. */
 export async function listFeaturedViews(
 	db: D1Database,
-	opts: { types: string[]; lang: string; limit?: number }
+	opts: { types: string[]; lang: string; visibility?: NodeVisibility; limit?: number }
 ): Promise<PostView[]> {
 	const nodes = await listFeatured(db, opts);
 	return nodes.map((n) => nodeToView(n));
@@ -144,7 +157,7 @@ function byProjectOrder(a: ProjectView, b: ProjectView): number {
 	return a.order - b.order || a.title.localeCompare(b.title);
 }
 
-/** Projects are a content type too — no special storage. */
+/** Projects are a content type too — no special storage. Public by default. */
 export async function listProjects(
 	db: D1Database,
 	lang: string,
@@ -154,42 +167,10 @@ export async function listProjects(
 		type: 'project',
 		lang,
 		status: 'published',
+		visibility: 'public',
 		limit: 100
 	});
 	return nodes.map(nodeToProjectView).sort(byProjectOrder).slice(0, limit);
-}
-
-/**
- * Home page selection: featured items, falling back to the latest when nothing
- * has been marked as featured yet.
- */
-export async function homeSelection(
-	db: D1Database,
-	lang: string,
-	opts: { posts?: number; projects?: number } = {}
-): Promise<{ posts: PostView[]; projects: ProjectView[] }> {
-	const postLimit = opts.posts ?? 5;
-	const projectLimit = opts.projects ?? 4;
-
-	const featuredPosts = await listFeaturedViews(db, {
-		types: ['post', 'note'],
-		lang,
-		limit: postLimit
-	});
-	const featuredProjects = await listFeatured(db, {
-		types: ['project'],
-		lang,
-		limit: projectLimit
-	});
-
-	return {
-		posts: featuredPosts.length
-			? featuredPosts
-			: await listViews(db, { types: ['post', 'note'], lang, limit: postLimit }),
-		projects: featuredProjects.length
-			? featuredProjects.map(nodeToProjectView).sort(byProjectOrder)
-			: await listProjects(db, lang, projectLimit)
-	};
 }
 
 /** Related posts by shared tags, then recency. */
@@ -207,6 +188,9 @@ export async function findRelatedViews(
 		type: node.type,
 		lang: node.lang,
 		status: 'published',
+		// Same visibility as the node being read, so a public page never lists
+		// a private sibling as "related".
+		visibility: node.visibility,
 		limit: 100
 	});
 	return candidates

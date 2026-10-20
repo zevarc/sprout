@@ -1,20 +1,20 @@
 <script>
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
   import PageLogo from '$lib/components/PageLogo.svelte';
-  import { getDictionary, getLink } from '$lib/i18n/index.js';
+  import { getDictionary, getLink, homePath } from '$lib/i18n/index.js';
   import { site } from '$lib/site';
   import { pageTitle } from '$lib/seo';
 
-  let { project, bodyHtml = '', lang = 'en' } = $props();
+  let { project, bodyHtml = '', lang = site.defaultLocale } = $props();
 
   const t = $derived(getDictionary(lang));
-  const homePath = $derived(lang === 'zh' ? '/zh' : '/');
+  const home = $derived(homePath(lang));
   const projectsPath = $derived(getLink('projects', lang));
   const statusLabels = $derived(/** @type {Record<string, string>} */ (t.projects.status ?? {}));
   const statusLabel = $derived(
     project.status ? (statusLabels[project.status] ?? project.status) : ''
   );
-  const ogImage = $derived(`${site.url}${lang === 'zh' ? '/zh' : ''}/og/${project.slug}.svg`);
+  const ogImage = $derived(`${site.url}/${getLink(`og/${project.slug}.svg`, lang)}`);
   const jsonLd = $derived(
     JSON.stringify({
       '@context': 'https://schema.org',
@@ -33,9 +33,10 @@
   <title>{pageTitle(project.title)}</title>
   <meta name="description" content={project.description} />
   <link rel="canonical" href={`${site.url}/${project.url}`} />
-  <link rel="alternate" hreflang="en" href={`${site.url}/projects/${project.slug}`} />
-  <link rel="alternate" hreflang="zh" href={`${site.url}/zh/projects/${project.slug}`} />
-  <link rel="alternate" hreflang="x-default" href={`${site.url}/projects/${project.slug}`} />
+  {#each site.locales as loc}
+    <link rel="alternate" hreflang={loc.code} href={`${site.url}/${getLink(`projects/${project.slug}`, loc.code)}`} />
+  {/each}
+  {#if site.locales.length > 1}<link rel="alternate" hreflang="x-default" href={`${site.url}/${getLink(`projects/${project.slug}`, site.defaultLocale)}`} />{/if}
   <meta property="og:type" content="article" />
   <meta property="og:image" content={ogImage} />
   <meta name="twitter:image" content={ogImage} />
@@ -43,7 +44,7 @@
 </svelte:head>
 
 <LanguageSwitcher />
-<PageLogo href={homePath} />
+<PageLogo href={home} />
 
 <main class="project-page">
   <a class="back" href={`/${projectsPath}`}>← {t.nav.projects}</a>

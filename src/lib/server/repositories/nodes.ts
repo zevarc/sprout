@@ -1,9 +1,10 @@
-import type { ContentNode, NewNode, NodeStatus } from '$lib/content/types';
+import type { ContentNode, NewNode, NodeStatus, NodeVisibility } from '$lib/content/types';
 import type { D1Database } from '$lib/server/db';
 import { first, query, run } from '$lib/server/db';
 import { ulid } from '$lib/server/id';
 import { renderMarkdown } from '$lib/server/render';
 import { buildSearchText } from '$lib/server/search';
+import { site } from '$lib/site';
 
 interface NodeRow {
 	id: string;
@@ -17,6 +18,9 @@ interface NodeRow {
 	body_html: string | null;
 	status: string;
 	published_at: string | null;
+	occurred_at: string | null;
+	visibility: string;
+	author_actor_id: string | null;
 	created_at: string;
 	updated_at: string;
 	extra: string | null;
@@ -43,6 +47,9 @@ function toNode(row: NodeRow): ContentNode {
 		bodyHtml: row.body_html,
 		status: row.status as NodeStatus,
 		publishedAt: row.published_at,
+		occurredAt: row.occurred_at,
+		visibility: row.visibility === 'private' ? 'private' : 'public',
+		authorActorId: row.author_actor_id,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
 		extra
@@ -56,6 +63,10 @@ export interface ListNodesOptions {
 	status?: NodeStatus | 'all';
 	/** Only nodes whose `extra.tags` contains this exact tag. */
 	tag?: string;
+	/** Filter by visibility. Omit to include both (owner listings). */
+	visibility?: NodeVisibility;
+	/** Which timestamp orders the list. Defaults to publish time. */
+	orderBy?: 'published' | 'occurred';
 	limit?: number;
 	offset?: number;
 }
@@ -86,9 +97,19 @@ export async function listNodes(db: D1Database, opts: ListNodesOptions = {}): Pr
 		);
 		params.push(opts.tag);
 	}
+	if (opts.visibility) {
+		where.push('visibility = ?');
+		params.push(opts.visibility);
+	}
+
+	// Timeline ordering keys off when things happened, not when they were written.
+	const order =
+		opts.orderBy === 'occurred'
+			? 'ORDER BY (occurred_at IS NULL), occurred_at DESC, created_at DESC'
+			: 'ORDER BY (published_at IS NULL), published_at DESC, created_at DESC';
 
 	const sql = `SELECT * FROM nodes ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
-		ORDER BY (published_at IS NULL), published_at DESC, created_at DESC
+		${order}
 		LIMIT ? OFFSET ?`;
 	params.push(opts.limit ?? 50, opts.offset ?? 0);
 
@@ -96,10 +117,13 @@ export async function listNodes(db: D1Database, opts: ListNodesOptions = {}): Pr
 	return rows.map(toNode);
 }
 
-/** Published nodes explicitly marked `extra.featured = true`. */
+/**
+ * Published nodes explicitly marked `extra.featured = true`.
+ * Public by default — a featured flag must never surface private content.
+ */
 export async function listFeatured(
 	db: D1Database,
-	opts: { types: string[]; lang: string; limit?: number }
+	opts: { types: string[]; lang: string; visibility?: NodeVisibility; limit?: number }
 ): Promise<ContentNode[]> {
 	const placeholders = opts.types.map(() => '?').join(', ');
 	const rows = await query<NodeRow>(
@@ -108,10 +132,11 @@ export async function listFeatured(
 		 WHERE type IN (${placeholders})
 		   AND lang = ?
 		   AND status = 'published'
+		   AND visibility = ?
 		   AND json_extract(extra, '$.featured') = 1
 		 ORDER BY (published_at IS NULL), published_at DESC, created_at DESC
 		 LIMIT ?`,
-		[...opts.types, opts.lang, opts.limit ?? 5]
+		[...opts.types, opts.lang, opts.visibility ?? 'public', opts.limit ?? 5]
 	);
 	return rows.map(toNode);
 }
@@ -178,18 +203,21 @@ async function indexNode(db: D1Database, node: ContentNode): Promise<void> {
 export async function createNode(db: D1Database, input: NewNode): Promise<ContentNode> {
 	const now = new Date().toISOString();
 	const id = input.id ?? ulid();
-	const lang = input.lang ?? 'en';
+	const lang = input.lang ?? site.defaultLocale;
 	const status = input.status ?? 'draft';
 	const publishedAt =
 		input.publishedAt ?? (status === 'published' ? now : null);
+	const visibility = input.visibility ?? 'public';
 	const bodyHtml = await renderMarkdown(input.bodyMd);
-	const groupId = input.groupId ?? `${input.type}:${input.slug}`;
+	// A node is its own group of one unless it shares one (translations/series).
+	const groupId = input.groupId ?? id;
 
 	await run(
 		db,
 		`INSERT INTO nodes
-			(id, type, slug, lang, group_id, title, summary, body_md, body_html, status, published_at, created_at, updated_at, extra)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			(id, type, slug, lang, group_id, title, summary, body_md, body_html, status, published_at,
+			 occurred_at, visibility, author_actor_id, created_at, updated_at, extra)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		[
 			id,
 			input.type,
@@ -202,6 +230,9 @@ export async function createNode(db: D1Database, input: NewNode): Promise<Conten
 			bodyHtml,
 			status,
 			publishedAt,
+			input.occurredAt ?? null,
+			visibility,
+			input.authorActorId ?? null,
 			now,
 			now,
 			JSON.stringify(input.extra ?? {})
@@ -220,8 +251,12 @@ export interface NodePatch {
 	status?: NodeStatus;
 	slug?: string;
 	lang?: string;
+	groupId?: string | null;
 	extra?: Record<string, unknown>;
 	publishedAt?: string | null;
+	occurredAt?: string | null;
+	visibility?: NodeVisibility;
+	authorActorId?: string | null;
 }
 
 export async function updateNode(
@@ -239,17 +274,24 @@ export async function updateNode(
 	const status = patch.status ?? existing.status;
 	const slug = patch.slug ?? existing.slug;
 	const lang = patch.lang ?? existing.lang;
+	const groupId = patch.groupId !== undefined ? patch.groupId : existing.groupId;
 	const extra = patch.extra !== undefined ? patch.extra : existing.extra;
 
 	let publishedAt = patch.publishedAt !== undefined ? patch.publishedAt : existing.publishedAt;
 	if (status === 'published' && !publishedAt) publishedAt = now;
+
+	const occurredAt = patch.occurredAt !== undefined ? patch.occurredAt : existing.occurredAt;
+	const visibility = patch.visibility ?? existing.visibility;
+	const authorActorId =
+		patch.authorActorId !== undefined ? patch.authorActorId : existing.authorActorId;
 
 	const bodyHtml = patch.bodyMd !== undefined ? await renderMarkdown(bodyMd) : existing.bodyHtml;
 
 	await run(
 		db,
 		`UPDATE nodes SET title = ?, summary = ?, body_md = ?, body_html = ?, status = ?,
-			slug = ?, lang = ?, published_at = ?, updated_at = ?, extra = ?
+			slug = ?, lang = ?, group_id = ?, published_at = ?, occurred_at = ?, visibility = ?,
+			author_actor_id = ?, updated_at = ?, extra = ?
 		 WHERE id = ?`,
 		[
 			title,
@@ -259,12 +301,18 @@ export async function updateNode(
 			status,
 			slug,
 			lang,
+			groupId,
 			publishedAt,
+			occurredAt,
+			visibility,
+			authorActorId,
 			now,
 			JSON.stringify(extra ?? {}),
 			id
 		]
 	);
+
+	// Media inherits its node's readability; there is no per-media visibility.
 
 	const node = (await getNode(db, id))!;
 	await indexNode(db, node);
@@ -278,23 +326,46 @@ export async function deleteNode(db: D1Database, id: string): Promise<void> {
 	await run(db, 'DELETE FROM relations WHERE from_id = ? OR to_id = ?', [id, id]);
 }
 
-/** Ids this node is linked to via a given relation (default: translation). */
-export async function relatedIds(
-	db: D1Database,
-	id: string,
-	rel = 'translation'
-): Promise<string[]> {
-	const rows = await query<{ to_id: string }>(
+/**
+ * Ids of the nodes grouped with this one — i.e. its translations (same group,
+ * different `lang`) and, in a series, its siblings. Derived entirely from
+ * `group_id`; there is no separate translation edge.
+ */
+export async function relatedIds(db: D1Database, id: string): Promise<string[]> {
+	const node = await getNode(db, id);
+	if (!node) return [];
+	const rows = await query<{ id: string }>(
 		db,
-		'SELECT to_id FROM relations WHERE from_id = ? AND rel = ?',
-		[id, rel]
+		'SELECT id FROM nodes WHERE group_id = ? AND id <> ?',
+		[node.groupId, id]
 	);
-	return rows.map((r) => r.to_id);
+	return rows.map((r) => r.id);
+}
+
+/** Writes the derived HTML cache for one node (used by the rebuild path). */
+export async function setBodyHtml(db: D1Database, id: string, html: string): Promise<void> {
+	await run(db, 'UPDATE nodes SET body_html = ? WHERE id = ?', [html, id]);
+}
+
+/** Puts the given nodes into one group (translations/series). */
+export async function setGroup(db: D1Database, ids: string[], groupId: string): Promise<void> {
+	if (ids.length === 0) return;
+	const placeholders = ids.map(() => '?').join(', ');
+	await run(db, `UPDATE nodes SET group_id = ? WHERE id IN (${placeholders})`, [groupId, ...ids]);
+}
+
+/** Gives each node its own group again (undoing a pairing). */
+export async function ungroup(db: D1Database, ids: string[]): Promise<void> {
+	if (ids.length === 0) return;
+	const placeholders = ids.map(() => '?').join(', ');
+	await run(db, `UPDATE nodes SET group_id = id WHERE id IN (${placeholders})`, ids);
 }
 
 export interface SearchOptions {
 	type?: string;
 	lang?: string;
+	/** Filter by visibility. Omit to search everything (owner search). */
+	visibility?: NodeVisibility;
 	limit?: number;
 }
 
@@ -314,6 +385,10 @@ export async function searchNodes(
 	if (opts.lang) {
 		where.push('n.lang = ?');
 		params.push(opts.lang);
+	}
+	if (opts.visibility) {
+		where.push('n.visibility = ?');
+		params.push(opts.visibility);
 	}
 	params.push(matchExpression, opts.limit ?? 30);
 

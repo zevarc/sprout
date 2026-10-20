@@ -1,0 +1,181 @@
+/**
+ * sprout — 站点装配（assembly）
+ *
+ * 分工：
+ *   · `site.config.js` = 「我是谁」：站名、域名、作者、语言、品牌文案。
+ *   · 本文件         = 「我由什么构成」：内容类型、能力开关、首页区块、主题、扩展模块。
+ *
+ * 三条规则（见 docs/ARCHITECTURE.md）：
+ *   1. 类型即能力——这里声明一个 type，它就拥有通用列表/详情路由。
+ *   2. 跨领域能力（comments/members/analytics/timeline）写进 `features`，全仓只经 `hasFeature` 判定。
+ *   3. 配置在启动期校验（单段路由、语言不撞类型段、能力 id 已注册…）。
+ */
+
+/**
+ * 内容类型注册表——站点声明「我有哪些类型」。引擎据此组装路由与展现。
+ *
+ * @typedef {{ en?: string, zh?: string }} Label
+ * @typedef {{ value: string, label: Label }} FieldOption
+ * @typedef {{
+ *   key: string,
+ *   label: Label,
+ *   type: 'text'|'textarea'|'markdown'|'tags'|'url'|'number'|'date'|'boolean'|'select',
+ *   required?: boolean,
+ *   options?: FieldOption[]
+ * }} FieldDef
+ * @typedef {{
+ *   type: string,
+ *   route: string,
+ *   label: Label,
+ *   public?: boolean,
+ *   feed?: boolean,
+ *   comments?: boolean,
+ *   listRenderer?: 'list' | 'cards' | 'feed',
+ *   detailRenderer?: 'article' | 'compact',
+ *   fields: FieldDef[]
+ * }} ContentTypeDef
+ */
+
+/** @type {Record<string, ContentTypeDef>} */
+export const contentTypes = {
+	post: {
+		type: 'post',
+		route: '/posts',
+		label: { en: 'Posts', zh: '文章' },
+		public: true,
+		feed: true,
+		comments: true,
+		fields: [
+			{ key: 'description', label: { en: 'Description', zh: '摘要' }, type: 'textarea' },
+			{ key: 'cover', label: { en: 'Cover', zh: '封面' }, type: 'url' },
+			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
+			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
+		]
+	},
+	// `/posts/notes` 是多段路由，由自己的静态路由服务（通用 [type] 只支持单段）。
+	note: {
+		type: 'note',
+		route: '/posts/notes',
+		label: { en: 'Notes', zh: '笔记' },
+		public: true,
+		feed: true,
+		comments: true,
+		fields: [
+			{ key: 'description', label: { en: 'Description', zh: '摘要' }, type: 'textarea' },
+			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
+			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
+		]
+	},
+	moment: {
+		type: 'moment',
+		route: '/moments',
+		label: { en: 'Moments', zh: '动态' },
+		public: true,
+		feed: true,
+		comments: true,
+		listRenderer: 'feed',
+		detailRenderer: 'compact',
+		fields: [
+			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
+			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
+		]
+	},
+	project: {
+		type: 'project',
+		route: '/projects',
+		label: { en: 'Projects', zh: '项目' },
+		public: true,
+		feed: false,
+		comments: false,
+		fields: [
+			{ key: 'year', label: { en: 'Year', zh: '年份' }, type: 'text' },
+			{ key: 'status', label: { en: 'Status', zh: '状态' }, type: 'text' },
+			{
+				key: 'description',
+				label: { en: 'Description', zh: '描述' },
+				type: 'textarea',
+				required: true
+			},
+			{ key: 'image', label: { en: 'Image', zh: '配图' }, type: 'url' },
+			{ key: 'website', label: { en: 'Website', zh: '网站' }, type: 'url' },
+			{ key: 'github', label: { en: 'GitHub', zh: 'GitHub' }, type: 'url' },
+			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
+			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
+		]
+	}
+};
+
+/**
+ * 跨领域能力清单。类型不走这里（类型即能力）。
+ * 已注册的 id：comments · members · analytics · timeline。
+ * @type {string[]}
+ */
+export const features = ['comments', 'analytics', 'timeline', 'members'];
+
+/**
+ * 首页区块。每块挑一组类型，用某个布局呈现。
+ * `morePath` 指向该区块的列表页（由类型路由承载）。
+ * @type {{ sections: Array<{
+ *   types: string[],
+ *   layout: 'list' | 'cards',
+ *   title: string,
+ *   more: string,
+ *   morePath: string,
+ *   limit: number,
+ *   fields?: string[]
+ * }> }}
+ */
+export const home = {
+	sections: [
+		{
+			types: ['post', 'note'],
+			layout: 'list',
+			title: 'home.selectedWriting',
+			more: 'home.allWriting',
+			morePath: 'posts',
+			limit: 5
+		},
+		{
+			types: ['project'],
+			layout: 'cards',
+			title: 'home.selectedProjects',
+			more: 'home.allProjects',
+			morePath: 'projects',
+			limit: 4,
+			fields: ['year', 'status', 'website', 'github']
+		}
+	]
+};
+
+/**
+ * 主题：`name` 选预设（`classic` | `mono`），`tokens` 覆盖任意 CSS 变量。
+ * 组件只读 token（`var(--color-*)`），换风格不需要 fork 组件。
+ * @type {{ name: string, tokens: Record<string, string> }}
+ */
+export const theme = {
+	name: 'classic',
+	tokens: {}
+};
+
+/**
+ * 扩展模块（贡献）。每个模块可贡献 types / renderers / adminPanels / api / hooks / i18n / theme。
+ * 形状在架构层 Phase C 落地；这里先留空数组。
+ * @type {unknown[]}
+ */
+export const mods = [];
+
+/**
+ * 需要登录（owner/member）的非类型路径。内容类型自身的路由由 registry 的 `public` 决定。
+ * @type {string[]}
+ */
+export const privateRoutes = [];
+
+/** 内容默认值。 @type {{ defaultVisibility: 'public' | 'private', timelineOrder: 'published' | 'occurred' }} */
+export const content = {
+	/** 新记录的默认可见性：'private' 表示默认只给登录成员看 */
+	defaultVisibility: 'public',
+	/** 时间线按「发生时间」而非「发布时间」排序 */
+	timelineOrder: 'published'
+};
+
+export default { contentTypes, features, home, theme, mods, privateRoutes, content };

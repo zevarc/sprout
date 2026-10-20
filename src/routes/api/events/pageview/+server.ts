@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getDb, run } from '$lib/server/db';
-import { site } from '$lib/site';
+import { getDb } from '$lib/server/db';
+import { recordPageview } from '$lib/server/stats';
+import { hasFeature } from '$lib/engine/features';
 
 export const prerender = false;
 
@@ -10,7 +11,7 @@ export const prerender = false;
  * aggregated (day, path, referrer-domain) counter.
  */
 export const POST: RequestHandler = async ({ request, platform }) => {
-	if (!site.features.analytics) return json({ ok: true });
+	if (!hasFeature('analytics')) return json({ ok: true });
 
 	const db = getDb(platform);
 
@@ -33,13 +34,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		}
 	}
 
-	const day = new Date().toISOString().slice(0, 10);
-	await run(
-		db,
-		`INSERT INTO stats_daily (day, path, referrer, views) VALUES (?, ?, ?, 1)
-		 ON CONFLICT (day, path, referrer) DO UPDATE SET views = views + 1`,
-		[day, path, referrer]
-	);
-
+	await recordPageview(db, path, referrer);
 	return json({ ok: true });
 };

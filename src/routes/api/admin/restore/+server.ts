@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { isAdmin } from '$lib/server/auth';
 import { restoreFromBundle, type ExportFile } from '$lib/server/restore';
+import { invalidateAll } from '$lib/server/cache';
 
 export const prerender = false;
 
@@ -22,5 +23,6 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const result = await restoreFromBundle(db, payload.files ?? []);
+	await invalidateAll(event.url.origin);
 	return json({ ok: true, ...result });
 };

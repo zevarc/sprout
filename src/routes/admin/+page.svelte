@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import PageLogo from '$lib/components/PageLogo.svelte';
   import { contentTypes } from '$lib/content/registry';
+  import { site } from '$lib/site';
+  import { hasFeature } from '$lib/engine/features';
 
   let role = $state('loading');
   let token = $state('');
@@ -58,6 +60,16 @@
   let queue = $state([]);
   /** @type {any} */
   let stats = $state(null);
+
+  // 成员与邀请（features.members 开启时）
+  /** @type {any[]} */
+  let members = $state([]);
+  /** @type {any[]} */
+  let invites = $state([]);
+  let inviteLabel = $state('');
+  let memberMsg = $state('');
+  /** @type {string | null} */
+  let newInviteUrl = $state(null);
 
   const types = Object.values(contentTypes).map((t) => t.type);
 
@@ -191,11 +203,55 @@
     stats = await res.json();
   }
 
+  async function loadMembers() {
+    const res = await fetch('/api/admin/members');
+    if (!res.ok) {
+      members = [];
+      invites = [];
+      return;
+    }
+    const data = await res.json();
+    members = data.members ?? [];
+    invites = data.invites ?? [];
+  }
+
+  async function createInvite() {
+    memberMsg = '';
+    newInviteUrl = null;
+    const res = await fetch('/api/admin/members/invites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: inviteLabel || null })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      memberMsg = `生成失败：${data.error ?? res.status}`;
+      return;
+    }
+    newInviteUrl = `${location.origin}${data.url}`;
+    inviteLabel = '';
+    await loadMembers();
+  }
+
+  /** @param {string} id */
+  async function removeMember(id) {
+    if (!confirm('移除这个成员？其登录会话也会失效。')) return;
+    await fetch(`/api/admin/members/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await loadMembers();
+  }
+
+  /** @param {string} id */
+  async function revokeInvite(id) {
+    await fetch(`/api/admin/members/invites/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await loadMembers();
+  }
+
   $effect(() => {
     if (role !== 'owner') return;
     if (tab === 'content') loadNodes();
     else if (tab === 'moderation') loadQueue();
     else if (tab === 'stats') loadStats();
+    else if (tab === 'members') loadMembers();
   });
 
   function newDraft() {
@@ -203,7 +259,7 @@
       id: null,
       type: 'moment',
       slug: '',
-      lang: 'en',
+      lang: site.defaultLocale,
       title: '',
       summary: '',
       bodyMd: '',
@@ -653,6 +709,9 @@
       <button class:active={tab === 'content'} onclick={() => (tab = 'content')}>内容</button>
       <button class:active={tab === 'moderation'} onclick={() => (tab = 'moderation')}>审核</button>
       <button class:active={tab === 'stats'} onclick={() => (tab = 'stats')}>统计</button>
+      {#if hasFeature('members')}
+        <button class:active={tab === 'members'} onclick={() => (tab = 'members')}>成员</button>
+      {/if}
     </nav>
 
     {#if tab === 'content'}
@@ -669,8 +728,7 @@
               </select>
               <select bind:value={langFilter} aria-label="语言">
                 <option value="">全部语言</option>
-                <option value="en">en</option>
-                <option value="zh">zh</option>
+                {#each site.locales as loc}<option value={loc.code}>{loc.code}</option>{/each}
               </select>
               <select bind:value={statusFilter} aria-label="状态">
                 <option value="">全部状态</option>
@@ -728,8 +786,7 @@
                   </label>
                   <label>语言
                     <select bind:value={draft.lang}>
-                      <option value="en">en</option>
-                      <option value="zh">zh</option>
+                      {#each site.locales as loc}<option value={loc.code}>{loc.code}</option>{/each}
                     </select>
                   </label>
                   <label>状态
@@ -944,6 +1001,59 @@
           </ul>
         {/if}
       {/if}
+    {/if}
+
+    {#if tab === 'members' && hasFeature('members')}
+      <section class="members">
+        <div class="member-add">
+          <input type="text" bind:value={inviteLabel} placeholder="成员称呼（可选）" />
+          <button class="primary" onclick={createInvite}>生成邀请链接</button>
+        </div>
+        {#if memberMsg}<p class="error">{memberMsg}</p>{/if}
+        {#if newInviteUrl}
+          <p class="muted">邀请链接（单次有效，14 天）：<code>{newInviteUrl}</code></p>
+        {/if}
+
+        <h2>成员</h2>
+        {#if members.length === 0}
+          <p class="muted">还没有成员。</p>
+        {:else}
+          <ul class="queue">
+            {#each members as m (m.id)}
+              <li>
+                <div class="q-meta">
+                  <span class="node-type">{m.name}</span>
+                  <time>{m.createdAt}</time>
+                </div>
+                <div class="actions">
+                  <button class="danger" onclick={() => removeMember(m.id)}>移除</button>
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+
+        <h2>邀请</h2>
+        {#if invites.length === 0}
+          <p class="muted">还没有邀请。</p>
+        {:else}
+          <ul class="queue">
+            {#each invites as i (i.id)}
+              <li>
+                <div class="q-meta">
+                  <span class="node-type">{i.label ?? '（未命名）'}</span>
+                  <span class="muted">{i.acceptedAt ? '已使用' : `有效期至 ${i.expiresAt}`}</span>
+                </div>
+                {#if !i.acceptedAt}
+                  <div class="actions">
+                    <button class="ghost" onclick={() => revokeInvite(i.id)}>撤销</button>
+                  </div>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
     {/if}
   {/if}
 </main>
@@ -1453,5 +1563,22 @@
   .link-row button {
     padding: 4px 10px;
     font-size: 0.74rem;
+  }
+
+  .member-add {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .member-add input {
+    flex: 1 1 220px;
+  }
+
+  .members code {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    word-break: break-all;
   }
 </style>

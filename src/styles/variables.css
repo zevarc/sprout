@@ -56,6 +56,12 @@
   --color-outline: var(--color-paper-line);
   --color-shadow: rgba(41, 55, 47, 0.14);
 
+  /* ========== Elevation (token-only; themes may override) ========== */
+  --shadow-soft: 0 2px 10px rgba(41, 55, 47, 0.08);
+  --shadow-float: 0 4px 16px rgba(41, 55, 47, 0.12);
+  --shadow-glow: 0 6px 20px rgba(94, 139, 116, 0.22);
+  --shadow-card: 0 8px 26px rgba(94, 139, 116, 0.14);
+
   /* Aliases used by components */
   --primary: var(--color-primary);
   --border-color: var(--color-paper-line);
@@ -98,6 +104,11 @@
 
     --color-outline: #2b3b32;
     --color-shadow: rgba(0, 0, 0, 0.5);
+
+    --shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.4);
+    --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.5);
+    --shadow-glow: 0 6px 22px rgba(143, 184, 159, 0.18);
+    --shadow-card: 0 8px 26px rgba(0, 0, 0, 0.45);
 
     --primary: var(--color-primary);
     --border-color: var(--color-paper-line);

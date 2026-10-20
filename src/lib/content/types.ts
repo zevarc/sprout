@@ -2,6 +2,9 @@
 
 export type NodeStatus = 'draft' | 'scheduled' | 'published' | 'archived';
 
+/** `private` content is only readable by a signed-in owner/member. */
+export type NodeVisibility = 'public' | 'private';
+
 export interface ContentNode {
 	id: string;
 	type: string;
@@ -14,6 +17,11 @@ export interface ContentNode {
 	bodyHtml: string | null;
 	status: NodeStatus;
 	publishedAt: string | null;
+	/** When the thing happened (may predate writing it down). */
+	occurredAt: string | null;
+	visibility: NodeVisibility;
+	/** Who recorded it — null on single-author sites. */
+	authorActorId: string | null;
 	createdAt: string;
 	updatedAt: string;
 	extra: Record<string, unknown>;
@@ -30,6 +38,9 @@ export interface NewNode {
 	bodyMd: string;
 	status?: NodeStatus;
 	publishedAt?: string | null;
+	occurredAt?: string | null;
+	visibility?: NodeVisibility;
+	authorActorId?: string | null;
 	extra?: Record<string, unknown>;
 }
 
@@ -79,7 +90,7 @@ export interface NewEvent {
 	payload?: Record<string, unknown> | null;
 }
 
-export type ActorKind = 'owner' | 'visitor' | 'anonymous' | 'external';
+export type ActorKind = 'owner' | 'member' | 'visitor' | 'anonymous' | 'external';
 
 export interface Actor {
 	id: string;

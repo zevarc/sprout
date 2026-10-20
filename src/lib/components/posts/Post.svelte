@@ -4,20 +4,21 @@
     import Arc from '$lib/components/visuals/Arc.svelte';
     import CommentSection from '$lib/components/comments/CommentSection.svelte';
     import { onMount } from 'svelte';
-    import { getDictionary } from '$lib/i18n/index.js';
+    import { getDictionary, getLink, homePath as localeHome } from '$lib/i18n/index.js';
     import { site } from '$lib/site';
+    import { hasFeature } from '$lib/engine/features';
     import { pageTitle } from '$lib/seo';
 
-    const { post, related = [] } = $props();
+    const { post, related = [], comments = true } = $props();
 
     let progress = $state(0);
     let activeId = $state('');
 
-    const lang = $derived(post.url.startsWith('zh/') ? 'zh' : 'en');
+    const lang = $derived(post.lng);
     const t = $derived(getDictionary(lang));
     const tocLabel = $derived(t.posts.toc);
     const relatedLabel = $derived(t.posts.related);
-    const ogImage = $derived(lang === 'zh' ? `${site.url}/zh/og/${post.slug}.svg` : `${site.url}/og/${post.slug}.svg`);
+    const ogImage = $derived(`${site.url}/${getLink(`og/${post.slug}.svg`, lang)}`);
     /** @type {import('$lib/reading').TocItem[]} */
     const headings = $derived((post.headings ?? []).filter((/** @type {import('$lib/reading').TocItem} */ h) => h.level <= 4));
 
@@ -73,13 +74,20 @@
       activeId = id;
     }
 
-    const contentUrl = $derived(post.url.startsWith('zh/') ? post.url.slice(3) : post.url);
-    const enUrl = $derived(contentUrl);
-    const zhUrl = $derived(`zh/${contentUrl}`);
+    // The path within its locale (e.g. `posts/hello`), so alternates can be
+    // rebuilt for every configured locale.
+    const contentPath = $derived.by(() => {
+      const seg = post.url.split('/')[0];
+      return lang !== site.defaultLocale && seg === lang ? post.url.slice(seg.length + 1) : post.url;
+    });
 
-    const homePath = $derived(lang === 'zh' ? '/zh' : '/');
-    const postsPath = $derived(lang === 'zh' ? '/zh/posts' : '/posts');
-    const switchPath = $derived(post.hasAlt ? undefined : (lang === 'zh' ? '/' : '/zh'));
+    const homeLink = $derived(localeHome(lang));
+    const postsPath = $derived(`/${getLink('posts', lang)}`);
+    const switchPath = $derived.by(() => {
+      if (post.hasAlt) return undefined;
+      const other = site.locales.find((l) => l.code !== lang);
+      return other ? localeHome(other.code) : undefined;
+    });
 
     const json = $derived(
         JSON.stringify(post.jsonLd)
@@ -111,9 +119,10 @@
     <meta property="og:url" content={`${site.url}/${post.url}`} />
     <link rel="canonical" href={`${site.url}/${post.url}`} />
     {#if post.hasAlt}
-        <link rel="alternate" hreflang="en" href={`${site.url}/${enUrl}`} />
-        <link rel="alternate" hreflang="zh" href={`${site.url}/${zhUrl}`} />
-        <link rel="alternate" hreflang="x-default" href={`${site.url}/${enUrl}`} />
+        {#each site.locales as loc}
+            <link rel="alternate" hreflang={loc.code} href={`${site.url}/${getLink(contentPath, loc.code)}`} />
+        {/each}
+        <link rel="alternate" hreflang="x-default" href={`${site.url}/${getLink(contentPath, site.defaultLocale)}`} />
     {/if}
     {@html `<script type="application/ld+json">${json}</script>`}
 </svelte:head>
@@ -124,7 +133,7 @@
 
 <LanguageSwitcher overrideHref={switchPath} />
 
-<PageLogo href={homePath} />
+<PageLogo href={homeLink} />
 
 {#if headings.length > 0}
   <details class="toc-mobile">
@@ -172,7 +181,7 @@
                     {#each post.tags as tag}
                         <a
                             class="tag pill"
-                            href={`/${lang === 'zh' ? 'zh/tags' : 'tags'}/${encodeURIComponent(tag)}`}
+                            href={`/${getLink('tags', lang)}/${encodeURIComponent(tag)}`}
                         >{tag}</a>
                     {/each}
                 </div>
@@ -199,7 +208,7 @@
       </section>
     {/if}
 
-    {#if site.features.comments}
+    {#if comments && hasFeature('comments')}
       <CommentSection targetType={post.type} targetId={post.id} {lang} />
     {/if}
 

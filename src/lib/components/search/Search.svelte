@@ -2,12 +2,13 @@
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
   import PageLogo from '$lib/components/PageLogo.svelte';
   import { onMount } from 'svelte';
-  import { getDictionary } from '$lib/i18n/index.js';
+  import { getDictionary, homePath } from '$lib/i18n/index.js';
+  import { site } from '$lib/site';
   import { pageTitle } from '$lib/seo';
 
-  let { lang = 'en' } = $props();
+  let { lang = site.defaultLocale } = $props();
   let t = $derived(getDictionary(lang));
-  const homePath = $derived(lang === 'zh' ? '/zh' : '/');
+  const home = $derived(homePath(lang));
 
   let query = $state('');
   /** @type {Array<{id:string,title:string,type:string,url:string,excerpt:string}>} */
@@ -68,7 +69,7 @@
 </svelte:head>
 
 <LanguageSwitcher />
-<PageLogo href={homePath} />
+<PageLogo href={home} />
 
 <div class="search-page">
   <header class="search-head">

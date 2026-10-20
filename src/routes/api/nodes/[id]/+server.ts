@@ -1,17 +1,17 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
-import { isAdmin } from '$lib/server/auth';
+import { isEditor } from '$lib/server/auth';
 import { deleteNode, getNode, updateNode } from '$lib/server/repositories/nodes';
 import { nodeUrl } from '$lib/content/view';
-import { derivedPaths, purgeCache } from '$lib/server/cache';
-import type { NodeStatus } from '$lib/content/types';
+import { invalidateAll, invalidateNode } from '$lib/server/cache';
+import type { NodeStatus, NodeVisibility } from '$lib/content/types';
 
 export const prerender = false;
 
 export const GET: RequestHandler = async (event) => {
 	const db = getDb(event.platform);
-	if (!(await isAdmin(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
+	if (!(await isEditor(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
 	const node = await getNode(db, event.params.id);
 	if (!node) return json({ error: 'not found' }, { status: 404 });
 	return json({ node });
@@ -20,7 +20,7 @@ export const GET: RequestHandler = async (event) => {
 /** PATCH /api/nodes/[id] — update fields and/or status (publish, archive…). */
 export const PATCH: RequestHandler = async (event) => {
 	const db = getDb(event.platform);
-	if (!(await isAdmin(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
+	if (!(await isEditor(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
 
 	let body: Record<string, unknown>;
 	try {
@@ -43,18 +43,26 @@ export const PATCH: RequestHandler = async (event) => {
 					? null
 					: String(body.publishedAt)
 				: undefined,
+		occurredAt:
+			body.occurredAt !== undefined
+				? body.occurredAt == null
+					? null
+					: String(body.occurredAt)
+				: undefined,
+		visibility:
+			body.visibility !== undefined ? (body.visibility as NodeVisibility) : undefined,
 		extra: body.extra !== undefined ? (body.extra as Record<string, unknown>) : undefined
 	});
 
 	if (!node) return json({ error: 'not found' }, { status: 404 });
-	await purgeCache(event.url.origin, derivedPaths(nodeUrl(node), node.slug, node.lang));
+	await invalidateNode(event.url.origin, nodeUrl(node), node.slug);
 	return json({ ok: true, node });
 };
 
 export const DELETE: RequestHandler = async (event) => {
 	const db = getDb(event.platform);
-	if (!(await isAdmin(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
+	if (!(await isEditor(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
 	await deleteNode(db, event.params.id);
-	await purgeCache(event.url.origin, derivedPaths());
+	await invalidateAll(event.url.origin);
 	return json({ ok: true });
 };

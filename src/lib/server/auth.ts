@@ -172,16 +172,37 @@ export async function logout(event: RequestEvent, db: D1Database): Promise<void>
 	event.cookies.delete(ACTOR_COOKIE, { path: '/' });
 }
 
-/** Returns the owner session or throws a 401 response. */
-export async function requireOwner(event: RequestEvent, db: D1Database): Promise<Session> {
-	const session = await getSession(event, db);
-	if (!session || session.role !== 'owner') {
-		throw new Response(JSON.stringify({ error: 'unauthorized' }), {
-			status: 401,
-			headers: { 'Content-Type': 'application/json' }
-		});
-	}
-	return session;
+/**
+ * Hashes an opaque token with the session secret before it is stored or
+ * compared — used for session cookies and invite links alike.
+ */
+export async function hashToken(secret: string, token: string): Promise<string> {
+	return hmac(secret, token);
+}
+
+/**
+ * Signs an existing actor in as a `member` (used by the invite flow).
+ * Mirrors `loginOwner` but never checks a shared secret — the invite is the
+ * credential.
+ */
+export async function issueMemberSession(
+	event: RequestEvent,
+	db: D1Database,
+	actorId: string
+): Promise<boolean> {
+	const secret = event.platform?.env?.SESSION_SECRET;
+	if (!secret) return false;
+
+	const token = randomToken();
+	await createSession(db, actorId, await hmac(secret, token), 'member', OWNER_TTL);
+	event.cookies.set(SESSION_COOKIE, token, {
+		path: '/',
+		httpOnly: true,
+		sameSite: 'lax',
+		secure: true,
+		maxAge: OWNER_TTL
+	});
+	return true;
 }
 
 /** True for an owner session or a machine request carrying `Bearer ADMIN_TOKEN`. */
@@ -191,4 +212,19 @@ export async function isAdmin(event: RequestEvent, db: D1Database): Promise<bool
 	if (adminToken && bearer === `Bearer ${adminToken}`) return true;
 	const session = await getSession(event, db);
 	return session?.role === 'owner';
+}
+
+/**
+ * True for anyone allowed to read/write content — an owner or a `member`
+ * session, or a machine request carrying `Bearer ADMIN_TOKEN`.
+ *
+ * On a single-author site only the owner exists, so this is equivalent to
+ * `isAdmin`; on a multi-member site it is what lets family members record.
+ */
+export async function isEditor(event: RequestEvent, db: D1Database): Promise<boolean> {
+	const adminToken = event.platform?.env?.ADMIN_TOKEN;
+	const bearer = event.request.headers.get('authorization') ?? '';
+	if (adminToken && bearer === `Bearer ${adminToken}`) return true;
+	const session = await getSession(event, db);
+	return session?.role === 'owner' || session?.role === 'member';
 }

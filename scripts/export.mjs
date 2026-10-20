@@ -49,8 +49,15 @@ let mediaCount = 0;
 if (mediaLine && !process.argv.includes('--no-media')) {
 	for (const line of mediaLine.content.split('\n').filter(Boolean)) {
 		const item = JSON.parse(line);
-		const mediaRes = await fetch(`${API}/media/${item.r2_key}`);
-		if (!mediaRes.ok) continue;
+		// Media is fetched through our own route, which enforces visibility — so
+		// the request must carry the admin token or private binaries are dropped.
+		const mediaRes = await fetch(`${API}/media/${item.r2_key}`, {
+			headers: { Authorization: `Bearer ${TOKEN}` }
+		});
+		if (!mediaRes.ok) {
+			console.warn(`  media fetch failed: ${item.r2_key} (${mediaRes.status})`);
+			continue;
+		}
 		const buffer = Buffer.from(await mediaRes.arrayBuffer());
 		const target = join(DIR, 'media', item.r2_key);
 		mkdirSync(dirname(target), { recursive: true });

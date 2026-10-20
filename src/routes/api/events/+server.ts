@@ -52,20 +52,23 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 	const actors = await Promise.all(actorIds.map((id) => getActor(db, id)));
 	const actorMap = new Map(actors.filter(Boolean).map((a) => [a!.id, a!]));
 
-	const comments: CommentDTO[] = events.map((e) => {
-		const actor = e.actorId ? actorMap.get(e.actorId) : undefined;
-		return {
-			id: e.id,
-			parentId: e.parentId,
-			bodyHtml: (e.payload?.html as string) ?? '',
-			createdAt: e.createdAt,
-			author: {
-				name: actor?.displayName ?? 'Anonymous',
-				avatarUrl: actor?.avatarUrl ?? null,
-				isOwner: actor?.kind === 'owner'
-			}
-		};
-	});
+	const comments: CommentDTO[] = await Promise.all(
+		events.map(async (e) => {
+			const actor = e.actorId ? actorMap.get(e.actorId) : undefined;
+			return {
+				id: e.id,
+				parentId: e.parentId,
+				// Rendered HTML is derived, never stored.
+				bodyHtml: e.bodyMd ? await renderComment(e.bodyMd) : '',
+				createdAt: e.createdAt,
+				author: {
+					name: actor?.displayName ?? 'Anonymous',
+					avatarUrl: actor?.avatarUrl ?? null,
+					isOwner: actor?.kind === 'owner'
+				}
+			};
+		})
+	);
 
 	return json({ comments });
 };
@@ -179,7 +182,6 @@ export const POST: RequestHandler = async (event) => {
 		/* address unavailable */
 	}
 
-	const html = await renderComment(text);
 	const created = await addEvent(db, {
 		kind: 'comment',
 		targetType,
@@ -187,7 +189,8 @@ export const POST: RequestHandler = async (event) => {
 		actorId,
 		parentId: body.parentId ? String(body.parentId) : null,
 		bodyMd: text,
-		payload: { html, ipHash }
+		// Structured metadata only — rendered HTML is derived on read.
+		payload: ipHash ? { ipHash } : null
 	});
 
 	// Owner auto-approves; a previously-approved commenter is trusted;

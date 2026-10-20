@@ -50,7 +50,7 @@ export function wrapTitle(text: string, maxWidth = 44): string[] {
   return lines;
 }
 
-export function generateOgSvg(title: string, lang: 'en' | 'zh'): string {
+export function generateOgSvg(title: string, lang: string): string {
   const lines = wrapTitle(title, 30);
   const fontSize = lines.length === 1 ? 66 : lines.length === 2 ? 54 : 44;
   const lineHeight = fontSize * 1.25;

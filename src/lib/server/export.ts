@@ -7,9 +7,10 @@
  */
 
 import type { D1Database } from '$lib/server/db';
-import { query } from '$lib/server/db';
+import { first, query } from '$lib/server/db';
 
-export const EXPORT_SCHEMA_VERSION = 1;
+/** Bumped 1 → 2 when ids became opaque and derived relations/HTML left the export. */
+export const EXPORT_SCHEMA_VERSION = 2;
 
 /** JSON.stringify with recursively sorted object keys. */
 function stableStringify(value: unknown): string {
@@ -58,7 +59,7 @@ export async function buildExport(db: D1Database): Promise<ExportBundle> {
 	const nodes = await query<Record<string, unknown>>(
 		db,
 		`SELECT id, type, slug, lang, group_id, title, summary, body_md, status,
-			published_at, created_at, updated_at, extra
+			published_at, occurred_at, visibility, author_actor_id, created_at, updated_at, extra
 		 FROM nodes ORDER BY id`
 	);
 	const relations = await query<Record<string, unknown>>(
@@ -90,10 +91,16 @@ export async function buildExport(db: D1Database): Promise<ExportBundle> {
 
 	const files: ExportFile[] = [];
 
+	const schemaRow = await first<{ value: string }>(
+		db,
+		"SELECT value FROM meta WHERE key = 'schema_version'"
+	);
+
 	files.push({
 		path: 'schema.json',
 		content: stableStringify({
 			version: EXPORT_SCHEMA_VERSION,
+			db_schema: schemaRow?.value ?? '2',
 			generator: 'sprout-export',
 			tables: [
 				'nodes',
@@ -143,6 +150,9 @@ export async function buildExport(db: D1Database): Promise<ExportBundle> {
 			`summary: ${JSON.stringify(n.summary ?? '')}`,
 			`status: ${n.status}`,
 			`published_at: ${n.published_at ?? ''}`,
+			`occurred_at: ${n.occurred_at ?? ''}`,
+			`visibility: ${n.visibility ?? 'public'}`,
+			`author_actor_id: ${n.author_actor_id ?? ''}`,
 			`created_at: ${n.created_at}`,
 			`updated_at: ${n.updated_at}`,
 			`extra: ${stableStringify(parseJson(n.extra as string | null) ?? {})}`,

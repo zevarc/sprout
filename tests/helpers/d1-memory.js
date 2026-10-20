@@ -3,13 +3,18 @@
  * Lets us test repositories / export / restore without Cloudflare.
  */
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const SCHEMA = readFileSync(
-	fileURLToPath(new URL('../../migrations/0001_init.sql', import.meta.url)),
-	'utf8'
-);
+// Apply every migration, in filename order — the migrations directory is the
+// single source of truth, so a new migration is picked up automatically.
+const MIGRATIONS_DIR = fileURLToPath(new URL('../../migrations/', import.meta.url));
+const SCHEMA = readdirSync(MIGRATIONS_DIR)
+	.filter((name) => name.endsWith('.sql'))
+	.sort()
+	.map((name) => readFileSync(join(MIGRATIONS_DIR, name), 'utf8'))
+	.join('\n');
 
 /**
  * @param {DatabaseSync} sqlite
@@ -62,6 +67,8 @@ function d1FromSqlite(sqlite) {
 
 export function createTestDb() {
 	const sqlite = new DatabaseSync(':memory:');
+	// Enforce the schema's foreign keys so referential integrity is testable.
+	sqlite.exec('PRAGMA foreign_keys = ON');
 	sqlite.exec(SCHEMA);
 	return { db: d1FromSqlite(sqlite), sqlite };
 }

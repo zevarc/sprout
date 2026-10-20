@@ -1,35 +1,35 @@
 <script>
   import { page } from '$app/stores';
+  import { site } from '$lib/site';
+  import { localeFromPath, supportedLanguages } from '$lib/i18n/index.js';
 
   let { overrideHref = undefined } = $props();
 
-  // 获取当前语言
-  let currentLang = $derived($page.url.pathname.startsWith('/zh') ? 'zh' : 'en');
-  
-  // 获取切换后的路径
+  const currentLang = $derived(localeFromPath($page.url.pathname));
+  const others = $derived(site.locales.filter((l) => l.code !== currentLang));
+
   /**
-   * @param {string} currentPath
-   * @param {string} targetLang
+   * Swap the locale prefix of a path. The default locale lives at the root.
+   * @param {string} pathname
+   * @param {string} target
    */
-  function getSwitchPath(currentPath, targetLang) {
-    if (targetLang === 'zh') {
-      // 首页 '/' 直接切到 '/zh'（避免尾斜杠，对应静态产物 zh.html）
-      return currentPath === '/' ? '/zh' : '/zh' + currentPath;
-    } else {
-      // 切换到英文 - 移除 /zh 前缀
-      if (currentPath.startsWith('/zh')) {
-        return currentPath.replace('/zh', '') || '/';
-      }
-      return currentPath;
-    }
+  function swapLocale(pathname, target) {
+    const current = localeFromPath(pathname);
+    let rest = current === site.defaultLocale ? pathname : pathname.slice(`/${current}`.length) || '/';
+    if (!rest.startsWith('/')) rest = `/${rest}`;
+    return target === site.defaultLocale ? rest : `/${target}${rest === '/' ? '' : rest}`;
   }
-  
-  let switchPath = $derived(overrideHref ?? getSwitchPath($page.url.pathname, currentLang === 'en' ? 'zh' : 'en'));
 </script>
 
-<a href={switchPath} class="lang-switch">
-  {currentLang === 'en' ? '中文' : 'English'}
-</a>
+{#if supportedLanguages.length > 1}
+  {#each others as loc}
+    <a
+      href={overrideHref ?? swapLocale($page.url.pathname, loc.code)}
+      class="lang-switch"
+      data-locale={loc.code}
+    >{loc.label}</a>
+  {/each}
+{/if}
 
 <style>
   .lang-switch {
@@ -47,9 +47,13 @@
     text-decoration: none;
     transition: color 0.2s, border-color 0.2s, box-shadow 0.2s;
     backdrop-filter: blur(10px);
-    box-shadow: 0 2px 10px rgba(41, 55, 47, 0.08);
+    box-shadow: var(--shadow-soft);
   }
-  
+
+  .lang-switch + .lang-switch {
+    right: 96px;
+  }
+
   .lang-switch:hover {
     border-color: var(--color-bud);
     color: var(--color-bud);

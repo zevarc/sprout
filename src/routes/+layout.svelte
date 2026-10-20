@@ -7,12 +7,21 @@
   import { setupLightbox } from '$lib/lightbox.js';
   import { setupHighlight } from '$lib/highlight.js';
   import { site } from '$lib/site';
+  import { hasFeature } from '$lib/engine/features';
+  import { getLink, localeFromPath } from '$lib/i18n/index.js';
+  import { publicTypes } from '$lib/content/registry';
 
   const {children}=$props()
 
-  let htmlLang = $derived($page.url.pathname.startsWith('/zh') ? 'zh' : 'en');
+  const htmlLang = $derived(localeFromPath($page.url.pathname));
   const brandCopy = $derived(site.brand[htmlLang] ?? site.brand[site.defaultLocale]);
-  const isPostPage = $derived(/^\/(?:zh\/)?(?:posts|projects)\/.+/.test($page.url.pathname));
+  // Any `<type>/<slug>` detail page renders its own social card.
+  const isPostPage = $derived.by(() => {
+    const nonDefault = site.locales.map((l) => l.code).filter((c) => c !== site.defaultLocale);
+    let segs = $page.url.pathname.split('/').filter(Boolean);
+    if (nonDefault.includes(segs[0])) segs = segs.slice(1);
+    return segs.length >= 2 && publicTypes().some((t) => t.route === `/${segs[0]}`);
+  });
 
   $effect(() => {
     if (typeof document !== 'undefined') {
@@ -24,7 +33,7 @@
   $effect(() => {
     const path = $page.url.pathname;
     if (typeof document === 'undefined') return;
-    if (!site.features.analytics) return;
+    if (!hasFeature('analytics')) return;
     if (path.startsWith('/admin') || path.startsWith('/api') || path.startsWith('/media')) return;
     const payload = JSON.stringify({ path, referrer: document.referrer });
     if (navigator.sendBeacon) {
@@ -88,7 +97,7 @@
 
 <svelte:head>
 		<link rel="icon" href={favicon} type="image/svg+xml" />
-		<link rel="alternate" type="application/rss+xml" title={`${site.name} RSS`} href={$page.url.pathname.startsWith('/zh') ? '/zh/feed.xml' : '/feed.xml'} />
+		<link rel="alternate" type="application/rss+xml" title={`${site.name} RSS`} href={`/${getLink('feed.xml', htmlLang)}`} />
 		{#if !isPostPage}
 			<meta property="og:image" content={`${site.url}/og-image.svg`} />
 		{/if}

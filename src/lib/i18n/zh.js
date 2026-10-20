@@ -2,6 +2,9 @@
 // 品牌身份（站名、首页文案、SEO）在 src/site.config.js 里。
 export const zh = {
   language: 'English',
+  common: {
+    empty: '还没有内容。',
+  },
   nav: {
     home: '首页',
     posts: '博客',

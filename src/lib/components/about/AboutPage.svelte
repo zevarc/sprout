@@ -1,14 +1,14 @@
 <script>
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
   import PageLogo from '$lib/components/PageLogo.svelte';
-  import { getDictionary, getLink } from '$lib/i18n/index.js';
+  import { getDictionary, getLink, homePath } from '$lib/i18n/index.js';
   import { site } from '$lib/site';
   import { pageTitle } from '$lib/seo';
 
-  let { lang = 'en' } = $props();
+  let { lang = site.defaultLocale } = $props();
 
   const t = $derived(getDictionary(lang));
-  const homePath = $derived(lang === 'zh' ? '/zh' : '/');
+  const home = $derived(homePath(lang));
 
   /** @param {string} text */
   const fill = (text) => text.replace(/\{name\}/g, site.name);
@@ -18,13 +18,14 @@
   <title>{pageTitle(t.about.title)}</title>
   <meta name="description" content={fill(t.seo.about.description)} />
   <link rel="canonical" href={`${site.url}/${getLink('about', lang)}`} />
-  <link rel="alternate" hreflang="en" href={`${site.url}/about`} />
-  <link rel="alternate" hreflang="zh" href={`${site.url}/zh/about`} />
-  <link rel="alternate" hreflang="x-default" href={`${site.url}/about`} />
+  {#each site.locales as loc}
+    <link rel="alternate" hreflang={loc.code} href={`${site.url}/${getLink('about', loc.code)}`} />
+  {/each}
+  {#if site.locales.length > 1}<link rel="alternate" hreflang="x-default" href={`${site.url}/${getLink('about', site.defaultLocale)}`} />{/if}
 </svelte:head>
 
 <LanguageSwitcher />
-<PageLogo href={homePath} />
+<PageLogo href={home} />
 
 <main class="about-page">
   <header class="page-head">
@@ -82,7 +83,7 @@
       <span aria-hidden="true">·</span>
       <a href={site.contact.github} target="_blank" rel="noopener">{t.about.contact.githubLabel}</a>
       <span aria-hidden="true">·</span>
-      <a href={lang === 'zh' ? '/zh/feed.xml' : '/feed.xml'}>{t.about.contact.rssLabel}</a>
+      <a href={`/${getLink('feed.xml', lang)}`}>{t.about.contact.rssLabel}</a>
     </p>
   </section>
 </main>

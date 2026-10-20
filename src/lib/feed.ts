@@ -4,6 +4,11 @@ import { site } from '$lib/site';
 const SITE_URL = site.url;
 const MAX_ITEMS = 20;
 
+/** A blog-ish word per locale, for the channel title. */
+const BLOG_LABEL: Record<string, string> = { en: 'Blog', zh: '博客' };
+/** RSS `<language>` tag per locale (falls back to the code). */
+const LANG_TAG: Record<string, string> = { en: 'en', zh: 'zh-cn' };
+
 function rfc822(date: string): string {
   return new Date(date).toUTCString();
 }
@@ -17,13 +22,14 @@ function escapeXml(s: string): string {
     .replace(/'/g, '&apos;');
 }
 
-/** Generates an RSS 2.0 feed for the given language from pre-loaded views. */
-export function generateRss(lang: 'en' | 'zh', views: PostView[]): string {
-  const feedUrl = lang === 'zh' ? `${SITE_URL}/zh/feed.xml` : `${SITE_URL}/feed.xml`;
+/** Generates an RSS 2.0 feed for the given locale from pre-loaded views. */
+export function generateRss(views: PostView[], lang: string = site.defaultLocale): string {
+  const home = lang === site.defaultLocale ? '' : lang;
+  const feedUrl = `${SITE_URL}${home ? `/${home}` : ''}/feed.xml`;
   const brand = site.brand[lang] ?? site.brand[site.defaultLocale];
-  const title = lang === 'zh' ? `${site.name} - 博客` : `${site.name} - Blog`;
+  const title = `${site.name} - ${BLOG_LABEL[lang] ?? BLOG_LABEL.en}`;
   const description = brand.feedDescription;
-  const language = lang === 'zh' ? 'zh-cn' : 'en';
+  const language = LANG_TAG[lang] ?? lang;
 
   const posts: PostView[] = views
     .slice()
@@ -48,7 +54,7 @@ export function generateRss(lang: 'en' | 'zh', views: PostView[]): string {
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
   <title>${escapeXml(title)}</title>
-  <link>${SITE_URL}/${lang === 'zh' ? 'zh' : ''}</link>
+  <link>${SITE_URL}/${home}</link>
   <description>${escapeXml(description)}</description>
   <language>${language}</language>
   <atom:link href="${feedUrl}" rel="self" type="application/rss+xml"/>

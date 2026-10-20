@@ -1,6 +1,6 @@
 import type { Actor, ActorKind } from '$lib/content/types';
 import type { D1Database } from '$lib/server/db';
-import { first, run } from '$lib/server/db';
+import { first, query, run } from '$lib/server/db';
 import { ulid } from '$lib/server/id';
 import { site } from '$lib/site';
 
@@ -122,7 +122,7 @@ export async function createSession(
 	db: D1Database,
 	actorId: string,
 	tokenHash: string,
-	role: 'owner' | 'visitor',
+	role: 'owner' | 'member' | 'visitor',
 	ttlSeconds: number
 ): Promise<void> {
 	const now = Date.now();
@@ -162,4 +162,29 @@ export async function ensureOwner(db: D1Database): Promise<Actor> {
 	const row = await first<ActorRow>(db, "SELECT * FROM actors WHERE kind = 'owner' LIMIT 1", []);
 	if (row) return toActor(row);
 	return createActor(db, { kind: 'owner', displayName: site.author, handle: site.name });
+}
+
+/** Member actors — the people who can sign in and record alongside the owner. */
+export async function listMembers(db: D1Database): Promise<Actor[]> {
+	const rows = await query<ActorRow>(
+		db,
+		"SELECT * FROM actors WHERE kind = 'member' ORDER BY created_at ASC"
+	);
+	return rows.map(toActor);
+}
+
+/** Display names by actor id — for timelines/attribution without a JOIN in routes. */
+export async function listActorNames(db: D1Database): Promise<Record<string, string>> {
+	const rows = await query<{ id: string; display_name: string | null }>(
+		db,
+		'SELECT id, display_name FROM actors'
+	);
+	return Object.fromEntries(rows.map((r) => [r.id, r.display_name ?? '']));
+}
+
+/** Removes a member and everything that let them in. */
+export async function deleteActor(db: D1Database, id: string): Promise<void> {
+	await run(db, 'DELETE FROM sessions WHERE actor_id = ?', [id]);
+	await run(db, 'DELETE FROM actor_identities WHERE actor_id = ?', [id]);
+	await run(db, 'DELETE FROM actors WHERE id = ?', [id]);
 }

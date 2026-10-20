@@ -14,9 +14,9 @@
  *   7. 告诉你怎么部署、怎么登录后台
  *
  * 用法：
- *   pnpm setup                  # 交互式
- *   pnpm setup --dry-run        # 只打印将要做什么，不改任何东西
- *   pnpm setup --name my-site --db my-site-db --bucket my-site-media
+ *   pnpm bootstrap                  # 交互式
+ *   pnpm bootstrap --dry-run        # 只打印将要做什么，不改任何东西
+ *   pnpm bootstrap --name my-site --db my-site-db --bucket my-site-media
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -168,8 +168,9 @@ console.log('\n' + '─'.repeat(50));
 console.log(' 完成。接下来：\n');
 console.log('   1) 在 src/site.config.js 填上你的站点名与域名（当前：');
 console.log(`      name = "${site.name}"   url = "${site.url}"）`);
-console.log('   2) 构建并部署：  pnpm build && pnpm run deploy');
-console.log('   3) 打开 /admin 登录，令牌就是 .dev.vars 里的 ADMIN_TOKEN');
-console.log('   4) 迁移已有内容： ADMIN_TOKEN=… API_URL=https://你的域名 pnpm content:import');
+console.log('   2) 在 src/sprout.config.js 声明内容类型 / 能力 / 首页区块 / 主题');
+console.log('   3) 构建并部署：  pnpm build && pnpm run deploy');
+console.log('   4) 打开 /admin 登录，令牌就是 .dev.vars 里的 ADMIN_TOKEN');
+console.log('   5) 迁移已有内容： ADMIN_TOKEN=… API_URL=https://你的域名 pnpm content:import');
 console.log('\n 本地开发： pnpm dev');
 console.log(' 数据备份： pnpm content:export   （见 docs/VERIFY.md）\n');

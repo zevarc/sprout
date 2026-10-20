@@ -2,16 +2,18 @@ import { error } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { getNodeBySlug } from '$lib/server/repositories/nodes';
 import { nodeToProjectView } from '$lib/content/view';
-import { site } from '$lib/site';
+import { getContentType } from '$lib/content/registry';
+import { localeFromPath } from '$lib/i18n';
 
 export const prerender = false;
 
-export async function load({ params, platform }) {
-	if (!site.features.projects) throw error(404, 'Not found');
+export async function load({ params, platform, url }) {
+	if (!getContentType('project')) throw error(404, 'Not found');
 
 	const db = getDb(platform);
-	const node = await getNodeBySlug(db, 'project', params.slug, 'en');
+	const lang = localeFromPath(url.pathname);
+	const node = await getNodeBySlug(db, 'project', params.slug, lang);
 	if (!node || node.status !== 'published') throw error(404, 'Not found');
 
-	return { project: nodeToProjectView(node), bodyHtml: node.bodyHtml ?? '' };
+	return { project: nodeToProjectView(node), bodyHtml: node.bodyHtml ?? '', lang };
 }

@@ -23,6 +23,18 @@ const SOURCES = [
 	{ dir: 'src/content/notes', type: 'note' }
 ];
 
+/**
+ * A stable opaque id per logical work, so its locale variants share a group
+ * (translations). Node ids are generated server-side; import is keyed on
+ * `(type, slug, lang)`.
+ * @type {Map<string, string>}
+ */
+const groupIds = new Map();
+function groupFor(key) {
+	if (!groupIds.has(key)) groupIds.set(key, crypto.randomUUID());
+	return groupIds.get(key);
+}
+
 /** Optional long-form body for a project: src/content/projects/<slug>.<lang>.md */
 function projectBody(slug, lang) {
 	const path = join(ROOT, 'src/content/projects', `${slug}.${lang}.md`);
@@ -82,11 +94,10 @@ async function main() {
 			const updated = toIsoDate(data.updated) ?? date;
 			const draft = data.draft === true;
 			nodes.push({
-				id: `${source.type}:${slug}:${lang}`,
 				type: source.type,
 				slug,
 				lang,
-				groupId: `${source.type}:${slug}`,
+				groupId: groupFor(`${source.type}:${slug}`),
 				title: String(data.title ?? slug),
 				summary: String(data.description ?? ''),
 				bodyMd: body.trimStart(),
@@ -113,12 +124,11 @@ async function main() {
 		const common = {
 			type: 'project',
 			slug: project.slug,
-			groupId: `project:${project.slug}`,
+			groupId: groupFor(`project:${project.slug}`),
 			publishedAt: `${project.year ?? '2026'}-01-01T00:00:00.000Z`
 		};
 		const build = (lang, data, tags) => ({
 			...common,
-			id: `project:${project.slug}:${lang}`,
 			lang,
 			title: data.title,
 			summary: data.description ?? '',
@@ -142,11 +152,10 @@ async function main() {
 
 	const selected = ONLY ? nodes.filter((n) => n.type === ONLY) : nodes;
 
-	// Relations are derived server-side from groupId, so batching is safe.
-	// Batch to stay within Workers CPU limits while rendering markdown.
+	// Translations are derived from `groupId` at read time, so batching is safe
+	// and no relation rows are written.
 	const BATCH = Number(process.env.IMPORT_BATCH ?? 8);
 	let total = 0;
-	let relations = 0;
 	for (let i = 0; i < selected.length; i += BATCH) {
 		const chunk = selected.slice(i, i + BATCH);
 		const res = await fetch(`${API}/api/admin/import`, {
@@ -162,7 +171,6 @@ async function main() {
 		}
 		const result = await res.json();
 		total += result.count ?? 0;
-		relations += result.relations ?? 0;
 		process.stdout.write(`\r  imported ${total}/${selected.length}…`);
 	}
 
@@ -170,7 +178,6 @@ async function main() {
 	console.log(`  posts: ${selected.filter((n) => n.type === 'post').length}`);
 	console.log(`  notes: ${selected.filter((n) => n.type === 'note').length}`);
 	console.log(`  projects: ${selected.filter((n) => n.type === 'project').length}`);
-	console.log(`  relations written: ${relations}`);
 }
 
 main().catch((err) => {

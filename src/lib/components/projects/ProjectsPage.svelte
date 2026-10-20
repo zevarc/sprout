@@ -2,27 +2,28 @@
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
   import PageLogo from '$lib/components/PageLogo.svelte';
   import ProjectsList from '$lib/components/projects/Projects.svelte';
-  import { getDictionary, getLink } from '$lib/i18n/index.js';
+  import { getDictionary, getLink, homePath } from '$lib/i18n/index.js';
   import { site } from '$lib/site';
   import { pageTitle } from '$lib/seo';
 
-  const { lang = 'en', projects = [] } = $props();
+  const { lang = site.defaultLocale, projects = [] } = $props();
 
   let t = $derived(getDictionary(lang));
-  const homePath = $derived(lang === 'zh' ? '/zh' : '/');
+  const home = $derived(homePath(lang));
 </script>
 
 <svelte:head>
   <title>{pageTitle(t.seo.projects.label)}</title>
   <meta name="description" content={t.seo.projects.description} />
   <link rel="canonical" href={`${site.url}/${getLink('projects', lang)}`} />
-  <link rel="alternate" hreflang="en" href={`${site.url}/projects`} />
-  <link rel="alternate" hreflang="zh" href={`${site.url}/zh/projects`} />
-  <link rel="alternate" hreflang="x-default" href={`${site.url}/projects`} />
+  {#each site.locales as loc}
+    <link rel="alternate" hreflang={loc.code} href={`${site.url}/${getLink('projects', loc.code)}`} />
+  {/each}
+  {#if site.locales.length > 1}<link rel="alternate" hreflang="x-default" href={`${site.url}/${getLink('projects', site.defaultLocale)}`} />{/if}
 </svelte:head>
 
 <LanguageSwitcher />
-<PageLogo href={homePath} />
+<PageLogo href={home} />
 
 <main class="projects-page">
   <header class="page-head">

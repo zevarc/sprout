@@ -1,93 +1,62 @@
 /**
- * Content type registry — the single place that declares a content kind.
- * Adding a new type (e.g. `link`, `photo`, `quote`) means adding one entry
- * here plus its content; no schema migration, no routing rewrite.
+ * Content type helpers. The *kinds* a site has come from the assembled registry
+ * (base config + mods); this module gives them lookups and label resolution.
  */
 
-export interface FieldDef {
-	key: string;
-	label: { en: string; zh: string };
-	type: 'text' | 'textarea' | 'markdown' | 'tags' | 'url' | 'number' | 'date' | 'boolean';
-	required?: boolean;
-}
+import { contentTypes as assembledTypes } from '$lib/engine/registry';
+import { site } from '$lib/site';
+import type { ContentTypeDef, Label } from '$lib/content/schema';
 
-export interface ContentTypeDef {
-	type: string;
-	/** Base route for the list page, e.g. `/posts`. */
-	route: string;
-	/** Whether the type exists in both `en` and `zh`. */
-	i18n: boolean;
-	/** Whether items are included in the RSS/Atom feed. */
-	feed: boolean;
-	/** Whether the detail page renders a comment section. */
-	comments: boolean;
-	/** Type-specific fields, persisted under `nodes.extra`. */
-	fields: FieldDef[];
-}
+export type { ContentTypeDef, FieldDef, FieldOption, Label } from '$lib/content/schema';
 
-export const contentTypes: Record<string, ContentTypeDef> = {
-	post: {
-		type: 'post',
-		route: '/posts',
-		i18n: true,
-		feed: true,
-		comments: true,
-		fields: [
-			{ key: 'description', label: { en: 'Description', zh: '摘要' }, type: 'textarea' },
-			{ key: 'cover', label: { en: 'Cover', zh: '封面' }, type: 'url' },
-			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
-			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
-		]
-	},
-	note: {
-		type: 'note',
-		route: '/posts/notes',
-		i18n: true,
-		feed: true,
-		comments: true,
-		fields: [
-			{ key: 'description', label: { en: 'Description', zh: '摘要' }, type: 'textarea' },
-			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
-			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
-		]
-	},
-	moment: {
-		type: 'moment',
-		route: '/moments',
-		i18n: false,
-		feed: true,
-		comments: true,
-		fields: [{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
-			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }]
-	},
-	project: {
-		type: 'project',
-		route: '/projects',
-		i18n: true,
-		feed: false,
-		comments: false,
-		fields: [
-			{ key: 'year', label: { en: 'Year', zh: '年份' }, type: 'text' },
-			{ key: 'status', label: { en: 'Status', zh: '状态' }, type: 'text' },
-			{ key: 'description', label: { en: 'Description', zh: '描述' }, type: 'textarea', required: true },
-			{ key: 'image', label: { en: 'Image', zh: '配图' }, type: 'url' },
-			{ key: 'website', label: { en: 'Website', zh: '网站' }, type: 'url' },
-			{ key: 'github', label: { en: 'GitHub', zh: 'GitHub' }, type: 'url' },
-			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
-			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
-		]
-	}
-};
+/** The site's declared types (base + contributions). */
+export const contentTypes = assembledTypes;
 
 export function getContentType(type: string): ContentTypeDef | undefined {
 	return contentTypes[type];
+}
+
+/**
+ * Resolves a type from its URL segment (e.g. `posts` → the `post` type). The
+ * generic `[type]` routes use this, which requires a type's route to be a
+ * single path segment (`/posts`, not `/posts/notes`).
+ */
+export function getTypeByRouteSegment(segment: string): ContentTypeDef | undefined {
+	return listTypes().find((t) => t.route === `/${segment}`);
 }
 
 export function listTypes(): ContentTypeDef[] {
 	return Object.values(contentTypes);
 }
 
+/** Types that have a public route (the shareable side of the site). */
+export function publicTypes(): ContentTypeDef[] {
+	return listTypes().filter((t) => t.public);
+}
+
+/** Types whose routes stay behind the owner/member session. */
+export function privateTypes(): ContentTypeDef[] {
+	return listTypes().filter((t) => !t.public);
+}
+
+/**
+ * Public type routes that resolve to a generic list page — i.e. single-segment
+ * routes. Multi-segment routes (`/posts/notes`) are served by their own static
+ * routes and must not be advertised as list pages.
+ */
+export function listRouteSegments(): string[] {
+	return publicTypes()
+		.map((t) => t.route.replace(/^\//, ''))
+		.filter((r) => r !== '' && !r.includes('/'));
+}
+
 /** Types feeding RSS/Atom, in registry order. */
 export function feedTypes(): ContentTypeDef[] {
 	return listTypes().filter((t) => t.feed);
+}
+
+/** Picks a label for the active locale, falling back to the default locale, then any. */
+export function labelText(label: Label | undefined, lang: string, fallback = ''): string {
+	if (!label) return fallback;
+	return label[lang] ?? label[site.defaultLocale] ?? Object.values(label)[0] ?? fallback;
 }

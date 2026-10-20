@@ -2,8 +2,9 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { getDictionary } from '$lib/i18n/index.js';
+  import { site } from '$lib/site';
 
-  let { targetType, targetId, lang = 'en' } = $props();
+  let { targetType, targetId, lang = site.defaultLocale } = $props();
 
   const t = $derived(getDictionary(lang));
   const c = $derived(t.comments);
