@@ -1,116 +1,267 @@
 # Architecture
 
-sprout is deliberately small. Three ideas explain almost all of it.
+sprout is built on three statements: **the data is the single source of truth;
+the architecture only consumes it; the presentation only consumes the
+architecture.** The reasoning is in [PHILOSOPHY](./PHILOSOPHY.md); module-level
+detail is in [IMPLEMENTATION](./IMPLEMENTATION.md).
 
-## 1. Nodes and events
+---
 
-Everything you author is a **node**. Everything other people do is an **event**.
-
-- `nodes` — posts, notes, moments, projects. Mutable, versioned by `updated_at`.
-- `events` — comments, reactions, page views, mentions. **Append-only**: nothing is
-  ever updated or deleted; moderation adds another row to `event_status`.
-
-Why: assets and interactions have different lifecycles and different trust levels,
-but they should share one model. A comment on a post and a comment on a moment are
-the same row shape, differing only in `target_type` / `target_id`.
-
-```sql
-events(kind, target_type, target_id, actor_id, parent_id, body_md, payload, created_at)
-```
-
-The comment system therefore knows **nothing** about content types. Adding a new
-content type, or a new interaction kind (`reaction`, `subscribe`, `mention`), needs
-no schema change.
-
-## 2. Type is data, not schema
-
-`src/lib/content/registry.ts` declares the content types:
-
-```ts
-export const contentTypes = {
-  post:   { route: '/posts',   i18n: true,  feed: true,  comments: true, fields: [...] },
-  note:   { route: '/posts/notes', ... },
-  moment: { route: '/moments', i18n: false, feed: true,  comments: true, fields: [] },
-  project:{ route: '/projects', ... }
-};
-```
-
-Type-specific fields are stored as JSON in `nodes.extra` and validated against the
-registry. Core fields (`type`, `slug`, `lang`, `status`, `published_at`) stay real
-columns so they remain queryable, indexable and exportable.
-
-Adding `link` or `photo` is one registry entry plus content — no migration.
-
-## 3. The database is live; the export is the archive
-
-Publishing writes to D1 and is visible immediately — no rebuild. Portability is
-guaranteed by a separate, explicit path:
+## 1. Layers
 
 ```
-write API ──► D1 (live) ──► deterministic export ──► plain files (archive)
-                              nodes.jsonl / events.jsonl / … + Markdown + media
+┌ presentation  components · theme tokens · ?theme= preview
+│
+├ architecture  config assembly · routing · renderers · hooks · validation
+│
+└ data          SQLite schema · repositories · export/restore contract
 ```
 
-The export format is the contract (see [EXPORT-CONTRACT.md](./EXPORT-CONTRACT.md)).
-D1 and the exported folder are two projections of the same data, not two sources of
-truth. `content:verify` proves they still agree.
+| Layer | Location | Responsibility |
+|---|---|---|
+| Data | `migrations/`, `src/lib/server/**`, `src/lib/content/view.ts` | Authoritative reads/writes, visibility, export contract, derived caches |
+| Architecture | `src/lib/engine/**`, `src/hooks*.js`, `src/routes/**` | Assembly, routing, renderers, auth gates, validation |
+| Presentation | `src/lib/components/**`, `src/styles/**`, `src/lib/engine/theme.ts` | UI that reads views + tokens |
 
-## Data flow
+One-way dependency is a hard rule: architecture/UI must not reshape core tables.
+Extensions ride on `extra` / `events` / `relations`, or add a new table.
 
-```
-browser
-  │  SSR HTML + hydration
-  ▼
-SvelteKit on Cloudflare Workers
-  ├─ SSR: /posts/[slug], /moments, /projects, /admin …
-  ├─ prerendered: /search shell
-  └─ /api/*: content, events, auth, admin, export/restore
-        │
-        ▼
-   domain layer (framework-agnostic)  src/lib/server/*
-   render · repositories · auth · export · restore · search
-        │
-        ├─ D1 (SQLite)  ← the only runtime source of truth
-        └─ R2           ← media binaries, referenced by relative key
-```
+---
 
-## Layering and portability
+## 2. Data model
 
-Vendor coupling is confined to two places: `wrangler.toml` + `src/app.d.ts`
-(bindings) and `src/lib/server/db.ts` (a ~50-line structural interface over D1/R2).
-Everything above it is plain TypeScript.
+Full column/constraint detail: [DATA-MODEL](./DATA-MODEL.md). Export format:
+[EXPORT-CONTRACT](./EXPORT-CONTRACT.md).
 
-That is why the tests can run the real repositories against an in-memory
-`node:sqlite` database — and why moving off Cloudflare means reimplementing one
-small adapter, not the application.
+| Table | Purpose | Key facts |
+|---|---|---|
+| `nodes` | Authored content | Opaque ULID `id`; human key `(type, slug, lang)`; `group_id` groups translations/series; `visibility`; `occurred_at`; `extra` JSON; `body_html` derived |
+| `events` | Interactions | Append-only; `target_type` + `target_id` are type-agnostic |
+| `event_status` | Moderation log | Append-only; latest row wins |
+| `relations` | Ad-hoc edges | Only `related` / `reply-to` / … — **not** translations |
+| `media` | R2 metadata | Relative key; readability follows the owning node |
+| `actors`, `actor_identities` | Local identity | Provider ids map to *your* actor id |
+| `sessions`, `invites` | Login | Only HMACs of tokens are stored |
+| `stats_daily` | Analytics | Aggregated on write; not exported |
+| `nodes_fts` | Search | FTS5 + bigram tokens; derived |
 
-| Concern | Where it lives |
+---
+
+## 3. Configuration as assembly
+
+Two files with different jobs:
+
+| File | Contents |
 |---|---|
-| Content types | `src/lib/content/registry.ts` |
-| Node → view mapping (read time, TOC, excerpts) | `src/lib/content/view.ts` |
-| Markdown → HTML | `src/lib/server/render.ts` |
-| Syntax highlighting | `src/lib/highlight.js` (browser) |
-| Persistence | `src/lib/server/repositories/*` |
-| Portability | `src/lib/server/export.ts` + `restore.ts` |
-| Auth / identity | `src/lib/server/auth.ts` |
+| `src/site.config.js` | `name`, `url`, `author`, `contact`, `locales`, `defaultLocale`, `brand` |
+| `src/sprout.config.js` | `contentTypes`, `features`, `home`, `theme`, `mods`, `privateRoutes`, `content` |
 
-## Decisions worth knowing
+`src/lib/engine/assembly.ts` is pure: it merges the base config with every `mod`
+into one assembly. `src/lib/engine/registry.ts` is the single object the engine
+reads. A mod may contribute `contentTypes`, `features`, `home.sections`,
+`theme.tokens`, and `i18n` fragments.
 
-**Markdown is rendered on write, highlighted on read.** The server uses markdown-it
-and stores `body_html`; code blocks are emitted as escaped text and highlighted in
-the browser with highlight.js. Running a full syntax highlighter inside a Worker
-either blows its resource limits (the JS regex engine on C++/CMake) or fails to
-initialise (the WASM engine). Moving it to the browser made publishing cheap and
-language-agnostic.
+**Content types are site-owned.** The engine defines their shape
+(`lib/content/schema.ts`) and helpers (`lib/content/registry.ts`); the list of
+types belongs to the site. This resolves the historical "who owns the registry?"
+ambiguity between the two example deployments.
 
-**Search is SQLite FTS5 with bigram tokenization.** CJK has no spaces; `unicode61`
-treats a whole run as one token and `trigram` rejects queries shorter than three
-characters. Indexing overlapping bigrams makes two-character Chinese words
-searchable while keeping a single portable index.
+**Boot validation** (`lib/engine/validate.ts`) runs from `hooks.server.js` and
+fails loudly on: malformed/duplicate type routes, locale/type-route collisions,
+unknown feature ids, unknown `listRenderer`/`detailRenderer` keys, duplicate mod
+ids.
 
-**Comments are never mutated.** Deletion is a status row. That keeps the event log
-honest, makes moderation auditable, and keeps export/restore lossless.
+---
 
-**Media uses relative keys.** The database stores `r2_key`, never an absolute bucket
-URL. `GET /media/<key>` is our own handler, so changing storage providers changes one
-file instead of rewriting every row.
+## 4. Routing and locales
+
+### Route map
+
+`[[lang]]` is not a route param — the tree is rooted, and a universal hook strips
+non-default locale prefixes **for matching**. The effective routes:
+
+| Path | Purpose | Auth |
+|---|---|---|
+| `/` | Home (`home.sections`) | public |
+| `/[type]` | Generic list (single-segment types) | public if `type.public` |
+| `/[type]/[slug]` | Generic detail | public if `type.public`; private nodes 404 |
+| `/posts`, `/posts/[slug]` | Bespoke post list/detail (static override) | public |
+| `/posts/notes/[slug]` | Note detail (multi-segment type) | public |
+| `/projects`, `/projects/[slug]` | Bespoke project list/detail | public |
+| `/tags`, `/tags/[tag]` | Tag archive | public |
+| `/about`, `/search` | Static pages | public |
+| `/timeline` | Merged timeline | private (when enabled) |
+| `/admin` | Console (client app) | token session |
+| `/login`, `/invite/[token]` | Sign in / accept invite | public |
+| `/feed.xml`, `/og/[slug].svg` | Per-locale outputs | public |
+| `/sitemap.xml` | Site-wide, all locales | public |
+| `/media/[...key]` | R2 objects | node visibility |
+| `/api/**` | JSON endpoints | per endpoint |
+
+Non-default locales are prefixes (`/zh/posts/x`, `/zh/feed.xml`, `/zh/og/x.svg`).
+`api/**`, `media/**` and `sitemap.xml` stay at the root.
+
+### The locale mechanism
+
+```js
+// src/hooks.js — a universal hook (NOT hooks.server.js)
+export function reroute({ url }) {
+  const segs = url.pathname.split('/').filter(Boolean);
+  if (!NON_DEFAULT_LOCALES.includes(segs[0])) return;
+  const rest = segs.slice(1).join('/');
+  return rest ? `/${rest}` : '/';
+}
+```
+
+Verified properties:
+
+- route **matching** uses the rewritten path;
+- `url.pathname` keeps the **original**, prefixed path;
+- loaders therefore call `localeFromPath(event.url.pathname)`;
+- `getLink(path, lang)` / `homePath(lang)` build prefixed URLs;
+- adding a language needs **no route files**.
+
+The optional-param design (`[[lang]]` in the tree) was measured and rejected:
+it greedily consumes a segment, so `/posts/hello` resolves as
+`lang=posts,type=hello`, and `/zh` is captured by `[type]`.
+
+### Static overrides
+
+SvelteKit ranks a static segment above a dynamic one. A type that needs bespoke
+markup keeps its own `/<route>/…` routes; the generic `[type]` routes simply do
+not win for those paths.
+
+---
+
+## 5. Renderers (type → presentation)
+
+| Field | Values | Default |
+|---|---|---|
+| `listRenderer` | `list`, `cards`, `feed` | `list` |
+| `detailRenderer` | `article`, `compact` | `article` |
+
+- `ContentListPage` is one page shell with three entry layouts.
+- `ContentDetail` is the compact detail (title/meta/body/comments, no TOC or
+  related list); `Post` is the article detail (TOC, read time, related, comments).
+- `type.comments` decides whether the detail shows comments; list/detail
+  always display `occurredAt ?? date` and receive the active `lang`.
+- Bespoke visuals are static routes, not dynamically registered components.
+
+---
+
+## 6. Theme (presentation)
+
+- Components contain **no colour literals** (scanned by a test); they read CSS
+  custom properties.
+- `lib/engine/theme.ts` resolves `theme.name` + `theme.tokens` (config + mod
+  contributions) into `:root` declarations, with a dark-mode block when the preset
+  provides one.
+- The CSS is injected into `<head>` at SSR (no flash). `?theme=<preset>` previews a
+  preset for one request without touching config.
+- Presets: `classic` (base palette), `mono`, `warm`. Any token can be overridden.
+- `--shadow-*` tokens make elevation themeable too.
+
+---
+
+## 7. Data accuracy is structural
+
+1. **Routes never issue SQL.** `tests/architecture.test.js` scans `src/routes/**`
+   and fails on `db.prepare` / `query` / `run` / `first`. Reads and writes go
+   through `lib/server/**` and `lib/content/view`.
+2. **Visibility authority is in the domain layer.** `listViews` defaults to
+   `visibility='public'`; `/api/search` restricts anonymous callers to public;
+   private detail pages 404; `/media` uses `mediaAccess` (node wins, unattached =
+   private).
+3. **Derived caches have one rebuild path**: `lib/server/rebuild.ts`
+   (`/api/admin/rerender`). The export never contains HTML; comment HTML is
+   rendered on read.
+4. **Single source of truth**: grouping, translations, authorship and visibility
+   are defined only in the data layer.
+5. **Invalidation is centralized**: writes call `invalidateNode` /
+   `invalidateAll`; affected paths are derived from the registry (types +
+   locales), never hand-written arrays.
+
+---
+
+## 8. Data flow
+
+**Read**
+
+```
+browser → hooks.server (lang, private guard, security headers, theme CSS)
+        → hooks.js reroute (strip locale for matching only)
+        → route load → content/view + repositories (visibility, derived fields)
+        → Svelte SSR / JSON
+```
+
+**Write**
+
+```
+API → isEditor / isAdmin → repository
+    (render body_html, index FTS, persist group_id)
+    → invalidateNode / invalidateAll (feed, sitemap, og, lists)
+```
+
+**Portability**
+
+```
+D1 (live) ──export──▶ JSONL + Markdown + media (deterministic)
+         ◀──restore── empty DB (UPSERT, re-render HTML, re-upload media)
+```
+
+---
+
+## 9. Vendor coupling
+
+Only three places know about Cloudflare:
+
+- `wrangler.toml` / `wrangler.demo.toml` (bindings),
+- `src/app.d.ts` (`App.Platform` shape),
+- `src/lib/server/db.ts` (a minimal structural interface over D1/R2).
+
+Everything else is plain TypeScript. Tests run the real repositories against an
+in-memory `node:sqlite`.
+
+> `restore` uses UPSERT, not `INSERT OR REPLACE`: the latter deletes the row and
+> re-inserts it, which cascades child rows away when foreign keys are enforced.
+
+---
+
+## 10. Directory map
+
+```
+src/
+  site.config.js        identity
+  sprout.config.js      assembly (types, features, home, theme, mods)
+  content/              seed content
+  lib/
+    engine/             assembly · registry · features · validate · theme
+    content/            schema · types · registry(helpers) · view
+    server/             db · render · search · auth · cache · export · restore
+                        rebuild · stats · mediaAccess · loadNode · id · repositories/
+    components/         generic UI (views + tokens only)
+    i18n/               locale model + dictionaries
+  routes/               pages, [type] generic routes, API, media, sitemap
+  hooks.js              reroute (universal)
+  hooks.server.js       lang, private guard, security headers, theme injection
+migrations/0001_init.sql
+tests/                  unit tests + architecture guards
+```
+
+---
+
+## 11. Decisions worth knowing
+
+- **Markdown rendered on write, highlighted in the browser.** A full highlighter
+  inside a Worker blows CPU/memory limits; write-time rendering only runs
+  markdown-it.
+- **Search is FTS5 + bigram.** CJK has no spaces; bigrams make two-character words
+  searchable; Latin words are lowercased.
+- **Events are append-only.** Deleting a comment adds a `deleted` status row.
+- **Media uses relative keys.** Changing storage providers changes one handler.
+- **Only single-segment type routes get a generic list page.** Multi-segment
+  routes (`/posts/notes`) are served by their own static routes and are not
+  advertised as list pages in the sitemap.
+- **The table set is closed.** New capabilities use `extra`/events/relations or
+  add a new table; shipped table shapes are never edited (migrations are additive
+  after the canonical `0001`).

@@ -1,69 +1,153 @@
 # Export contract
 
 This is the promise that makes sprout portable: **everything needed to rebuild the
-site can be written to a folder of plain text**, and restored from it.
+site can be written to a folder of plain text**, and restored from it. The data
+model is in [DATA-MODEL](./DATA-MODEL.md); operational steps in
+[DATA-IMPORT-EXPORT](./DATA-IMPORT-EXPORT.md).
+
+---
+
+## 1. Layout
 
 ```
 export/
-  schema.json                 # format version + table list
-  nodes.jsonl                 # one JSON object per node (with parsed `extra`)
-  relations.jsonl
-  media.jsonl                 # metadata only; binaries live in media/
-  events.jsonl                # includes payload (rendered HTML, hashed IP)
-  event_status.jsonl          # full moderation history
+  schema.json                    # format version + db schema version + table list
+  nodes.jsonl                    # one JSON object per node
+  relations.jsonl                # ad-hoc edges only
+  media.jsonl                    # media metadata (binaries in media/)
+  events.jsonl                   # interactions + structured payload
+  event_status.jsonl             # full moderation history
   actors.jsonl
   actor_identities.jsonl
-  nodes/<type>/<slug>.<lang>.md   # human-readable mirror, one file per node
-  media/<sha256>.<ext>            # binaries fetched from /media/<key>
+  nodes/<type>/<slug>.<lang>.md  # human-readable mirror, one per node
+  media/<sha256>.<ext>           # binaries fetched from /media/<key>
 ```
 
-## Guarantees
+`schema.json`:
+
+```json
+{
+  "version": 2,
+  "db_schema": "2",
+  "generator": "sprout-export",
+  "tables": ["nodes", "relations", "media", "events", "event_status", "actors", "actor_identities"]
+}
+```
+
+`version` is the **export format**; `db_schema` is `meta.schema_version` in the
+database it came from.
+
+---
+
+## 2. Record shapes
+
+### `nodes.jsonl`
+
+`id`, `type`, `slug`, `lang`, `group_id`, `title`, `summary`, `body_md`, `status`,
+`published_at`, `occurred_at`, `visibility`, `author_actor_id`, `created_at`,
+`updated_at`, `extra` (parsed object).
+`body_html` is **not** included.
+
+### `relations.jsonl`
+
+`from_id`, `to_id`, `rel`. Only ad-hoc edges; translations/series are derived from
+`group_id`, so no translation rows exist.
+
+### `media.jsonl`
+
+`id`, `node_id`, `r2_key`, `kind`, `width`, `height`, `alt`, `position`, `sha256`.
+The binary is at `media/<r2_key>`; `r2_key` is relative.
+
+### `events.jsonl`
+
+`id`, `kind`, `target_type`, `target_id`, `actor_id`, `parent_id`, `body_md`,
+`payload` (parsed object), `created_at`. `payload` holds structured metadata
+(`ipHash`, emoji, …) and never rendered HTML.
+
+### `event_status.jsonl`
+
+`event_id`, `status`, `at`, `by`. Append-only; the newest row is effective.
+
+### `actors.jsonl` / `actor_identities.jsonl`
+
+`actors`: `id`, `kind`, `handle`, `display_name`, `avatar_url`, `email_hash`,
+`created_at`.
+`actor_identities`: `actor_id`, `provider`, `provider_uid`.
+
+### Markdown mirror
+
+`nodes/<type>/<slug>.<lang>.md` has YAML frontmatter (`id`, `type`, `slug`, `lang`,
+`group_id`, `title`, `summary`, `status`, `published_at`, `occurred_at`,
+`visibility`, `author_actor_id`, `created_at`, `updated_at`, `extra`) followed by
+`body_md`. Restore uses the JSONL; the mirror is for humans and diffs.
+
+---
+
+## 3. Guarantees
 
 1. **Deterministic.** Rows are sorted by primary key; JSON object keys are sorted;
-   timestamps are already ISO-8601. Two consecutive exports of an unchanged database
-   produce byte-identical files, so the folder works as a git mirror with clean diffs.
-2. **Complete for content.** Nodes, relations, media metadata, events, moderation
-   history and actors are all included. `body_html` is excluded because it is derived —
-   restore re-renders it from `body_md` and the result is identical.
-3. **Lossless round trip.** `export → restore → export` yields the same files. This is
-   enforced by a test (`tests/export-restore.test.js`).
-4. **Storage-agnostic.** Binaries are fetched through our own `/media/<key>` route and
-   stored under their content hash, not under a bucket URL.
+   timestamps are ISO-8601. Two consecutive exports of an unchanged database are
+   byte-identical.
+2. **Complete for content.** Nodes, ad-hoc relations, media metadata, events,
+   moderation history and actors are included, with `visibility`, `occurred_at`,
+   `author_actor_id` and `group_id`. No rendered HTML is exported; restore
+   re-renders node bodies from `body_md`.
+3. **Lossless round trip.** `export → restore → export` yields the same files
+   (enforced by `tests/export-restore.test.js`).
+4. **Storage-agnostic.** Binaries are fetched through `/media/<key>` and stored
+   under their content hash, not a bucket URL.
+5. **Versioned.** Restore refuses an export whose `version` is newer than the
+   build supports.
 
-Deliberately **not** exported: `sessions`, `stats_daily`, and FTS internal tables —
-they are transient or derived.
+Deliberately **not** exported: `sessions`, `stats_daily`, `invites`, and FTS
+internal tables.
 
-## Commands
+---
+
+## 4. Restore semantics
+
+`restoreFromBundle`:
+
+1. validates `schema.json.version`;
+2. writes actors, identities, nodes, relations, media, events and `event_status`;
+3. uses UPSERT (`ON CONFLICT DO UPDATE`) so foreign keys never cascade children
+   away mid-restore;
+4. re-renders `body_html` and rebuilds `nodes_fts`;
+5. the CLI (`pnpm content:restore`) then uploads `media/` binaries with
+   `record=0` (metadata is already present);
+6. the HTTP endpoint invalidates derived caches afterwards.
+
+Restore expects an **empty** database.
+
+---
+
+## 5. Commands
 
 ```bash
 # against a running instance
-ADMIN_TOKEN=... API_URL=https://your-domain.com pnpm content:export [dir]
-ADMIN_TOKEN=... API_URL=https://your-domain.com pnpm content:verify [dir]
-ADMIN_TOKEN=... API_URL=https://your-domain.com pnpm content:restore [dir]
+ADMIN_TOKEN=… API_URL=https://your-domain.com pnpm content:export [dir]
+ADMIN_TOKEN=… API_URL=https://your-domain.com pnpm content:verify [dir]
+ADMIN_TOKEN=… API_URL=https://your-domain.com pnpm content:restore [dir]
 ```
 
-`content:export` prunes the target directory first, so the mirror is an exact
-snapshot (a safety check refuses to export into the project root or your home
-directory). `content:verify` compares the live database with the folder and exits
-non-zero on any drift.
+- `content:export` prunes the target first; it refuses the project root, `/`, and
+  the home directory. Media downloads carry `Bearer ADMIN_TOKEN`.
+- `content:verify` compares the live export with the folder file-by-file and exits
+  non-zero on drift.
+- `content:restore` posts the bundle, then re-uploads media.
 
-## Restoring somewhere else
+Full detail: [DATA-IMPORT-EXPORT](./DATA-IMPORT-EXPORT.md).
 
-1. Create a fresh database and apply migrations.
-2. Run `content:restore` against it.
-3. Point the app at that database.
+---
 
-Nothing in the folder references Cloudflare. If you move to a Node host, only the
-D1 adapter in `src/lib/server/db.ts` needs replacing.
+## 6. Privacy
 
-## Privacy
+The export is a **full** log:
 
-The export is a **full** log, including:
+- `actors.email_hash` — salted SHA-256 of commenter emails;
+- `events.payload.ipHash` — salted, per-day IP hash;
+- comments in `pending`, `spam` and `deleted` states;
+- **private media binaries**.
 
-- `actors.email_hash` (salted hash of commenter emails)
-- `events.payload.ipHash` (salted, per-day hash of commenter IPs)
-- comments in `pending`, `spam` or `deleted` state
-
-Treat the export folder as **private data**. Do not publish it to a public
-repository. If you want a public mirror, strip those fields or keep the mirror in a
-private repository.
+Treat the export folder as private data. A public mirror must strip these fields,
+or stay in a private repository.

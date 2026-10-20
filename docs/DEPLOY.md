@@ -1,143 +1,296 @@
-# Deploy guide
+# Deployment
 
-From a clone to a live site on your own domain.
+From a clone to a live site on Cloudflare Workers + D1 + R2. Configuration is in
+[USAGE](./USAGE.md); data migration in [DATA-IMPORT-EXPORT](./DATA-IMPORT-EXPORT.md).
+
+---
 
 ## 0. Prerequisites
 
 - Node 20+, pnpm 9+
-- A Cloudflare account
-- `pnpm exec wrangler login`
+- A Cloudflare account with Workers, D1 and R2
+- `pnpm exec wrangler login` completed
+- `pnpm install`
 
-## 1. Install and configure
-
-```bash
-git clone https://github.com/zevarc/sprout.git
-cd sprout
-pnpm install
-```
-
-Edit **`src/site.config.js`** — site name, `url`, author, brand copy, feature flags.
-This is the only file you must change to make the site yours.
-
-For local development you also need a `.dev.vars` file:
+Verify the account:
 
 ```bash
-cp .dev.vars.example .dev.vars
+pnpm exec wrangler whoami
+# expected: your account name/id and a token with workers/d1/r2 write access
 ```
+
+---
+
+## 1. Configure the site
+
+Two files:
+
+1. **`src/site.config.js`** — identity. Set `name`, `url` (the final origin, no
+   trailing slash), `author`, `contact`, `locales`, `defaultLocale`, `brand`.
+2. **`src/sprout.config.js`** — assembly. Declare types, features, home sections,
+   theme, mods.
+
+`url` drives canonical URLs, hreflang, sitemap, OG and RSS. A wrong value makes
+search engines index the wrong host.
+
+---
 
 ## 2. One-command Cloudflare setup
 
 ```bash
-pnpm bootstrap
+pnpm bootstrap --dry-run   # prints the plan, changes nothing
+pnpm bootstrap             # creates resources and writes config back
 ```
 
-It will:
+`scripts/setup.mjs` performs:
 
-1. verify your wrangler login;
-2. create a D1 database and write its `database_id` into `wrangler.toml`;
-3. create an R2 bucket;
-4. generate and upload `ADMIN_TOKEN`, `SESSION_SECRET`, `IP_HASH_SALT`;
-5. write `.dev.vars` with the same values;
-6. apply migrations to the remote database.
+1. `wrangler whoami` (fails fast if not logged in);
+2. `wrangler d1 create <db>` → parses `database_id` and writes
+   `database_name` / `database_id` into `wrangler.toml`;
+3. `wrangler r2 bucket create <bucket>` → writes `bucket_name`;
+4. generates and uploads `ADMIN_TOKEN`, `SESSION_SECRET`, `IP_HASH_SALT`
+   (32/32/16 random bytes, hex);
+5. writes `.dev.vars` with the same values (gitignored);
+6. `wrangler d1 migrations apply DB --remote` (the canonical `0001_init.sql`).
 
-Preview it first with `pnpm bootstrap --dry-run` (changes nothing).
+Flags / defaults:
 
-> The script defaults to the names already in `wrangler.toml`. Override them with
-> `--name`, `--db`, `--bucket`.
+| Flag | Default |
+|---|---|
+| `--name` | `name` in `wrangler.toml` |
+| `--db` | `database_name` in `wrangler.toml` |
+| `--bucket` | `bucket_name` in `wrangler.toml` |
+| `--dry-run` | off |
 
-## 3. Deploy
+In a non-interactive shell it uses the defaults/flags and prints each choice.
+
+> `pnpm bootstrap` avoids `pnpm setup` because pnpm has a built-in `setup`.
+
+---
+
+## 3. Build and deploy
 
 ```bash
-pnpm build
+pnpm check && pnpm test && pnpm build
 pnpm run deploy
 ```
 
-> pnpm ships its own `deploy` command, so the script must be invoked as
-> `pnpm run deploy` — `pnpm deploy` alone will not run it.
+- `wrangler.toml` points at `.svelte-kit/cloudflare/_worker.js` and the asset
+  directory.
+- `pnpm deploy` is a pnpm built-in; **use `pnpm run deploy`**.
+- On success wrangler prints the Worker URL and bindings (`DB`, `MEDIA`,
+  `ASSETS`).
 
-## 4. Custom domain
+---
 
-In the Cloudflare dashboard: **Workers & Pages → your Worker → Settings → Domains &
-Routes → Add custom domain**.
+## 4. Custom domain / routes
 
-> ⚠️ The Worker name in `wrangler.toml` (`name = "sprout"`) **is** the Worker's
-> identity. Renaming it creates a new Worker and detaches the custom domain.
+### Custom domain
 
-## 5. Import content
+Cloudflare dashboard → **Workers & Pages → your Worker → Settings → Domains &
+Routes → Add custom domain**. This creates the DNS record and certificate.
 
-```bash
-ADMIN_TOKEN=<value from .dev.vars> API_URL=https://your-domain.com pnpm content:import
+> ⚠️ The `name` in `wrangler.toml` **is** the Worker identity. Renaming it creates
+> a new Worker and detaches domains.
+
+### Worker route (when DNS must not change)
+
+If the apex already has a proxied A/CNAME pointing at an origin that does not
+answer, a custom domain attach can return **522** and the API reports
+`code: 100117`. Use a route instead:
+
+```toml
+workers_dev = true
+[[routes]]
+pattern = "your-domain/*"
+zone_name = "your-domain"    # required, otherwise "Can't infer zone from route"
 ```
 
-Then open `https://your-domain.com/admin`, paste the same token, and start writing.
+A route hands requests to the Worker at the edge without touching DNS.
 
-## 6. Optional: GitHub login for commenters
+---
 
-Create an OAuth app at GitHub → Settings → Developer settings → OAuth Apps:
+## 5. Secrets
 
-- Homepage URL: `https://your-domain.com`
-- Callback URL: `https://your-domain.com/api/auth/github/callback`
-
-Then:
+| Secret | Purpose | Required |
+|---|---|---|
+| `ADMIN_TOKEN` | owner login + machine API (`Bearer`) | yes |
+| `SESSION_SECRET` | signs session cookies / invite tokens | yes |
+| `IP_HASH_SALT` | salted email/IP hashes | yes |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | optional GitHub login | no |
+| `INDEXNOW_KEY` | optional IndexNow submissions | no |
 
 ```bash
-pnpm exec wrangler secret put GITHUB_CLIENT_ID
-pnpm exec wrangler secret put GITHUB_CLIENT_SECRET
+pnpm exec wrangler secret put ADMIN_TOKEN
+pnpm exec wrangler secret put SESSION_SECRET
+pnpm exec wrangler secret put IP_HASH_SALT
+pnpm exec wrangler secret list
 ```
 
-Without these, `/api/auth/github` returns `501` and anonymous comments still work.
+Secrets persist across deploys and are independent of the database.
+
+---
+
+## 6. Optional: GitHub login
+
+See [GITHUB-LOGIN](./GITHUB-LOGIN.md). Without the two secrets, the login endpoint
+returns `501` and the comment form hides the button; anonymous comments still work.
 
 ## 7. Optional: IndexNow
 
-IndexNow pushes new URLs to Bing/Yandex on deploy.
-
-1. Generate a key, put it in `static/<key>.txt` (the file content is the key).
+1. Generate a key; put `static/<key>.txt` containing the key.
 2. `pnpm exec wrangler secret put INDEXNOW_KEY`
-3. `pnpm run deploy && pnpm notify:indexnow`
+3. After deploy: `BASE_URL=https://your-domain pnpm notify:indexnow`
 
-## Local gotcha: changing `database_id`
+---
 
-Local dev stores D1 under `.wrangler/state`, keyed by a **hash of `database_id`**.
-Changing that id creates a fresh, empty local database — every route will then fail
-with `no such table: nodes`. Fix it with:
+## 8. Local development
 
 ```bash
+cp .dev.vars.example .dev.vars      # or let pnpm bootstrap generate it
 pnpm db:migrate:local
+pnpm dev                            # http://localhost:5173
+```
+
+Seed the local DB:
+
+```bash
 ADMIN_TOKEN=dev-admin-token API_URL=http://localhost:5173 pnpm content:import
 ```
 
-## Upgrading an existing deployment
+Notes:
+
+- Local D1 lives in `.wrangler/state`, keyed by a hash of `database_id`. Changing
+  that id creates a fresh, empty local database.
+- If routes start 500ing after renaming/moving route files, run `pnpm dev:clean`
+  (kills stale Vite/workerd processes and clears caches).
+
+---
+
+## 9. Upgrading
+
+Normal upgrade:
 
 ```bash
 git pull
 pnpm install
 pnpm db:migrate:remote
-pnpm build && pnpm run deploy
+pnpm check && pnpm test && pnpm build
+pnpm run deploy
 ```
 
-If a release changed the Markdown renderer, rebuild the derived HTML that is
-already in your database (it is stored per node at save time):
+After a renderer change, rebuild the derived HTML:
 
 ```bash
 curl -X POST https://your-domain/api/admin/rerender \
   -H "Authorization: Bearer $ADMIN_TOKEN"
-# {"ok":true,"scanned":64,"updated":24,"skipped":40} — idempotent, safe to re-run
+# {"ok":true,"scanned":N,"updated":M,"skipped":K}   (idempotent)
 ```
 
-It only rewrites `nodes.body_html`; `updated_at`, publish dates and your source
-Markdown are untouched.
+It only rewrites `nodes.body_html`; source Markdown and timestamps are untouched.
 
-## The official demo
+### Schema rewrite (this release)
 
-The live demo at <https://sprout.zevarc.com> is a **second, independent Worker**
-deployed from this repository:
+This version folds 0002/0003 into one canonical `0001_init.sql`. An older database
+cannot simply run `migrations apply`. Migrate through the export contract:
+
+```bash
+# 1) back up from the old instance
+ADMIN_TOKEN=… API_URL=https://old-domain pnpm content:export ./export
+
+# 2) drop everything (including migration tracking) on the target DB
+cat > /tmp/sprout-reset.sql <<'SQL'
+PRAGMA foreign_keys = OFF;
+DROP TABLE IF EXISTS nodes_fts;
+DROP TABLE IF EXISTS stats_daily;
+DROP TABLE IF EXISTS event_status;
+DROP TABLE IF EXISTS events;
+DROP TABLE IF EXISTS media;
+DROP TABLE IF EXISTS relations;
+DROP TABLE IF EXISTS nodes;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS invites;
+DROP TABLE IF EXISTS actor_identities;
+DROP TABLE IF EXISTS actors;
+DROP TABLE IF EXISTS meta;
+DROP TABLE IF EXISTS d1_migrations;
+SQL
+pnpm exec wrangler d1 execute <DB_NAME> --remote --file /tmp/sprout-reset.sql
+
+# 3) apply the canonical schema
+pnpm exec wrangler d1 migrations apply <DB_NAME> --remote
+
+# 4) deploy the new code
+pnpm build && pnpm run deploy
+
+# 5) restore and verify
+ADMIN_TOKEN=… API_URL=https://new-domain pnpm content:restore ./export
+ADMIN_TOKEN=… API_URL=https://new-domain pnpm content:verify ./export
+```
+
+Restore expects an empty database and uses UPSERT; it re-renders HTML and
+re-uploads media.
+
+### Rollback
+
+There is no automated rollback. Keep the export folder (and the git mirror) from
+before the upgrade; to go back, deploy the previous commit and restore that
+export into a fresh database.
+
+---
+
+## 10. The official demo
+
+The repository ships a second, independent Worker config:
 
 ```bash
 pnpm build
-pnpm run deploy:demo      # uses wrangler.demo.toml
+pnpm run deploy:demo        # wrangler.demo.toml
 ```
 
-`wrangler.demo.toml` points at its own D1 database and R2 bucket, so it can never
-touch a real site. If you fork sprout, either point it at your own resources or
-delete the file and the `deploy:demo` script.
+| Setting | Value |
+|---|---|
+| Worker | `sprout-demo` |
+| D1 | `sprout-demo` (`df9358dd-…`) |
+| R2 | `sprout-demo-media` |
+| Domain | `sprout.zevarc.com` (custom domain) |
 
+Its secrets are separate:
+
+```bash
+pnpm exec wrangler secret put ADMIN_TOKEN --config wrangler.demo.toml
+```
+
+When forking, either point `wrangler.demo.toml` at your own resources or delete it
+and the `deploy:demo` script.
+
+---
+
+## 11. CI
+
+`.github/workflows/ci.yml` runs on push/PR:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm check
+pnpm test
+pnpm build
+```
+
+All three must pass.
+
+---
+
+## 12. Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Every data route 500s: `no such table: nodes` | `database_id` changed → empty local DB | `pnpm db:migrate:local`, then `pnpm content:import` |
+| 500 on one port, another works | stale dev server / module graph | `pnpm dev:clean` |
+| `pnpm deploy` does nothing | pnpm built-in | `pnpm run deploy` |
+| Custom domain returns 522 | apex A/CNAME points at a dead origin | remove the record, or use a Worker route |
+| `migrations apply` does nothing after a schema rewrite | migration tracking still says `0001` applied | drop tables + `d1_migrations`, re-apply |
+| Private media 401/404 | request lacks `ADMIN_TOKEN` | set it; scripts send `Bearer` |
+| Boot fails with a config error | invalid type route/locale/feature/renderer/mod | read the error and fix `site.config.js` / `sprout.config.js` |
+| Theme has no effect | overridden by `?theme=`, or a typo in the token name | remove the query; check `--token` names |
+| GitHub login 501 | secrets missing | set both client id and secret |

@@ -1,5 +1,130 @@
 # Changelog
 
+## 0.7.0
+
+UI theming and generic rendering — the data/architecture semantics reach the page.
+
+**Generality**
+- A type chooses built-in renderers: `listRenderer` (`list` | `cards` | `feed`) and
+  `detailRenderer` (`article` | `compact`). Bespoke looks stay **static-route overrides**.
+- `type.comments` now actually drives whether a detail page shows comments (it was
+  declared but ignored).
+- `ContentListPage` is one page shell with `list` / `cards` / `feed` layouts;
+  `ContentDetail` is the compact detail (no TOC/related).
+- `moments` migrated onto the generic path (`/moments`, `/moments/<slug>`); its bespoke
+  routes and `MomentFeed` are gone, so the generic path is proven by a real page.
+- Renderers display `occurredAt ?? date` and receive the active `lang`.
+
+**Theming**
+- New `warm` preset (light + dark).
+- `?theme=<preset>` previews any preset for a request without changing config.
+- `listRenderer` / `detailRenderer` keys are validated at boot.
+
+## 0.6.0
+
+The architecture layer: config as assembly, one route tree for every language.
+
+**Config split into identity + assembly**
+- `src/site.config.js` is now only *who you are* (name, url, author, contact, locales, brand).
+- `src/sprout.config.js` is *what you're made of*: `contentTypes`, `features`, `home`,
+  `theme`, `mods`, `privateRoutes`, `content`.
+- **Types are capabilities**: declaring a type gives it routes; there are no
+  `features.moments`/`features.projects` booleans any more.
+- Cross-cutting capabilities (`comments`/`members`/`analytics`/`timeline`) are a
+  declared list gated by `hasFeature(id)` — `site.features.*` is gone.
+- Config is validated at boot (`lib/engine/validate.ts`): bad routes, duplicate routes,
+  locale/route collisions and unknown feature ids fail loudly, not as runtime 404s.
+
+**One route tree, N languages**
+- The duplicated `/zh/**` tree is deleted. A single root tree (`[type]`,
+  `[type]/[slug]`, fixed pages, feed, og) serves every locale.
+- `src/hooks.js` exports a universal `reroute()` that strips a non-default locale
+  prefix **for matching only**; `event.url` keeps the real path so loaders resolve the
+  locale with `localeFromPath`. Verified by a spike: the `[[lang]]` optional-param
+  alternative mis-resolved `/posts/hello` and `/zh`.
+- Private-route guards strip the locale prefix first, so `/zh/timeline` is guarded too.
+
+**Contributions & configurable home**
+- `lib/engine/assembly.ts` is a pure merge of base config + `mods` (each contributes
+  `contentTypes`, `features`, `home.sections`, `theme.tokens`, `i18n`); `lib/engine/registry.ts`
+  is the single assembled source the engine reads. `contentTypes` are now **site-owned**.
+- The home page is driven by `home.sections` (per-section `types`, `layout: list|cards`,
+  `limit`, and which `extra` fields the cards surface). The engine no longer contains a
+  site's home shape; `homeSelection` and its project coupling are gone.
+- Boot validation also rejects missing/duplicate mod ids.
+
+**Data accuracy is now structural**
+- Routes never touch SQL: media/stats/rebuild/grouping moved into
+  `lib/server/{repositories/media,stats,rebuild,mediaAccess}.ts` and repository
+  functions. A test (`tests/architecture.test.js`) fails if any route calls
+  `db.prepare`/`query`/`run`/`first`.
+- Derived-cache invalidation has one entry point (`invalidateNode`/`invalidateAll`
+  in `lib/server/cache.ts`); import, restore, grouping and media mutations now purge
+  the derived output instead of leaving stale feed/sitemap/og.
+
+**Theme layer (presentation)**
+- `lib/engine/theme.ts` resolves `theme.name` + `theme.tokens` (config, plus mod
+  contributions) into `:root` declarations with a dark-mode block, injected at SSR.
+  Presets: `classic` (base palette) and `mono`; any token can be overridden.
+- Components now contain **no colour literals** — the last hardcoded shadow colours
+  became `--shadow-*` tokens. A test (`tests/architecture.test.js`) fails if a
+  component `<style>` introduces a hex/rgba literal, so a style change stays a token
+  change.
+
+## 0.5.0
+
+The data model, settled — so the tables can stop changing.
+
+**One canonical schema.** `0001_init.sql` is now a single, complete schema (the
+`0002`/`0003` ALTER chain is folded in). From here only additive migrations are
+allowed. `meta.schema_version` records the revision; the export carries it.
+
+**Identity is opaque.** Every node/event/actor/media id is a generated ULID, never
+derived from content — renaming a slug or fixing a language no longer breaks a
+reference. Import is keyed on `(type, slug, lang)` instead of a synthetic id.
+
+**One source of truth per concept.** Translations/series live only in `nodes.group_id`
+(opaque, defaults to the node's own id); the `relations` edge table now holds only
+ad-hoc links (`related`/`reply-to`/…), so there is no O(n²) translation clutter and
+nothing to keep in sync. `media.visibility` is gone — readability is the node's.
+
+**Rendered HTML is always derived.** `nodes.body_html` stays a cache; comment HTML is
+rendered on read and never stored. No HTML appears in the export.
+
+**Constraints match intent.** Closed enums (`status`, `visibility`, `sessions.role`)
+carry `CHECK`; open vocabularies (`type`, `events.kind`, `relations.rel`, `actors.kind`)
+do not — so new kinds never need a migration. Foreign keys are declared; the in-memory
+test database enforces them.
+
+**Export format v2.** Restore reads it and refuses anything newer; writes use UPSERT so
+foreign keys can never cascade away children mid-restore.
+
+## 0.4.0
+
+Six generic capabilities pulled up from real, running instances — each behind a
+`site.config.js` switch and off by default, so an existing site is unaffected.
+
+**Private content & membership**
+- per-node `visibility` (`public` / `private`); public listings and search default
+  to public, private detail pages 404 for everyone but owner/member, and
+  `/media/<key>` inherits the owning node's visibility
+- single-use invite links (`/invite/<token>`, `features.members`): an owner mints a
+  link, the opener becomes a `member` and can record content — `isEditor` guards
+  content writes, `isAdmin` (owner only) guards members, export and moderation
+- migration `0002_visibility_and_time.sql`, `0003_invites.sql` (additive)
+
+**Event time & timeline**
+- `occurred_at` — when a thing happened, distinct from when it was published; the
+  list query can order by either
+- merged `/timeline` across every type (`features.timeline`, `site.content.timelineOrder`)
+
+**Type-as-route & locales**
+- registry entries gain `label`, `public`, `select` fields; a single-segment type
+  route gets generic `/[type]` and `/[type]/[slug]` pages, overridable by a static
+  route (`src/routes/[type]`)
+- the engine is now locale-generic: `site.locales` drives links, feeds, sitemap,
+  `og`, `hreflang` and the HTML `lang`; a single-language site needs no `/<code>` tree
+
 ## 0.3.0
 
 Tags, and a proper authoring pass on the admin editor.
