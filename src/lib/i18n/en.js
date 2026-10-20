@@ -8,6 +8,7 @@ export const en = {
     projects: 'Projects',
     moments: 'Moments',
     about: 'About',
+    tags: 'Tags',
   },
   home: {
     selectedWriting: 'Selected writing',

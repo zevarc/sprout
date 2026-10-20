@@ -11,6 +11,7 @@
   const postsPath = $derived(getLink('posts', lang));
   const projectsPath = $derived(getLink('projects', lang));
   const aboutPath = $derived(getLink('about', lang));
+  const tagsPath = $derived(getLink('tags', lang));
   const searchPath = $derived(getLink('search', lang));
   const switchPath = $derived(lang === 'zh' ? '/' : '/zh');
 
@@ -206,6 +207,7 @@
   <footer class="site-footer">
     <a href={`/${postsPath}`}>{t.nav.posts}</a>
     <a href={`/${projectsPath}`}>{t.nav.projects}</a>
+    <a href={`/${tagsPath}`}>{t.nav.tags}</a>
     <a href={`/${aboutPath}`}>{t.nav.about}</a>
     <a href={`mailto:${site.contact.email}`}>{t.about.contact.title}</a>
     <a href={lang === 'zh' ? '/zh/feed.xml' : '/feed.xml'}>RSS</a>

@@ -8,6 +8,8 @@ Tags, and a proper authoring pass on the admin editor.
 - `/tags` and `/tags/[tag]` (plus the `/zh/…` pair): every tag gets an archive
   page; tags are matched exactly against `extra.tags` through `json_each`
 - post tags are links; archive pages emit `CollectionPage` and are in the sitemap
+- the archive is reachable from the footer and from the posts page (not only
+  through a tag on an article)
 
 **Admin editor**
 - unsaved-changes guard and local autosave (restore or discard), ⌘/Ctrl+S to save,

@@ -29,6 +29,7 @@
     <p class="kicker">{t.nav.posts}</p>
     <h1 class="page-title">{t.posts.title}</h1>
     <p class="page-sub">{t.posts.subtitle}</p>
+    <a class="tags-link" href={`/${getLink('tags', lang)}`}>{t.nav.tags} →</a>
   </header>
 
   <PostFrame
@@ -62,6 +63,15 @@
 
   .page-title {
     margin-bottom: 12px;
+  }
+
+  .tags-link {
+    display: inline-block;
+    margin-top: 14px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-bud-deep);
+    border-bottom: 1px solid var(--color-bud-soft);
   }
 
   @media (max-width: 768px) {

@@ -8,6 +8,7 @@ export const zh = {
     projects: '项目',
     moments: '动态',
     about: '关于',
+    tags: '标签',
   },
   home: {
     selectedWriting: '精选文章',
