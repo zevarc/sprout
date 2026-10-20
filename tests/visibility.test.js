@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createTestDb } from './helpers/d1-memory.js';
-import { createNode, listNodes, searchNodes } from '$lib/server/repositories/nodes';
+import { createNode, listNodes, listTags, searchNodes } from '$lib/server/repositories/nodes';
 import { listViews } from '$lib/content/view';
 import { loadNodeView } from '$lib/server/loadNode';
 import { toMatchExpression } from '$lib/server/search';
@@ -75,6 +75,33 @@ describe('node visibility', () => {
 		expect(publicHits.map((n) => n.slug)).toEqual(['pub']);
 		const allHits = await searchNodes(db, expr, { lang: 'en' });
 		expect(allHits.map((n) => n.slug).sort()).toEqual(['priv', 'pub']);
+	});
+
+	it('tag listings only count public nodes', async () => {
+		const { db } = createTestDb();
+		await createNode(db, {
+			type: 'post',
+			slug: 'public-tag',
+			lang: 'en',
+			bodyMd: 'a',
+			status: 'published',
+			extra: { tags: ['public-tag'] }
+		});
+		await createNode(db, {
+			type: 'post',
+			slug: 'private-tag',
+			lang: 'en',
+			bodyMd: 'b',
+			status: 'published',
+			visibility: 'private',
+			extra: { tags: ['secret-tag'] }
+		});
+
+		const tags = await listTags(db, { lang: 'en', types: ['post'] });
+		expect(tags.map((t) => t.tag)).toEqual(['public-tag']);
+
+		const all = await listTags(db, { lang: 'en', types: ['post'], visibility: 'private' });
+		expect(all.map((t) => t.tag)).toEqual(['secret-tag']);
 	});
 
 	it('404s a private detail page unless the caller opts in', async () => {

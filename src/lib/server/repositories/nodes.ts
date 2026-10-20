@@ -146,10 +146,14 @@ export interface TagCount {
 	count: number;
 }
 
-/** Distinct tags with how many published nodes carry each, most used first. */
+/**
+ * Distinct tags with how many published nodes carry each, most used first.
+ * Public by default — a tag that only exists on a private node must never be
+ * advertised on a public archive or in the sitemap.
+ */
 export async function listTags(
 	db: D1Database,
-	opts: { lang: string; types: string[]; limit?: number }
+	opts: { lang: string; types: string[]; visibility?: NodeVisibility; limit?: number }
 ): Promise<TagCount[]> {
 	const placeholders = opts.types.map(() => '?').join(', ');
 	const rows = await query<{ tag: string; n: number }>(
@@ -158,11 +162,12 @@ export async function listTags(
 		 FROM nodes, json_each(nodes.extra, '$.tags') AS je
 		 WHERE nodes.status = 'published'
 		   AND nodes.lang = ?
+		   AND nodes.visibility = ?
 		   AND nodes.type IN (${placeholders})
 		 GROUP BY je.value
 		 ORDER BY n DESC, je.value ASC
 		 LIMIT ?`,
-		[opts.lang, ...opts.types, opts.limit ?? 200]
+		[opts.lang, opts.visibility ?? 'public', ...opts.types, opts.limit ?? 200]
 	);
 	return rows.map((r) => ({ tag: r.tag, count: Number(r.n) }));
 }

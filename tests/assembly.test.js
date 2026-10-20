@@ -42,4 +42,13 @@ describe('assembly merge', () => {
 			mergeAssembly(base, [/** @type {any} */ ({ contentTypes: {} })])
 		).toThrow();
 	});
+
+	it('deep-merges mod i18n fragments per locale', () => {
+		const a = mergeAssembly(base, [
+			{ id: 'one', i18n: { zh: { nav: { posts: '文章' }, custom: { a: '1' } } } },
+			{ id: 'two', i18n: { zh: { nav: { tags: '标签' }, custom: { b: '2' } } } }
+		]);
+		expect(a.i18n.zh.nav).toEqual({ posts: '文章', tags: '标签' });
+		expect(a.i18n.zh.custom).toEqual({ a: '1', b: '2' });
+	});
 });

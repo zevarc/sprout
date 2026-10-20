@@ -1,13 +1,40 @@
 import { site } from '$lib/site';
+import { i18nFragments } from '$lib/engine/registry';
 import en from './en.js';
 import zh from './zh.js';
 
-export const dictionaries = {
-  en,
-  zh
-};
+const baseDictionaries = { en, zh };
 
-const byLang = /** @type {Record<string, typeof en>} */ (dictionaries);
+/**
+ * Merge a mod's dictionary fragment over the base dictionary. Plain objects
+ * merge recursively; arrays and scalars replace.
+ * @param {any} base
+ * @param {any} extra
+ */
+function deepMerge(base, extra) {
+  if (base == null || typeof base !== 'object' || Array.isArray(base)) return extra ?? base;
+  if (extra == null || typeof extra !== 'object' || Array.isArray(extra)) return extra ?? base;
+  /** @type {Record<string, any>} */
+  const out = { ...base };
+  for (const [key, value] of Object.entries(extra)) {
+    out[key] = key in out ? deepMerge(out[key], value) : value;
+  }
+  return out;
+}
+
+/** Base dictionaries with every mod contribution applied. */
+/** @type {Record<string, any>} */
+const merged = {};
+for (const [code, dict] of Object.entries(baseDictionaries)) {
+  merged[code] = deepMerge(dict, i18nFragments?.[code] ?? {});
+}
+// A mod may introduce a locale that has no base dictionary of its own.
+for (const [code, fragment] of Object.entries(i18nFragments ?? {})) {
+  if (!(code in merged)) merged[code] = fragment;
+}
+
+export const dictionaries = merged;
+const byLang = /** @type {Record<string, any>} */ (merged);
 
 /**
  * @param {string} [lang]

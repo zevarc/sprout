@@ -50,7 +50,7 @@ export const PRESETS: Record<string, ThemeDefinition> = {
 			'--color-paper': '#151513',
 			'--color-paper-deep': '#1e1e1b',
 			'--color-paper-line': '#34342f',
-			'--color-ink': '#ececE6',
+			'--color-ink': '#ecece6',
 			'--color-ink-soft': '#a6a69c',
 			'--color-ink-faint': '#76766d',
 			'--color-bud': '#c2c2b8',

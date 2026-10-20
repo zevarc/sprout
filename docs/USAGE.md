@@ -168,7 +168,7 @@ Presets: `classic` (base palette), `mono`, `warm`.
 ```js
 export const theme = {
   name: 'warm',
-  tokens: { '--color-bud': '#9a6b3f', '--radius': '12px' }
+  tokens: { '--color-bud': '#9a6b3f' }
 };
 ```
 
@@ -253,10 +253,11 @@ Open `/admin` and sign in with `ADMIN_TOKEN`.
 | Members | mint/revoke invites, remove members (only when `members` is on) |
 
 Editor features: Markdown toolbar, unsaved-changes guard, local autosave,
-⌘/Ctrl+S save, ⌘/Ctrl+Enter preview, split preview, pre-publish warnings (empty
-slug, empty summary, missing alt, heading level skips, duplicate slug), editable
-publish date, slug-change confirmation, media panel (alt/reorder/delete),
-translation pairing (same `group_id`).
+⌘/Ctrl+S save, ⌘/Ctrl+Enter preview, split preview, editable publish date,
+**occurred time** and **visibility**, pre-publish warnings (empty slug, empty
+summary, missing alt, heading level skips, duplicate slug), slug-change
+confirmation, media panel (alt/reorder/delete), translation pairing (same
+`group_id`).
 
 ---
 

@@ -41,7 +41,7 @@ export const site = {
 	/** 作者名：用于文章结构化数据（SEO） */
 	author: 'Your Name',
 
-	/** 支持的语言。当前实现支持 en/zh 两种，加语言需要新增一套路由（见 README「Known limitations」） */
+	/** 支持的语言，任意数量：非默认语言前缀由 `src/hooks.js` 的 reroute 剥离，全部共用同一套路由文件。至少一个，且必须包含 defaultLocale */
 	locales: [
 		{ code: 'en', label: 'English' },
 		{ code: 'zh', label: '中文' }

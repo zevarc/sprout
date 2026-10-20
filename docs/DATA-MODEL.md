@@ -91,7 +91,7 @@ Indexes: `(token_hash)`, `(created_at DESC)`.
 | `type` | TEXT NOT NULL | open vocabulary |
 | `slug` | TEXT NOT NULL | URL segment |
 | `lang` | TEXT NOT NULL | locale code |
-| `group_id` | TEXT NOT NULL | opaque ULID; translations/series; **defaults to the node's own id** |
+| `group_id` | TEXT NOT NULL | opaque ULID; translations/series. The application assigns it at create time (the node's own id when unset); there is no DB-side default |
 | `title` | TEXT | nullable |
 | `summary` | TEXT | nullable |
 | `body_md` | TEXT NOT NULL | source |

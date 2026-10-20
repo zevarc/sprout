@@ -22,7 +22,7 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 | File | Responsibility |
 |---|---|
 | `lib/engine/assembly.ts` | Pure `mergeAssembly(base, mods)`; dedupes features; rejects a mod without `id` |
-| `lib/engine/registry.ts` | The assembled registry (types, features, home sections, theme, mods, private routes, content defaults) |
+| `lib/engine/registry.ts` | The assembled registry (types, features, home sections, theme, mods, private routes, content defaults, `i18nFragments`) |
 | `lib/engine/features.ts` | `hasFeature(id)`, `listFeatures()`, `KNOWN_FEATURES` |
 | `lib/engine/validate.ts` | `validateConfig()` / `assertValidConfig()` |
 | `lib/engine/theme.ts` | `PRESETS`, `resolveTheme()`, `themeCss()` |
@@ -66,6 +66,10 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
   (`compact`), `components/posts/Post` (`article`), `components/home/*`.
 - Comments, search, tags, projects, about, PageLogo, LanguageSwitcher, visuals.
 - `styles/variables.css` defines the base tokens; components read tokens only.
+- `lib/i18n/index.js`: `getDictionary()`, `getLink`, `localeFromPath`, `stripLocale`,
+  `homePath`. Base dictionaries are `en`/`zh`; `getDictionary` deep-merges every mod's
+  `i18n` fragment (from `registry.i18nFragments`) over them, so a mod can even add a
+  locale the site does not ship.
 
 ---
 
@@ -81,8 +85,9 @@ for mod of mods:
   features += mod.features
   home.sections += mod.home.sections
   merge mod.theme.tokens into tokens
+  deep-merge mod.i18n[locale] into i18n[locale]
 features = dedupe(features)
-registry = { contentTypes, features, home, theme, mods, privateRoutes, content }
+registry = { contentTypes, features, home, theme, mods, privateRoutes, content, i18n }
 ```
 
 Validation (boot):
@@ -283,7 +288,7 @@ Rebuild (`rebuildBodyHtml`): optional node id; idempotent; only rewrites
 |---|---|---|
 | `GET /api/nodes?type&lang&status` | editor | owner/member listing |
 | `POST /api/nodes` | editor | create; 409 on slug conflict; 400 unknown type |
-| `GET/PATCH/DELETE /api/nodes/[id]` | editor | patch: title/summary/body/status/slug/lang/group/publishedAt/occurredAt/visibility/extra |
+| `GET/PATCH/DELETE /api/nodes/[id]` | editor | patch: title/summary/body/status/slug/lang/group/publishedAt/occurredAt/visibility/extra; 409 on slug conflict |
 | `GET /api/search?q&lang` | public | anonymous = public only; editors = all |
 | `GET/POST /api/events` | public | comments/reactions |
 | `POST /api/events/pageview` | public | no cookies; no-op when analytics off |
@@ -329,9 +334,9 @@ cached; feed/sitemap/og carry a short `s-maxage`.
   `members`).
 - Content: search, type/language/status filters, selection + bulk publish/archive.
 - Editor: Markdown toolbar, unsaved guard, local autosave (per draft id), ⌘/Ctrl+S
-  save, ⌘/Ctrl+Enter preview, split preview, pre-publish warnings (empty slug,
-  empty summary, missing alt, heading level skips, duplicate slug), editable
-  publish date, slug-change confirmation.
+  save, ⌘/Ctrl+Enter preview, split preview, editable publish date, occurred time
+  and visibility, pre-publish warnings (empty slug, empty summary, missing alt,
+  heading level skips, duplicate slug), slug-change confirmation.
 - Media panel: alt editing, reorder, delete (removes the R2 object).
 - Translation pairing: links two same-type nodes into one `group_id`.
 - Fields: the form has bespoke inputs for the built-in types; `fields` in the

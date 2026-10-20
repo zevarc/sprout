@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import PageLogo from '$lib/components/PageLogo.svelte';
   import { contentTypes } from '$lib/content/registry';
+  import { content } from '$lib/engine/registry';
   import { site } from '$lib/site';
   import { hasFeature } from '$lib/engine/features';
 
@@ -97,6 +98,8 @@
       bodyMd: draft?.bodyMd ?? '',
       status: draft?.status ?? '',
       publishedAt: draft?.publishedAt ?? '',
+      occurredAt: draft?.occurredAt ?? '',
+      visibility: draft?.visibility ?? '',
       tagsInput,
       featured,
       projectStatus,
@@ -264,7 +267,9 @@
       summary: '',
       bodyMd: '',
       status: 'published',
-      publishedAt: toLocal(new Date().toISOString())
+      publishedAt: toLocal(new Date().toISOString()),
+      occurredAt: '',
+      visibility: content.defaultVisibility ?? 'public'
     };
     tagsInput = '';
     featured = false;
@@ -287,7 +292,7 @@
   /** @param {any} node */
   function editNode(node) {
     if (dirty && !confirm('当前草稿未保存，仍要切换吗？')) return;
-    draft = { ...node, publishedAt: toLocal(node.publishedAt) };
+    draft = { ...node, publishedAt: toLocal(node.publishedAt), occurredAt: toLocal(node.occurredAt) };
     tagsInput = Array.isArray(node.extra?.tags) ? node.extra.tags.join(', ') : '';
     featured = node.extra?.featured === true;
     projectStatus = node.extra?.status ?? '';
@@ -345,6 +350,8 @@
     draft.bodyMd = s.bodyMd;
     draft.status = s.status;
     draft.publishedAt = s.publishedAt;
+    draft.occurredAt = s.occurredAt;
+    draft.visibility = s.visibility;
     tagsInput = s.tagsInput;
     featured = s.featured;
     projectStatus = s.projectStatus;
@@ -408,6 +415,8 @@
       bodyMd: draft.bodyMd,
       status: draft.status,
       publishedAt: draft.publishedAt ? new Date(draft.publishedAt).toISOString() : null,
+      occurredAt: draft.occurredAt ? new Date(draft.occurredAt).toISOString() : null,
+      visibility: draft.visibility,
       extra: buildExtra()
     };
     const res = draft.id
@@ -428,7 +437,7 @@
     }
     message = '已保存';
     const node = data.node ?? draft;
-    draft = { ...node, publishedAt: toLocal(node.publishedAt) };
+    draft = { ...node, publishedAt: toLocal(node.publishedAt), occurredAt: toLocal(node.occurredAt) };
     slugAtLoad = draft.slug;
     savedSnapshot = currentState();
     dirty = false;
@@ -798,6 +807,15 @@
                   </label>
                   <label>发布日期
                     <input type="datetime-local" bind:value={draft.publishedAt} />
+                  </label>
+                  <label>发生时间（可选）
+                    <input type="datetime-local" bind:value={draft.occurredAt} />
+                  </label>
+                  <label>可见性
+                    <select bind:value={draft.visibility}>
+                      <option value="public">public</option>
+                      <option value="private">private</option>
+                    </select>
                   </label>
                 </div>
                 <label>Slug<input type="text" bind:value={draft.slug} placeholder="my-article" /></label>

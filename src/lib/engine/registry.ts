@@ -31,6 +31,8 @@ export const features = assembly.features;
 export const homeSections = assembly.home.sections;
 export const theme = assembly.theme;
 export const mods = assembly.mods;
+/** Dictionary fragments contributed by mods, merged by `getDictionary`. */
+export const i18nFragments = assembly.i18n;
 
 /** Non-type paths that require an owner/member session. */
 export const privateRoutes = basePrivateRoutes;

@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { isAdmin } from '$lib/server/auth';
 import { createNode, getNodeBySlug, updateNode, deleteNode } from '$lib/server/repositories/nodes';
+import { getContentType } from '$lib/content/registry';
 import { invalidateAll } from '$lib/server/cache';
 import { site } from '$lib/site';
 import type { NewNode } from '$lib/content/types';
@@ -33,6 +34,15 @@ export const POST: RequestHandler = async (event) => {
 
 	for (const input of nodes) {
 		if (!input.type || !input.slug) continue;
+		if (!getContentType(input.type)) {
+			return json({ error: `unknown type: ${input.type}` }, { status: 400 });
+		}
+		if (input.status && !['draft', 'scheduled', 'published', 'archived'].includes(input.status)) {
+			return json({ error: 'invalid status' }, { status: 400 });
+		}
+		if (input.visibility && !['public', 'private'].includes(input.visibility)) {
+			return json({ error: 'invalid visibility' }, { status: 400 });
+		}
 		const lang = input.lang ?? site.defaultLocale;
 		const existing = await getNodeBySlug(db, input.type, input.slug, lang);
 

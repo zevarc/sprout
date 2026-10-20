@@ -148,7 +148,7 @@ export const home = {
 };
 
 /**
- * 主题：`name` 选预设（`classic` | `mono`），`tokens` 覆盖任意 CSS 变量。
+ * 主题：`name` 选预设（`classic` | `mono` | `warm`），`tokens` 覆盖任意 CSS 变量。
  * 组件只读 token（`var(--color-*)`），换风格不需要 fork 组件。
  * @type {{ name: string, tokens: Record<string, string> }}
  */
@@ -158,9 +158,10 @@ export const theme = {
 };
 
 /**
- * 扩展模块（贡献）。每个模块可贡献 types / renderers / adminPanels / api / hooks / i18n / theme。
- * 形状在架构层 Phase C 落地；这里先留空数组。
- * @type {unknown[]}
+ * 扩展模块（贡献）。每个模块可贡献 contentTypes / features / home.sections / theme.tokens / i18n；
+ * 不能注入路由（路由来自类型声明）。形状见 `src/lib/content/schema.ts` 的 `Mod`，
+ * 合并逻辑见 `src/lib/engine/assembly.ts`，启动期由 `validate` 校验。
+ * @type {import('./lib/content/schema').Mod[]}
  */
 export const mods = [];
 

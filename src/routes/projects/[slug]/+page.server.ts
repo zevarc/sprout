@@ -14,6 +14,8 @@ export async function load({ params, platform, url }) {
 	const lang = localeFromPath(url.pathname);
 	const node = await getNodeBySlug(db, 'project', params.slug, lang);
 	if (!node || node.status !== 'published') throw error(404, 'Not found');
+	// A static override must honour visibility exactly like the generic detail route.
+	if (node.visibility === 'private') throw error(404, 'Not found');
 
 	return { project: nodeToProjectView(node), bodyHtml: node.bodyHtml ?? '', lang };
 }

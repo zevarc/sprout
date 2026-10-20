@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { isEditor } from '$lib/server/auth';
-import { deleteNode, getNode, updateNode } from '$lib/server/repositories/nodes';
+import { deleteNode, getNode, getNodeBySlug, updateNode } from '$lib/server/repositories/nodes';
 import { nodeUrl } from '$lib/content/view';
 import { invalidateAll, invalidateNode } from '$lib/server/cache';
 import type { NodeStatus, NodeVisibility } from '$lib/content/types';
@@ -29,13 +29,46 @@ export const PATCH: RequestHandler = async (event) => {
 		return json({ error: 'invalid json' }, { status: 400 });
 	}
 
+	if (
+		body.status !== undefined &&
+		!['draft', 'scheduled', 'published', 'archived'].includes(String(body.status))
+	) {
+		return json({ error: 'invalid status' }, { status: 400 });
+	}
+	if (
+		body.visibility !== undefined &&
+		!['public', 'private'].includes(String(body.visibility))
+	) {
+		return json({ error: 'invalid visibility' }, { status: 400 });
+	}
+	const nextSlug = body.slug !== undefined ? String(body.slug).trim() : undefined;
+	if (body.slug !== undefined && !nextSlug) {
+		return json({ error: 'slug required' }, { status: 400 });
+	}
+
+	// Slugs are unique per (type, lang) — report a conflict rather than a 500.
+	if (nextSlug !== undefined || body.lang !== undefined) {
+		const existing = await getNode(db, event.params.id);
+		if (existing) {
+			const clash = await getNodeBySlug(
+				db,
+				existing.type,
+				nextSlug ?? existing.slug,
+				body.lang !== undefined ? String(body.lang) : existing.lang
+			);
+			if (clash && clash.id !== existing.id) {
+				return json({ error: 'slug already exists' }, { status: 409 });
+			}
+		}
+	}
+
 	const node = await updateNode(db, event.params.id, {
 		title: body.title !== undefined ? (body.title == null ? null : String(body.title)) : undefined,
 		summary:
 			body.summary !== undefined ? (body.summary == null ? null : String(body.summary)) : undefined,
 		bodyMd: body.bodyMd !== undefined ? String(body.bodyMd) : undefined,
 		status: body.status !== undefined ? (body.status as NodeStatus) : undefined,
-		slug: body.slug !== undefined ? String(body.slug) : undefined,
+		slug: nextSlug,
 		lang: body.lang !== undefined ? String(body.lang) : undefined,
 		publishedAt:
 			body.publishedAt !== undefined

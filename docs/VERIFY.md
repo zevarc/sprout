@@ -176,7 +176,7 @@ and salted hashes — keep the folder private.
 
 ```bash
 pnpm check     # expected: 0 errors, 0 warnings
-pnpm test      # expected: all tests pass (58)
+pnpm test      # expected: all tests pass
 pnpm build     # expected: adapter-cloudflare finishes
 ```
 

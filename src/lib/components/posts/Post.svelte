@@ -169,11 +169,11 @@
         <p class="post-kicker">{t.nav.posts}</p>
         <h1>{post.title}</h1>
         <div class="post-meta">
-            <span class="post-date">{formatDate(post.date)}</span>
+            <span class="post-date">{formatDate(post.occurredAt ?? post.date)}</span>
             {#if post.readTime}
                 <span class="post-time">{post.readTime} {t.posts.readTime}</span>
             {/if}
-            {#if post.updated && post.updated !== post.date}
+            {#if post.updated && post.updated !== (post.occurredAt ?? post.date)}
                 <span class="post-updated">↻ {formatDate(post.updated)}</span>
             {/if}
             {#if post.tags?.length}
@@ -199,7 +199,7 @@
           {#each related as r}
             <li>
               <a href={`/${r.url}`} class="related-link">
-                <span class="related-date">{formatDate(r.date)}</span>
+                <span class="related-date">{formatDate(r.occurredAt ?? r.date)}</span>
                 <span class="related-text">{r.title}</span>
               </a>
             </li>

@@ -133,11 +133,12 @@ export async function restoreFromBundle(
 	}
 
 	for (const r of relations) {
-		await run(db, 'INSERT OR REPLACE INTO relations (from_id, to_id, rel) VALUES (?, ?, ?)', [
-			r.from_id,
-			r.to_id,
-			r.rel
-		]);
+		await run(
+			db,
+			`INSERT INTO relations (from_id, to_id, rel) VALUES (?, ?, ?)
+			 ON CONFLICT(from_id, to_id, rel) DO NOTHING`,
+			[r.from_id, r.to_id, r.rel]
+		);
 	}
 
 	for (const m of media) {

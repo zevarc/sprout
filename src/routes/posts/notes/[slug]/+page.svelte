@@ -1,7 +1,9 @@
 <script>
 import Post from '$lib/components/posts/Post.svelte';
+import { getContentType } from '$lib/content/registry';
     const { data } = $props();
     const { post, related } = $derived(data);
+    const comments = $derived(getContentType('note')?.comments ?? false);
 </script>
 
-<Post {post} {related} />
+<Post {post} {related} {comments} />

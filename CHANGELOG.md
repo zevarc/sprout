@@ -20,6 +20,20 @@ UI theming and generic rendering — the data/architecture semantics reach the p
 - `?theme=<preset>` previews any preset for a request without changing config.
 - `listRenderer` / `detailRenderer` keys are validated at boot.
 
+**Correctness & consistency (docs ↔ code audit)**
+- Every public listing defaults to `visibility = 'public'`: the tag archive and
+  sitemap no longer count tags that only exist on private nodes, and the static
+  `projects/[slug]` override 404s a private project like the generic detail route.
+- The article detail (`Post`) honours `occurredAt ?? date` and `type.comments`, so
+  static and generic detail routes behave identically.
+- `PATCH /api/nodes/[id]` validates `status`/`visibility` (400s) and reports a slug
+  conflict as 409 instead of surfacing a raw SQL constraint error; `POST
+  /api/admin/import` validates the type and enum values the same way.
+- Mods can contribute `i18n` fragments; `getDictionary` deep-merges them over the
+  built-in dictionaries (per locale).
+- `restore` writes relations with `ON CONFLICT DO NOTHING` — no `INSERT OR REPLACE`
+  anywhere, matching the documented contract.
+
 ## 0.6.0
 
 The architecture layer: config as assembly, one route tree for every language.
