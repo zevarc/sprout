@@ -8,7 +8,7 @@
   import { setupHighlight } from '$lib/highlight.js';
   import { site } from '$lib/site';
   import { hasFeature } from '$lib/engine/features';
-  import { getLink, localeFromPath } from '$lib/i18n/index.js';
+  import { dirFor, getLink, localeFromPath } from '$lib/i18n/index.js';
   import { publicTypes } from '$lib/content/registry';
 
   const {children}=$props()
@@ -26,6 +26,7 @@
   $effect(() => {
     if (typeof document !== 'undefined') {
       document.documentElement.lang = htmlLang;
+      document.documentElement.dir = dirFor(htmlLang);
     }
   });
 

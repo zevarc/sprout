@@ -24,7 +24,7 @@ Deployment: [DEPLOY](./DEPLOY.md). Data lifecycle:
 | `author` | string | yes | Structured-data author |
 | `contact.email` | string | yes | About page / footer |
 | `contact.github` | string | yes | About page / footer / `sameAs` |
-| `locales` | `{ code, label }[]` | yes | Order is display order; `defaultLocale` (default: the first entry) owns the unprefixed URLs |
+| `locales` | `{ code, label, intl?, dateFormat?, dir? }[]` | yes | Order is display order; `defaultLocale` (default: the first entry) owns the unprefixed URLs |
 | `defaultLocale` | string | no | Must be one of `locales` |
 | `brand` | `Record<locale, Brand>` | yes | Homepage/share copy |
 
@@ -224,6 +224,25 @@ Translated content is grouped by `group_id`, **not** by a shared slug: a piece m
 use a different slug per language. Detail pages derive their `hreflang` alternates
 from the group, and the language switcher offers exactly the languages that have a
 translation.
+
+Dates and direction come from the same locale metadata. By default a date renders as
+the terse, unambiguous `YYYY.MM.DD`; declare `intl` (a BCP-47 tag such as `'ja-JP'`)
+and `dateFormat` (Intl options, e.g. `{ year: 'numeric', month: 'long', day: 'numeric' }`)
+to use that locale's own convention instead (timeline month headings follow the same
+rule — `YYYY.MM`, or that locale's format with the day dropped):
+
+```js
+locales: [
+  { code: 'en', label: 'English', intl: 'en-US' },
+  { code: 'ja', label: '日本語', intl: 'ja-JP', dateFormat: { year: 'numeric', month: 'long', day: 'numeric' } },
+  { code: 'ar', label: 'العربية', dir: 'rtl' }
+]
+```
+
+Declaring `dir: 'rtl'` makes the server emit `<html dir="rtl">` and the client keep
+it in sync on navigation. Components still use physical CSS properties, so a full
+RTL layout needs its own stylesheet — the attribute and hooks are the foundation,
+not the finished layout.
 
 i18n key groups: `nav`, `home`, `posts`, `search`, `comments`, `moments`,
 `projects`, `tags`, `about`, `seo`, `feed.label`, `feed.language`, `common.empty`,

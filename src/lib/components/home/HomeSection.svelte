@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { getDictionary, getLink } from '$lib/i18n/index.js';
+  import { formatDate, getDictionary, getLink } from '$lib/i18n/index.js';
   import { getContentType } from '$lib/content/registry';
   import { site } from '$lib/site';
 
@@ -27,12 +27,6 @@
     let cur = t;
     for (const part of key.split('.')) cur = cur == null ? undefined : cur[part];
     return typeof cur === 'string' ? cur : key;
-  }
-
-  /** @param {string} iso */
-  function formatDate(iso) {
-    const d = new Date(iso);
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
   }
 
   /** @param {unknown} value */
@@ -112,7 +106,7 @@
           <li class="post-item">
             <a class="post-row" href={`/${item.url}`}>
               <span class="post-index">{String(i + 1).padStart(2, '0')}</span>
-              <span class="post-date">{formatDate(item.date)}</span>
+              <span class="post-date">{formatDate(item.date, lang)}</span>
               <span class="post-title">{item.title}</span>
               <span class="post-time">{item.readTime} {t.posts.readTime}</span>
             </a>

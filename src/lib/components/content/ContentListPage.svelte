@@ -2,7 +2,7 @@
   import PageLogo from '$lib/components/PageLogo.svelte';
   import { site } from '$lib/site';
   import { labelText } from '$lib/content/registry';
-  import { getDictionary, getLink, homePath } from '$lib/i18n/index.js';
+  import { formatDate, getDictionary, getLink, homePath } from '$lib/i18n/index.js';
   import { pageTitle } from '$lib/seo';
 
   /**
@@ -21,12 +21,6 @@
   const heading = $derived(labelText(type.label, lang, type.type));
   const home = $derived(homePath(lang));
   const basePath = $derived(`/${getLink(type.route.replace(/^\//, ''), lang)}`);
-
-  /** @param {string} iso */
-  function formatDate(iso) {
-    const d = new Date(iso);
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-  }
 
   /** @param {any} entry */
   function images(entry) {
@@ -53,7 +47,7 @@
     <div class="cards">
       {#each entries as entry (entry.id)}
         <a class="card" href={`/${entry.url}`}>
-          <span class="card-date">{formatDate(entry.occurredAt ?? entry.date)}</span>
+          <span class="card-date">{formatDate(entry.occurredAt ?? entry.date, lang)}</span>
           <span class="card-title">{entry.title}</span>
           {#if entry.excerpt}<span class="card-excerpt">{entry.excerpt}</span>{/if}
           {#if entry.tags.length > 0}
@@ -69,7 +63,7 @@
       {#each entries as entry (entry.id)}
         <li class="feed-item">
           <a class="feed-date" href={`/${entry.url}`}>
-            {formatDate(entry.occurredAt ?? entry.date)}
+            {formatDate(entry.occurredAt ?? entry.date, lang)}
           </a>
           <div class="feed-body">
             <div class="feed-text">{@html entry.bodyHtml}</div>
@@ -91,7 +85,7 @@
         <li class="entry">
           <a class="entry-link" href={`/${entry.url}`}>
             <time class="entry-date" datetime={entry.occurredAt ?? entry.date}>
-              {formatDate(entry.occurredAt ?? entry.date)}
+              {formatDate(entry.occurredAt ?? entry.date, lang)}
             </time>
             <span class="entry-title">{entry.title}</span>
             {#if entry.excerpt}

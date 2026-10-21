@@ -12,6 +12,12 @@ Type-specific data becomes first-class: the `nodes.extra` JSON blob is gone.
   the dictionaries — adding a language no longer means editing the engine.
 - `sitemap.xml` uses `site.defaultLocale` (not `locales[0]`) for `<loc>` and
   `x-default`, and boot validation rejects duplicate locale codes.
+- Dates are locale-driven: `formatDate` / `formatMonth` keep the terse `YYYY.MM.DD`
+  and `YYYY.MM` by default and switch to `Intl` when a locale declares
+  `intl`/`dateFormat` — the per-component date helpers (and the timeline's month
+  label) are gone.
+- `<html>` carries `dir` from `site.locales` (a locale opts in with `dir: 'rtl'`),
+  set at SSR and kept in sync on the client.
 
 **Data model (`schema_version = 3`, export format `3`)**
 - New `node_fields` table: one **typed** row per `(node_id, field)`

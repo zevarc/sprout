@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
-  import { getDictionary } from '$lib/i18n/index.js';
+  import { formatDate, getDictionary } from '$lib/i18n/index.js';
   import { site } from '$lib/site';
 
   let { targetType, targetId, lang = site.defaultLocale } = $props();
@@ -119,14 +119,6 @@
       submitting = false;
     }
   }
-
-  /**
-   * @param {string} iso
-   */
-  function formatDate(iso) {
-    const d = new Date(iso);
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-  }
 </script>
 
 <section class="comments" aria-label={c.title}>
@@ -153,7 +145,7 @@
             {#if comment.author.isOwner}
               <span class="badge pill">{c.ownerBadge}</span>
             {/if}
-            <time class="date" datetime={comment.createdAt}>{formatDate(comment.createdAt)}</time>
+            <time class="date" datetime={comment.createdAt}>{formatDate(comment.createdAt, lang)}</time>
           </div>
           <div class="comment-body">{@html comment.bodyHtml}</div>
         </li>

@@ -1,22 +1,13 @@
 <script>
   import { onMount } from 'svelte';
+  import { formatDate } from '$lib/i18n/index.js';
+  import { site } from '$lib/site';
 
-  const { posts, readMoreLabel = 'Read More →', readTimeLabel = 'min read' } = $props();
+  const { posts, lang = site.defaultLocale, readMoreLabel = 'Read More →', readTimeLabel = 'min read' } = $props();
 
   let visible = $state(false);
   /** @type {HTMLDivElement | null} */
   let sectionEl = null;
-
-  /**
-   * @param {string} dateStr
-   */
-  function formatDate(dateStr) {
-    const d = new Date(dateStr);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}.${m}.${day}`;
-  }
 
   onMount(() => {
     const observer = new IntersectionObserver(
@@ -37,7 +28,7 @@
     <div class="post-item">
       <a class="post-row" href={`/${post.url}`}>
         <span class="post-index">{String(i + 1).padStart(2, '0')}</span>
-        <span class="post-date">{formatDate(post.date)}</span>
+        <span class="post-date">{formatDate(post.date, lang)}</span>
         <span class="post-title">{post.title}</span>
         {#if post.readTime}
           <span class="post-time">{post.readTime} {readTimeLabel}</span>

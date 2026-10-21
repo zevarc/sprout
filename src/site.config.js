@@ -9,7 +9,13 @@
  *   · 本文件 = 「我是谁」：站名、域名、作者、首页/分享用的品牌文案、SEO
  *   · src/lib/i18n/*.js = 其余站点文案与界面词汇（按钮、标签、区块标题…）
  *
- * @typedef {{ code: string, label: string }} Locale
+ * @typedef {{
+ *   code: string,
+ *   label: string,
+ *   intl?: string,
+ *   dateFormat?: Intl.DateTimeFormatOptions,
+ *   dir?: 'ltr' | 'rtl'
+ * }} Locale
  * @typedef {{
  *   claim: string,
  *   claimSource: string,
@@ -41,10 +47,13 @@ export const site = {
 	/** 作者名：用于文章结构化数据（SEO） */
 	author: 'Your Name',
 
-	/** 支持的语言，任意数量：非默认语言前缀由 `src/hooks.js` 的 reroute 剥离，全部共用同一套路由文件。至少一个，且必须包含 defaultLocale */
+	/**
+	 * 支持的语言，任意数量：非默认语言前缀由 `src/hooks.js` 的 reroute 剥离，全部共用同一套路由文件。至少一个，且必须包含 defaultLocale。
+	 * 每个语言可再声明：`intl`（BCP-47 标签，给 Intl 用）、`dateFormat`（Intl.DateTimeFormatOptions，覆盖默认的 YYYY.MM.DD）、`dir: 'rtl'`。
+	 */
 	locales: [
-		{ code: 'en', label: 'English' },
-		{ code: 'zh', label: '中文' }
+		{ code: 'en', label: 'English', intl: 'en-US' },
+		{ code: 'zh', label: '中文', intl: 'zh-CN' }
 	],
 
 	defaultLocale: 'en',

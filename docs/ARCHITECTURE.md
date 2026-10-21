@@ -124,7 +124,9 @@ Verified properties:
 - adding a language needs **no route files**;
 - detail pages resolve alternates from the node's group (`translationLinks`), so a
   translation may use a **different slug**; the language switcher then offers only
-  the languages that actually have the piece.
+  the languages that actually have the piece;
+- `<html>` gets the locale's `lang` **and** `dir` at SSR (both from `site.locales`
+  metadata), and dates come from that same metadata rather than per-component code.
 
 The optional-param design (`[[lang]]` in the tree) was measured and rejected:
 it greedily consumes a segment, so `/posts/hello` resolves as

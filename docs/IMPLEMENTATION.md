@@ -27,7 +27,7 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 | `lib/engine/validate.ts` | `validateConfig()` / `assertValidConfig()` |
 | `lib/engine/theme.ts` | `PRESETS`, `resolveTheme()`, `themeCss()` |
 | `hooks.js` | Universal `reroute()` (locale prefix → root tree, matching only) |
-| `hooks.server.js` | html lang, private-route guard, security headers, theme injection, noindex |
+| `hooks.server.js` | html lang/dir, private-route guard, security headers, theme injection, noindex |
 
 ### Domain services
 
@@ -72,7 +72,9 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
   `i18n` fragment (from `registry.i18nFragments`) over them, so a mod can even add a
   locale the site does not ship. The dictionaries also own `feed.label` /
   `feed.language`, used by `lib/feed.ts` for the RSS channel — the engine holds no
-  locale tables.
+  locale tables. Also `formatDate(iso, lang)` / `formatMonth(iso, lang)` (terse
+  `YYYY.MM.DD` / `YYYY.MM` by default; a locale's `intl`/`dateFormat` metadata
+  overrides them via `Intl`) and `dirFor(lang)` for `<html dir>`.
 - `LanguageSwitcher` swaps the locale prefix by default; a detail page passes
   `links` (built from `translationLinks`) so each language links to its own slug and
   languages without a translation are not offered.

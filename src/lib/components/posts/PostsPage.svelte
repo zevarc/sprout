@@ -34,6 +34,7 @@
   </header>
 
   <PostFrame
+    {lang}
     title={t.posts.blogTitle}
     description={t.posts.blogSubtitle}
     posts={posts}
@@ -42,6 +43,7 @@
   />
 
   <PostFrame
+    {lang}
     title={t.posts.noteTitle}
     description={t.posts.noteSubtitle}
     posts={notes}

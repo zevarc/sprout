@@ -4,7 +4,7 @@
     import Arc from '$lib/components/visuals/Arc.svelte';
     import CommentSection from '$lib/components/comments/CommentSection.svelte';
     import { onMount } from 'svelte';
-    import { getDictionary, getLink, homePath as localeHome } from '$lib/i18n/index.js';
+    import { formatDate, getDictionary, getLink, homePath as localeHome } from '$lib/i18n/index.js';
     import { site } from '$lib/site';
     import { hasFeature } from '$lib/engine/features';
     import { pageTitle } from '$lib/seo';
@@ -88,17 +88,6 @@
             .replace(/</g, '\\u003c')
             .replace(/>/g, '\\u003e')
     );
-
-    /**
-     * @param {string} dateStr
-     */
-    function formatDate(dateStr) {
-        const date = new Date(dateStr);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}.${month}.${day}`;
-    }
 </script>
 
 <svelte:head>
@@ -164,12 +153,12 @@
         <p class="post-kicker">{t.nav.posts}</p>
         <h1>{post.title}</h1>
         <div class="post-meta">
-            <span class="post-date">{formatDate(post.occurredAt ?? post.date)}</span>
+            <span class="post-date">{formatDate(post.occurredAt ?? post.date, lang)}</span>
             {#if post.readTime}
                 <span class="post-time">{post.readTime} {t.posts.readTime}</span>
             {/if}
             {#if post.updated && post.updated !== (post.occurredAt ?? post.date)}
-                <span class="post-updated">↻ {formatDate(post.updated)}</span>
+                <span class="post-updated">↻ {formatDate(post.updated, lang)}</span>
             {/if}
             {#if post.tags?.length}
                 <div class="post-tags">
@@ -194,7 +183,7 @@
           {#each related as r}
             <li>
               <a href={`/${r.url}`} class="related-link">
-                <span class="related-date">{formatDate(r.occurredAt ?? r.date)}</span>
+                <span class="related-date">{formatDate(r.occurredAt ?? r.date, lang)}</span>
                 <span class="related-text">{r.title}</span>
               </a>
             </li>

@@ -1,13 +1,13 @@
 <script>
   import BlogList from './PostList.svelte';
 
-  const { title, description, posts, readMoreLabel, readTimeLabel } = $props();
+  const { title, description, posts, lang, readMoreLabel, readTimeLabel } = $props();
 </script>
 
 <div class="blog-frame card">
   <h2 class="blog-title">{title}</h2>
   <p class="blog-description">{description}</p>
-  <BlogList {posts} {readMoreLabel} {readTimeLabel} />
+  <BlogList {posts} {lang} {readMoreLabel} {readTimeLabel} />
 </div>
 
 <style>

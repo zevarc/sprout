@@ -53,7 +53,7 @@
   {#if tag}
     <a class="back" href={basePath}>{t.tags.all}</a>
     {#if posts.length > 0}
-      <PostList {posts} readMoreLabel={t.posts.readMore} readTimeLabel={t.posts.readTime} />
+      <PostList {posts} {lang} readMoreLabel={t.posts.readMore} readTimeLabel={t.posts.readTime} />
     {:else}
       <p class="empty">{t.tags.empty}</p>
     {/if}

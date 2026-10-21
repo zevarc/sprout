@@ -185,6 +185,9 @@ own static routes.
   links, feeds, sitemap, `hreflang` and the HTML `lang`); adding one needs a dictionary,
   not a route tree. Translated pieces are grouped (`group_id`), so each language may use
   its own slug.
+- Dates and text direction come from `site.locales` metadata (`intl`, `dateFormat`,
+  `dir`), but the stylesheets use physical properties: `<html dir>` is emitted and
+  the hooks exist, yet a full RTL layout needs its own stylesheet.
 - Generic list/detail pages cover **single-segment** type routes; a multi-segment route
   (`/posts/notes`) needs its own static pages.
 - `fields` in `sprout.config.js` is declarative: the admin form has bespoke inputs for

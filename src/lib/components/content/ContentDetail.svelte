@@ -2,7 +2,7 @@
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
   import PageLogo from '$lib/components/PageLogo.svelte';
   import CommentSection from '$lib/components/comments/CommentSection.svelte';
-  import { getDictionary, homePath } from '$lib/i18n/index.js';
+  import { formatDate, getDictionary, homePath } from '$lib/i18n/index.js';
   import { site } from '$lib/site';
   import { hasFeature } from '$lib/engine/features';
   import { pageTitle } from '$lib/seo';
@@ -24,12 +24,6 @@
   const switcherLinks = $derived(
     Object.fromEntries(translations.map((a) => [a.lang, `/${a.url}`]))
   );
-
-  /** @param {string} iso */
-  function formatDate(iso) {
-    const d = new Date(iso);
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-  }
 </script>
 
 <svelte:head>
@@ -59,7 +53,7 @@
     <header class="content-head">
       <h1>{post.title}</h1>
       <div class="meta">
-        <time datetime={post.occurredAt ?? post.date}>{formatDate(post.occurredAt ?? post.date)}</time>
+        <time datetime={post.occurredAt ?? post.date}>{formatDate(post.occurredAt ?? post.date, lang)}</time>
         {#if post.tags?.length}
           <div class="tags">
             {#each post.tags as tag}

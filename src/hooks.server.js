@@ -13,7 +13,7 @@ import { listTypes } from '$lib/content/registry';
 import { hasFeature } from '$lib/engine/features';
 import { assertValidConfig } from '$lib/engine/validate';
 import { themeCss, PRESETS } from '$lib/engine/theme';
-import { localeFromPath, stripLocale } from '$lib/i18n';
+import { dirFor, localeFromPath, stripLocale } from '$lib/i18n';
 import { getSession } from '$lib/server/auth';
 
 // Fail fast on a misconfigured assembly (bad type route, unknown feature, …).
@@ -75,7 +75,10 @@ export async function handle({ event, resolve }) {
 
   const response = await resolve(event, {
     transformPageChunk: ({ html }) => {
-      let out = html.replace('<html lang="en"', `<html lang="${lang}"`);
+      let out = html.replace(
+        '<html lang="en"',
+        `<html lang="${lang}" dir="${dirFor(lang)}"`
+      );
       if (css) {
         out = out.replace('</head>', `<style data-sprout-theme>${css}</style></head>`);
       }

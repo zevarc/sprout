@@ -1,5 +1,6 @@
 <script>
   import { getContentType, labelText } from '$lib/content/registry';
+  import { formatDate, formatMonth } from '$lib/i18n/index.js';
   import { site } from '$lib/site';
 
   /**
@@ -21,12 +22,6 @@
     return Array.isArray(entry.media) ? entry.media : [];
   }
 
-  /** @param {string} iso */
-  function dayLabel(iso) {
-    const d = new Date(iso);
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-  }
-
   // Group into month buckets so a long timeline stays scannable.
   const groups = $derived.by(() => {
     /** @type {{ key: string, label: string, items: import('$lib/content/view').PostView[] }[]} */
@@ -34,10 +29,11 @@
     /** @type {{ key: string, label: string, items: import('$lib/content/view').PostView[] } | null} */
     let current = null;
     for (const entry of entries) {
-      const d = new Date(entry.occurredAt ?? entry.date);
+      const iso = entry.occurredAt ?? entry.date;
+      const d = new Date(iso);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (!current || current.key !== key) {
-        current = { key, label: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, items: [] };
+        current = { key, label: formatMonth(iso, lang), items: [] };
         out.push(current);
       }
       current.items.push(entry);
@@ -58,7 +54,7 @@
             <li class="entry">
               <span class="rail" aria-hidden="true"></span>
               <a class="entry-head" href={`/${entry.url}`}>
-                <span class="entry-date">{dayLabel(entry.occurredAt ?? entry.date)}</span>
+                <span class="entry-date">{formatDate(entry.occurredAt ?? entry.date, lang)}</span>
                 <span class="badge type">{typeLabel(entry.type)}</span>
                 {#if entry.authorActorId && authors[entry.authorActorId]}
                   <span class="badge author">{authors[entry.authorActorId]}</span>

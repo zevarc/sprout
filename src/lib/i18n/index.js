@@ -87,6 +87,110 @@ export function stripLocale(pathname) {
   return rest.startsWith('/') ? rest : `/${rest}`;
 }
 
+/**
+ * Locale metadata from `site.locales` (falls back to the default locale).
+ * @param {string} [lang]
+ */
+export function localeMeta(lang = site.defaultLocale) {
+  return (
+    site.locales.find((l) => l.code === lang) ??
+    site.locales.find((l) => l.code === site.defaultLocale)
+  );
+}
+
+/**
+ * Writing direction implied by locale metadata: only an explicit `dir: 'rtl'`
+ * switches away from left-to-right.
+ * @param {{ dir?: string } | undefined} meta
+ */
+export function dirOf(meta) {
+  return meta?.dir === 'rtl' ? 'rtl' : 'ltr';
+}
+
+/**
+ * Writing direction for a locale.
+ * @param {string} [lang]
+ */
+export function dirFor(lang = site.defaultLocale) {
+  return dirOf(localeMeta(lang));
+}
+
+/** Terse, unambiguous numeric date: `YYYY.MM.DD`. */
+/** @type {Intl.DateTimeFormatOptions} */
+const DATE_PARTS = { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' };
+
+/**
+ * Formats an ISO timestamp for one locale.
+ *
+ * By default this is the terse `YYYY.MM.DD` the site has always used. A locale
+ * may instead declare `intl` (a BCP-47 tag) and/or `dateFormat` (Intl options)
+ * in `site.locales`, and `Intl` then renders that convention — so no locale
+ * table lives in the components.
+ * @param {string} iso
+ * @param {{ code?: string, intl?: string, dateFormat?: Intl.DateTimeFormatOptions } | undefined} meta
+ */
+export function formatDateFor(iso, meta) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return typeof iso === 'string' ? iso.slice(0, 10) : '';
+  const locale = meta?.intl ?? meta?.code ?? site.defaultLocale;
+  try {
+    if (meta?.dateFormat) {
+      return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...meta.dateFormat }).format(date);
+    }
+    const parts = new Intl.DateTimeFormat('en-US', DATE_PARTS).formatToParts(date);
+    /** @param {string} type */
+    const part = (type) => parts.find((p) => p.type === type)?.value ?? '';
+    return `${part('year')}.${part('month')}.${part('day')}`;
+  } catch {
+    return iso.slice(0, 10);
+  }
+}
+
+/**
+ * @param {string} iso
+ * @param {string} [lang]
+ */
+export function formatDate(iso, lang = site.defaultLocale) {
+  return formatDateFor(iso, localeMeta(lang));
+}
+
+/** Year + month, terse by default (`YYYY.MM`) — used for timeline headings. */
+/** @type {Intl.DateTimeFormatOptions} */
+const MONTH_PARTS = { year: 'numeric', month: '2-digit', timeZone: 'UTC' };
+
+/**
+ * @param {string} iso
+ * @param {{ code?: string, intl?: string, dateFormat?: Intl.DateTimeFormatOptions } | undefined} meta
+ */
+export function formatMonthFor(iso, meta) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return typeof iso === 'string' ? iso.slice(0, 7) : '';
+  const locale = meta?.intl ?? meta?.code ?? site.defaultLocale;
+  try {
+    if (meta?.dateFormat) {
+      return new Intl.DateTimeFormat(locale, {
+        timeZone: 'UTC',
+        ...meta.dateFormat,
+        day: undefined
+      }).format(date);
+    }
+    const parts = new Intl.DateTimeFormat('en-US', MONTH_PARTS).formatToParts(date);
+    /** @param {string} type */
+    const part = (type) => parts.find((p) => p.type === type)?.value ?? '';
+    return `${part('year')}.${part('month')}`;
+  } catch {
+    return iso.slice(0, 7);
+  }
+}
+
+/**
+ * @param {string} iso
+ * @param {string} [lang]
+ */
+export function formatMonth(iso, lang = site.defaultLocale) {
+  return formatMonthFor(iso, localeMeta(lang));
+}
+
 export default {
   dictionaries,
   getDictionary,
@@ -94,5 +198,12 @@ export default {
   localeFromPath,
   getLink,
   homePath,
-  stripLocale
+  stripLocale,
+  localeMeta,
+  dirOf,
+  dirFor,
+  formatDate,
+  formatDateFor,
+  formatMonth,
+  formatMonthFor
 };
