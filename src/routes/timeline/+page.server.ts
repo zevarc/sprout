@@ -1,4 +1,5 @@
 import { getDb } from '$lib/server/db';
+import { getSession } from '$lib/server/auth';
 import { listNodes } from '$lib/server/repositories/nodes';
 import { listActorNames } from '$lib/server/repositories/actors';
 import { nodeToView } from '$lib/content/view';
@@ -12,19 +13,25 @@ export const prerender = false;
 
 /**
  * The merged timeline: every type in one feed, ordered by when things happened
- * (or were published — see `sprout.config.js` `content.timelineOrder`). Access is
- * enforced by the session guard (this route is private while `timeline` is on).
+ * (or were published — see `sprout.config.js` `content.timelineOrder`).
+ *
+ * Public by default — visitors see public entries only; an owner/member session
+ * also sees private ones. Sites that want a members-only timeline list
+ * `/timeline` in `sprout.config.js` → `privateRoutes`.
  */
-export async function load({ platform, url }) {
+export async function load(event) {
 	if (!hasFeature('timeline')) throw error(404, 'Not found');
 
-	const db = getDb(platform);
-	const lang = localeFromPath(url.pathname);
+	const db = getDb(event.platform);
+	const lang = localeFromPath(event.url.pathname);
+	const session = await getSession(event, db);
+	const privileged = session?.role === 'owner' || session?.role === 'member';
 
 	const nodes = await listNodes(db, {
 		types: listTypes().map((t) => t.type),
 		lang,
 		status: 'published',
+		visibility: privileged ? undefined : 'public',
 		orderBy: content?.timelineOrder ?? 'published',
 		limit: 500
 	});

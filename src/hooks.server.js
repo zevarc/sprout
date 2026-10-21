@@ -35,8 +35,9 @@ const SECURITY_HEADERS = {
  */
 function privatePrefixes() {
   const fromTypes = listTypes().filter((t) => !t.public).map((t) => t.route);
-  const builtIn = hasFeature('timeline') ? ['/timeline'] : [];
-  return [...new Set([...(privateRoutes ?? []), ...builtIn, ...fromTypes])];
+  // Nothing built in: a site that wants a members-only timeline (or any other
+  // extra guarded path) lists it in `privateRoutes`.
+  return [...new Set([...(privateRoutes ?? []), ...fromTypes])];
 }
 
 /**

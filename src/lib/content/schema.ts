@@ -58,6 +58,11 @@ export interface HomeSection {
 	limit: number;
 	/** For `cards`: which declared fields to surface (e.g. project links). */
 	fields?: string[];
+	/**
+	 * Optional ordering for this section. `field` sorts by a declared field —
+	 * typically a curated `order` — and falls back to publish time when absent.
+	 */
+	sort?: { field: string; numeric?: boolean; direction?: 'asc' | 'desc' };
 }
 
 /** A contribution: data a site or package adds to the assembly. */

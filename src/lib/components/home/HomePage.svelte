@@ -2,6 +2,7 @@
   import HomeSection from './HomeSection.svelte';
   import { getDictionary, getLink, homePath as localeHome } from '$lib/i18n/index.js';
   import { getContentType } from '$lib/content/registry';
+  import { hasFeature } from '$lib/engine/features';
   import { site } from '$lib/site';
 
   const { lang = site.defaultLocale, sections = [] } = $props();
@@ -117,7 +118,7 @@
   </header>
 
   {#each sections as section, i (i)}
-    <HomeSection {section} {lang} />
+    <HomeSection {section} items={section.items ?? []} {lang} />
   {/each}
 
   <div class="float-actions" class:show={showFloat}>
@@ -148,6 +149,9 @@
   <footer class="site-footer">
     <a href={`/${postsPath}`}>{t.nav.posts}</a>
     <a href={`/${projectsPath}`}>{t.nav.projects}</a>
+    {#if hasFeature('timeline')}
+      <a href={`/${getLink('timeline', lang)}`}>{t.nav.timeline}</a>
+    {/if}
     <a href={`/${tagsPath}`}>{t.nav.tags}</a>
     <a href={`/${aboutPath}`}>{t.nav.about}</a>
     <a href={`mailto:${site.contact.email}`}>{t.about.contact.title}</a>

@@ -4,6 +4,7 @@ import {
 	createNode,
 	updateNode,
 	getNodeBySlug,
+	listFeatured,
 	relatedIds
 } from '$lib/server/repositories/nodes';
 import { renderComment } from '$lib/server/render';
@@ -87,5 +88,35 @@ describe('data model invariants', () => {
 			sqlite.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get()
 		);
 		expect(row.value).toBe('3');
+	});
+});
+
+describe('declarative ordering', () => {
+	it('orders by a declared numeric field, NULLs last', async () => {
+		const { db } = createTestDb();
+		/** @param {string} slug @param {number | null} order */
+		const mk = (slug, order) =>
+			createNode(db, {
+				type: 'project',
+				slug,
+				lang: 'en',
+				bodyMd: 'x',
+				status: 'published',
+				featured: true,
+				fields: order === null ? {} : { order }
+			});
+
+		await mk('second', 2);
+		await mk('first', 1);
+		await mk('third', 3);
+		await mk('unranked', null);
+
+		const featured = await listFeatured(db, {
+			types: ['project'],
+			lang: 'en',
+			orderByField: { field: 'order', numeric: true, direction: 'asc' }
+		});
+
+		expect(featured.map((n) => n.slug)).toEqual(['first', 'second', 'third', 'unranked']);
 	});
 });

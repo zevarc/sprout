@@ -12,6 +12,7 @@ export const en = {
     moments: 'Moments',
     about: 'About',
     tags: 'Tags',
+    timeline: 'Timeline',
   },
   home: {
     selectedWriting: 'Selected writing',

@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { getDictionary, getLink } from '$lib/i18n/index.js';
+  import { getContentType } from '$lib/content/registry';
   import { site } from '$lib/site';
 
   /**
@@ -39,6 +40,24 @@
     return typeof value === 'string' && /^https?:\/\//.test(value);
   }
 
+  /**
+   * Resolve a declared field for display: the label comes from the field
+   * definition, and `select` values are shown as their localized option label
+   * (so a card shows 活跃 rather than "active").
+   */
+  /** @param {{ type?: string, fields?: Record<string, unknown> }} item @param {string} key */
+  function fieldView(item, key) {
+    const def = getContentType(item.type ?? '')?.fields?.find((f) => f.key === key);
+    const raw = item.fields?.[key];
+    let value = String(raw);
+    if (def?.type === 'select') {
+      const opt = def.options?.find((o) => o.value === value);
+      if (opt) value = opt.label?.[lang] ?? opt.label?.[site.defaultLocale] ?? value;
+    }
+    const label = def?.label?.[lang] ?? def?.label?.[site.defaultLocale] ?? key;
+    return { label, value };
+  }
+
   onMount(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -70,10 +89,10 @@
                   {#if item.fields?.[field] != null && item.fields[field] !== ''}
                     {#if isUrl(item.fields[field])}
                       <a class="card-field link" href={String(item.fields[field])} target="_blank" rel="noopener">
-                        {field}
+                        {fieldView(item, field).label}
                       </a>
                     {:else}
-                      <span class="card-field">{String(item.fields[field])}</span>
+                      <span class="card-field">{fieldView(item, field).value}</span>
                     {/if}
                   {/if}
                 {/each}

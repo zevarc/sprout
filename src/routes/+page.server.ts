@@ -24,11 +24,18 @@ export async function load({ platform, url }) {
 				types,
 				lang,
 				visibility: 'public',
-				limit: section.limit
+				limit: section.limit,
+				orderByField: section.sort
 			});
 			const items = featured.length
 				? featured
-				: await listViews(db, { types, lang, visibility: 'public', limit: section.limit });
+				: await listViews(db, {
+						types,
+						lang,
+						visibility: 'public',
+						limit: section.limit,
+						orderByField: section.sort
+					});
 
 			return { ...section, items };
 		})

@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { listViews } from '$lib/content/view';
+import { publicTypes } from '$lib/content/registry';
 import { localeFromPath } from '$lib/i18n';
 
 export const prerender = false;
@@ -10,7 +11,7 @@ export async function load({ params, platform, url }) {
 	const lang = localeFromPath(url.pathname);
 	const tag = params.tag;
 	const posts = await listViews(db, {
-		types: ['post', 'note'],
+		types: publicTypes().map((t) => t.type),
 		lang,
 		tag,
 		limit: 200

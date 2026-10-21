@@ -228,21 +228,39 @@ export async function listNodes(db: D1Database, opts: ListNodesOptions = {}): Pr
  */
 export async function listFeatured(
 	db: D1Database,
-	opts: { types: string[]; lang: string; visibility?: NodeVisibility; limit?: number }
+	opts: {
+		types: string[];
+		lang: string;
+		visibility?: NodeVisibility;
+		limit?: number;
+		orderByField?: FieldOrder;
+	}
 ): Promise<ContentNode[]> {
 	if (opts.types.length === 0) return [];
 	const placeholders = opts.types.map(() => '?').join(', ');
+	const joinParams: unknown[] = [];
+	let join = '';
+	let order = 'ORDER BY (n.published_at IS NULL), n.published_at DESC, n.created_at DESC';
+
+	if (opts.orderByField) {
+		join = 'LEFT JOIN node_fields of ON of.node_id = n.id AND of.field = ?';
+		joinParams.push(opts.orderByField.field);
+		const column = opts.orderByField.numeric ? 'of.value_number' : 'of.value_text';
+		const direction = opts.orderByField.direction === 'asc' ? 'ASC' : 'DESC';
+		order = `ORDER BY (${column} IS NULL), ${column} ${direction}, n.published_at DESC, n.created_at DESC`;
+	}
+
 	const rows = await query<NodeRow>(
 		db,
-		`SELECT n.* FROM nodes n
+		`SELECT n.* FROM nodes n ${join}
 		  WHERE n.type IN (${placeholders})
 		    AND n.lang = ?
 		    AND n.status = 'published'
 		    AND n.visibility = ?
 		    AND n.featured = 1
-		  ORDER BY (n.published_at IS NULL), n.published_at DESC, n.created_at DESC
+		  ${order}
 		  LIMIT ?`,
-		[...opts.types, opts.lang, opts.visibility ?? 'public', opts.limit ?? 5]
+		[...joinParams, ...opts.types, opts.lang, opts.visibility ?? 'public', opts.limit ?? 5]
 	);
 	const related = await loadRelated(
 		db,

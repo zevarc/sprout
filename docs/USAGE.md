@@ -80,7 +80,9 @@ export const site = {
 
 `HomeSection`: `types: string[]`, `layout: 'list' | 'cards'`, `title` (dotted i18n
 key), `more` (dotted i18n key), `morePath` (path without locale), `limit: number`,
-optional `fields: string[]` (which declared fields cards display).
+optional `fields: string[]` (which declared fields cards display), optional
+`sort: { field, numeric?, direction? }` (order by a declared field — e.g. a curated
+`order` — with NULLs last; omitted means newest first).
 
 `Mod`: `id` (required), optional `contentTypes`, `features`, `home.sections`,
 `theme.tokens`, `i18n`.
@@ -160,7 +162,9 @@ export const home = {
     { types: ['project'], layout: 'cards',
       title: 'home.selectedProjects', more: 'home.allProjects',
       morePath: 'projects', limit: 4,
-      fields: ['year', 'status', 'website', 'github'] }
+      fields: ['year', 'status', 'website', 'github'],
+      // optional: curated order instead of newest-first
+      sort: { field: 'order', numeric: true, direction: 'asc' } }
   ]
 };
 ```
@@ -244,8 +248,10 @@ i18n key groups: `nav`, `home`, `posts`, `search`, `comments`, `moments`,
 
 ## 8. Timeline and event time
 
-- `features: ['timeline']` enables `/timeline` (private by default: it is added to
-  the guarded prefixes when the feature is on).
+- `features: ['timeline']` enables `/timeline`. It is public by default and shows
+  public entries to visitors (private entries appear only with an owner/member
+  session); list `/timeline` in `privateRoutes` if the whole timeline should be
+  members-only.
 - Every node can carry `occurredAt` (when it happened) alongside `publishedAt`
   (when it was published). `content.timelineOrder` selects the ordering.
 - Lists and the timeline display `occurredAt ?? date`.

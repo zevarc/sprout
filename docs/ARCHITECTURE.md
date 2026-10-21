@@ -92,7 +92,7 @@ non-default locale prefixes **for matching**. The effective routes:
 | `/projects`, `/projects/[slug]` | Bespoke project list/detail | public |
 | `/tags`, `/tags/[tag]` | Tag archive | public |
 | `/about`, `/search` | Static pages | public |
-| `/timeline` | Merged timeline | private (when enabled) |
+| `/timeline` | Merged timeline | public (public entries; add `/timeline` to `privateRoutes` for members-only) |
 | `/admin` | Console (client app) | token session |
 | `/login`, `/invite/[token]` | Sign in / accept invite | public |
 | `/feed.xml`, `/og/[slug].svg` | Per-locale outputs | public |

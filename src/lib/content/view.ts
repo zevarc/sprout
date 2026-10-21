@@ -133,6 +133,7 @@ export async function listViews(
 		tag?: string;
 		visibility?: NodeVisibility;
 		limit?: number;
+		orderByField?: { field: string; numeric?: boolean; direction?: 'asc' | 'desc' };
 	}
 ): Promise<PostView[]> {
 	const nodes = await listNodes(db, {
@@ -141,6 +142,7 @@ export async function listViews(
 		status: 'published',
 		tag: opts.tag,
 		visibility: opts.visibility ?? 'public',
+		orderByField: opts.orderByField,
 		limit: opts.limit ?? 100
 	});
 	return nodes.map((n) => nodeToView(n));
@@ -149,7 +151,13 @@ export async function listViews(
 /** Featured views (nodes with `featured = 1`). Public by default. */
 export async function listFeaturedViews(
 	db: D1Database,
-	opts: { types: string[]; lang: string; visibility?: NodeVisibility; limit?: number }
+	opts: {
+		types: string[];
+		lang: string;
+		visibility?: NodeVisibility;
+		limit?: number;
+		orderByField?: { field: string; numeric?: boolean; direction?: 'asc' | 'desc' };
+	}
 ): Promise<PostView[]> {
 	const nodes = await listFeatured(db, opts);
 	return nodes.map((n) => nodeToView(n));

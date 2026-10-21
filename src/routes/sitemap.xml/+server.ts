@@ -1,3 +1,4 @@
+import { hasFeature } from '$lib/engine/features';
 import { getDb } from '$lib/server/db';
 import { listTags } from '$lib/server/repositories/tags';
 import { listViews, type PostView } from '$lib/content/view';
@@ -46,7 +47,14 @@ export async function GET({ platform }) {
 	// Only single-segment type routes have a generic list page (multi-segment
 	// routes are served by their own static routes); listing the others would
 	// publish a dead URL.
-	const fixed = ['', 'about', 'search', 'tags', ...listRouteSegments()];
+	const fixed = [
+		'',
+		'about',
+		'search',
+		'tags',
+		...(hasFeature('timeline') ? ['timeline'] : []),
+		...listRouteSegments()
+	];
 	for (const path of fixed) urls.push(entry(path, LOCALES));
 
 	for (const locale of LOCALES) {
@@ -58,7 +66,7 @@ export async function GET({ platform }) {
 			}
 		}
 
-		const tags = await listTags(db, { lang: locale, types: ['post', 'note'] });
+		const tags = await listTags(db, { lang: locale, types: publicTypes().map((t) => t.type) });
 		for (const tag of tags) {
 			urls.push(entry(`tags/${encodeURIComponent(tag.tag)}`, [locale]));
 		}

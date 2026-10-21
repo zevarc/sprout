@@ -12,6 +12,7 @@ export const zh = {
     moments: '动态',
     about: '关于',
     tags: '标签',
+    timeline: '时间线',
   },
   home: {
     selectedWriting: '精选文章',
