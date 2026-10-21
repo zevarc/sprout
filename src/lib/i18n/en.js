@@ -5,6 +5,11 @@ export const en = {
   common: {
     empty: 'Nothing here yet.',
   },
+  feed: {
+    // Channel-title suffix and the RSS <language> tag for this locale.
+    label: 'Blog',
+    language: 'en',
+  },
   nav: {
     home: 'Home',
     posts: 'Posts',

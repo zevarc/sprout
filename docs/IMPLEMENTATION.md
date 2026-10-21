@@ -15,7 +15,7 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 | `lib/content/schema.ts` | Dependency-free types: `Label`, `FieldDef`, `FieldOption`, `ContentTypeDef`, `HomeSection`, `Mod`. `fields` is the **declaration** that drives the editor and the write-boundary validation (`lib/engine/fields.ts`) |
 | `lib/content/types.ts` | Domain types: `ContentNode`, `NewNode`, `ContentEvent`, `MediaItem`, `NodeVisibility`, `Actor`, … |
 | `lib/content/registry.ts` | Type helpers: `getContentType`, `getTypeByRouteSegment`, `listTypes`, `publicTypes`, `privateTypes`, `feedTypes`, `listRouteSegments`, `labelText` |
-| `lib/content/view.ts` | `nodeToView()` (readTime, excerpt, TOC, URL, JSON-LD), `listViews`, `listFeaturedViews`, `findRelatedViews`, `nodeToProjectView`, `listProjects` |
+| `lib/content/view.ts` | `nodeToView()` (readTime, excerpt, TOC, URL, JSON-LD), `listViews`, `listFeaturedViews`, `findRelatedViews`, `nodeToProjectView`, `listProjects`, `translationLinks` (per-locale alternates from `group_id`) |
 
 ### Engine
 
@@ -38,13 +38,14 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 | `server/search.ts` | Bigram tokenizer, `buildSearchText`, `toMatchExpression` |
 | `server/auth.ts` | Signed cookies, sessions, `hashToken`, `loginOwner`, `issueMemberSession`, `isAdmin`, `isEditor`, GitHub helpers |
 | `server/cache.ts` | `derivedPaths`, `invalidateNode`, `invalidateAll` |
-| `server/loadNode.ts` | Detail loader: status + visibility + translations + related |
+| `server/loadNode.ts` | Detail loader: status + visibility + translations (per-locale URLs) + related |
+| `lib/feed.ts` | RSS 2.0 builder; channel copy (`feed.label`, `feed.language`) comes from the dictionaries |
 | `server/export.ts` | Deterministic export bundle |
 | `server/restore.ts` | Restore from a bundle (UPSERT, re-render HTML) |
 | `server/rebuild.ts` | Rebuild the derived `body_html` |
 | `server/stats.ts` | `recordPageview`, `pageviewStats` |
 | `server/mediaAccess.ts` | Media readability (node wins, unattached = private) |
-| `server/repositories/nodes.ts` | Node CRUD, listings, featured, tags, search, FTS indexing |
+| `server/repositories/nodes.ts` | Node CRUD, listings, featured, tags, group siblings (`listGroupNodes`), search, FTS indexing |
 | `server/repositories/events.ts` | Append events, status log, rate-limit counts |
 | `server/repositories/actors.ts` | Actors, identities, sessions, owner/member helpers |
 | `server/repositories/media.ts` | Media rows |
@@ -69,7 +70,12 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 - `lib/i18n/index.js`: `getDictionary()`, `getLink`, `localeFromPath`, `stripLocale`,
   `homePath`. Base dictionaries are `en`/`zh`; `getDictionary` deep-merges every mod's
   `i18n` fragment (from `registry.i18nFragments`) over them, so a mod can even add a
-  locale the site does not ship.
+  locale the site does not ship. The dictionaries also own `feed.label` /
+  `feed.language`, used by `lib/feed.ts` for the RSS channel — the engine holds no
+  locale tables.
+- `LanguageSwitcher` swaps the locale prefix by default; a detail page passes
+  `links` (built from `translationLinks`) so each language links to its own slug and
+  languages without a translation are not offered.
 
 ---
 

@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { getNodeBySlug } from '$lib/server/repositories/nodes';
-import { nodeToProjectView } from '$lib/content/view';
+import { getNodeBySlug, listGroupNodes } from '$lib/server/repositories/nodes';
+import { nodeToProjectView, nodeUrl, translationLinks } from '$lib/content/view';
 import { getContentType } from '$lib/content/registry';
 import { localeFromPath } from '$lib/i18n';
 
@@ -17,5 +17,12 @@ export async function load({ params, platform, url }) {
 	// A static override must honour visibility exactly like the generic detail route.
 	if (node.visibility === 'private') throw error(404, 'Not found');
 
-	return { project: nodeToProjectView(node), bodyHtml: node.bodyHtml ?? '', lang };
+	// Alternates are resolved from `group_id`, so a translation may use its own slug.
+	const siblings = (await listGroupNodes(db, node.groupId)).filter((n) => n.type === 'project');
+	const translations = translationLinks(siblings);
+	if (!translations.some((t) => t.lang === node.lang)) {
+		translations.push({ lang: node.lang, url: nodeUrl(node) });
+	}
+
+	return { project: nodeToProjectView(node), bodyHtml: node.bodyHtml ?? '', lang, translations };
 }

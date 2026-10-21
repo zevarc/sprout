@@ -4,6 +4,15 @@
 
 Type-specific data becomes first-class: the `nodes.extra` JSON blob is gone.
 
+**Multilingual correctness**
+- Detail pages resolve `hreflang` alternates and the language switcher from the
+  node's `group_id` (`translationLinks`), so a translation may use a **different
+  slug** and unpublished/private translations are never linked.
+- RSS channel copy (`feed.label`, `feed.language`) moved out of `lib/feed.ts` into
+  the dictionaries — adding a language no longer means editing the engine.
+- `sitemap.xml` uses `site.defaultLocale` (not `locales[0]`) for `<loc>` and
+  `x-default`, and boot validation rejects duplicate locale codes.
+
 **Data model (`schema_version = 3`, export format `3`)**
 - New `node_fields` table: one **typed** row per `(node_id, field)`
   (`value_text` / `value_number` / `value_bool` / `value_json`, exactly one

@@ -1,13 +1,9 @@
 import type { PostView } from '$lib/content/view';
 import { site } from '$lib/site';
+import { dictionaries } from '$lib/i18n';
 
 const SITE_URL = site.url;
 const MAX_ITEMS = 20;
-
-/** A blog-ish word per locale, for the channel title. */
-const BLOG_LABEL: Record<string, string> = { en: 'Blog', zh: '博客' };
-/** RSS `<language>` tag per locale (falls back to the code). */
-const LANG_TAG: Record<string, string> = { en: 'en', zh: 'zh-cn' };
 
 function rfc822(date: string): string {
   return new Date(date).toUTCString();
@@ -27,9 +23,13 @@ export function generateRss(views: PostView[], lang: string = site.defaultLocale
   const home = lang === site.defaultLocale ? '' : lang;
   const feedUrl = `${SITE_URL}${home ? `/${home}` : ''}/feed.xml`;
   const brand = site.brand[lang] ?? site.brand[site.defaultLocale];
-  const title = `${site.name} - ${BLOG_LABEL[lang] ?? BLOG_LABEL.en}`;
+  // Locale copy lives in the dictionaries, not in this module: add a language by
+  // adding its dictionary, and the feed follows.
+  const own = dictionaries[lang];
+  const label = own?.feed?.label ?? dictionaries[site.defaultLocale]?.feed?.label ?? 'Blog';
+  const title = `${site.name} - ${label}`;
   const description = brand.feedDescription;
-  const language = LANG_TAG[lang] ?? lang;
+  const language = own?.feed?.language ?? lang;
 
   const posts: PostView[] = views
     .slice()

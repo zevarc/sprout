@@ -1,12 +1,22 @@
 <script>
   import { page } from '$app/stores';
   import { site } from '$lib/site';
-  import { localeFromPath, supportedLanguages } from '$lib/i18n/index.js';
+  import { localeFromPath } from '$lib/i18n/index.js';
 
-  let { overrideHref = undefined } = $props();
+  /**
+   * `links` maps a language code to the URL of *this same piece* in that language.
+   * Leave it undefined on pages that exist for every language (lists, fixed pages)
+   * and the prefix is swapped. Pass it on a detail page so a translation with a
+   * different slug links correctly — and a language with no translation is then
+   * not offered at all.
+   * @type {{ links?: Record<string, string> }}
+   */
+  let { links = undefined } = $props();
 
   const currentLang = $derived(localeFromPath($page.url.pathname));
-  const others = $derived(site.locales.filter((l) => l.code !== currentLang));
+  const others = $derived(
+    site.locales.filter((l) => l.code !== currentLang && (!links || links[l.code]))
+  );
 
   /**
    * Swap the locale prefix of a path. The default locale lives at the root.
@@ -21,10 +31,10 @@
   }
 </script>
 
-{#if supportedLanguages.length > 1}
+{#if others.length > 0}
   {#each others as loc}
     <a
-      href={overrideHref ?? swapLocale($page.url.pathname, loc.code)}
+      href={links?.[loc.code] ?? swapLocale($page.url.pathname, loc.code)}
       class="lang-switch"
       data-locale={loc.code}
     >{loc.label}</a>

@@ -496,6 +496,21 @@ export async function relatedIds(db: D1Database, id: string): Promise<string[]> 
 	return rows.map((r) => r.id);
 }
 
+/**
+ * Every node sharing a group (translations and series siblings), the node itself
+ * included. Callers decide what counts as an alternate — nothing about the link
+ * is inferred from the current URL, so translations may use different slugs.
+ */
+export async function listGroupNodes(db: D1Database, groupId: string): Promise<ContentNode[]> {
+	const rows = await query<NodeRow>(db, 'SELECT * FROM nodes WHERE group_id = ?', [groupId]);
+	if (rows.length === 0) return [];
+	const related = await loadRelated(
+		db,
+		rows.map((r) => r.id)
+	);
+	return rows.map((r) => toNode(r, related));
+}
+
 /** Writes the derived HTML cache for one node (used by the rebuild path). */
 export async function setBodyHtml(db: D1Database, id: string, html: string): Promise<void> {
 	await run(db, 'UPDATE nodes SET body_html = ? WHERE id = ?', [html, id]);

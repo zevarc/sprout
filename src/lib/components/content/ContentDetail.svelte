@@ -13,12 +13,17 @@
    * @type {{
    *   post: import('$lib/content/view').PostView,
    *   lang?: string,
-   *   comments?: boolean
+   *   comments?: boolean,
+   *   translations?: import('$lib/content/view').TranslationLink[]
    * }}
    */
-  let { post, lang = site.defaultLocale, comments = true } = $props();
+  let { post, lang = site.defaultLocale, comments = true, translations = [] } = $props();
 
   const t = $derived(getDictionary(lang));
+  const defaultAlt = $derived(translations.find((a) => a.lang === site.defaultLocale));
+  const switcherLinks = $derived(
+    Object.fromEntries(translations.map((a) => [a.lang, `/${a.url}`]))
+  );
 
   /** @param {string} iso */
   function formatDate(iso) {
@@ -35,10 +40,18 @@
   <meta property="og:description" content={post.description} />
   <meta property="og:type" content="article" />
   <meta property="og:url" content={`${site.url}/${post.url}`} />
-  <meta property="og:image" content={`${site.url}/${lang === site.defaultLocale ? '' : `${lang}/`}og/${post.slug}.svg`} />
+  <meta property="og:image" content={`${site.url}${lang === site.defaultLocale ? '/' : `/${lang}/`}og/${post.slug}.svg`} />
+  {#if translations.length > 1}
+    {#each translations as alt}
+      <link rel="alternate" hreflang={alt.lang} href={`${site.url}/${alt.url}`} />
+    {/each}
+    {#if defaultAlt}
+      <link rel="alternate" hreflang="x-default" href={`${site.url}/${defaultAlt.url}`} />
+    {/if}
+  {/if}
 </svelte:head>
 
-<LanguageSwitcher />
+<LanguageSwitcher links={switcherLinks} />
 <PageLogo href={homePath(lang)} />
 
 <main class="compact-page">

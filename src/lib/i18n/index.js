@@ -43,7 +43,7 @@ export function getDictionary(lang = site.defaultLocale) {
   return byLang[lang] ?? byLang[site.defaultLocale] ?? en;
 }
 
-/** Languages the site ships, from `site.config.js` (order matters: first is default). */
+/** Languages the site ships, from `site.config.js`. Order is display order; `defaultLocale` is the unprefixed one. */
 export const supportedLanguages = site.locales.map((l) => l.code);
 
 const NON_DEFAULT_LOCALES = supportedLanguages.filter((c) => c !== site.defaultLocale);

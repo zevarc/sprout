@@ -121,7 +121,10 @@ Verified properties:
 - `url.pathname` keeps the **original**, prefixed path;
 - loaders therefore call `localeFromPath(event.url.pathname)`;
 - `getLink(path, lang)` / `homePath(lang)` build prefixed URLs;
-- adding a language needs **no route files**.
+- adding a language needs **no route files**;
+- detail pages resolve alternates from the node's group (`translationLinks`), so a
+  translation may use a **different slug**; the language switcher then offers only
+  the languages that actually have the piece.
 
 The optional-param design (`[[lang]]` in the tree) was measured and rejected:
 it greedily consumes a segment, so `/posts/hello` resolves as

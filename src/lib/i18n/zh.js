@@ -5,6 +5,11 @@ export const zh = {
   common: {
     empty: '还没有内容。',
   },
+  feed: {
+    // 频道标题后缀 + 该语言的 RSS <language> 标签。
+    label: '博客',
+    language: 'zh-cn',
+  },
   nav: {
     home: '首页',
     posts: '博客',

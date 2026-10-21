@@ -24,7 +24,7 @@ Deployment: [DEPLOY](./DEPLOY.md). Data lifecycle:
 | `author` | string | yes | Structured-data author |
 | `contact.email` | string | yes | About page / footer |
 | `contact.github` | string | yes | About page / footer / `sameAs` |
-| `locales` | `{ code, label }[]` | yes | First is the default unless `defaultLocale` is set |
+| `locales` | `{ code, label }[]` | yes | Order is display order; `defaultLocale` (default: the first entry) owns the unprefixed URLs |
 | `defaultLocale` | string | no | Must be one of `locales` |
 | `brand` | `Record<locale, Brand>` | yes | Homepage/share copy |
 
@@ -210,8 +210,9 @@ export const theme = {
 Add a language:
 
 1. Add `{ code: 'ja', label: '日本語' }` to `site.locales`.
-2. Add `src/lib/i18n/ja.js` with the same keys as `en.js`.
-3. Register it in `src/lib/i18n/index.js` (`dictionaries`).
+2. Add `src/lib/i18n/ja.js` with the same keys as `en.js` — including
+   `feed: { label, language }` (the RSS channel-title suffix and the `<language>` tag).
+3. Register it in `src/lib/i18n/index.js` (`baseDictionaries`).
 4. Add a `brand.ja` entry in `site.config.js` (optional but recommended).
 
 URL scheme: the default locale lives at the root (`/posts/x`); every other locale
@@ -219,8 +220,14 @@ is a prefix (`/ja/posts/x`). No route files are needed. Always build links with
 `getLink(path, lang)` / `homePath(lang)`, and resolve the active locale with
 `localeFromPath(pathname)`.
 
+Translated content is grouped by `group_id`, **not** by a shared slug: a piece may
+use a different slug per language. Detail pages derive their `hreflang` alternates
+from the group, and the language switcher offers exactly the languages that have a
+translation.
+
 i18n key groups: `nav`, `home`, `posts`, `search`, `comments`, `moments`,
-`projects`, `tags`, `about`, `seo`, `common.empty`, `language`.
+`projects`, `tags`, `about`, `seo`, `feed.label`, `feed.language`, `common.empty`,
+`language`.
 
 ---
 

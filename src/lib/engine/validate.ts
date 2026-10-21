@@ -53,6 +53,11 @@ export function validateConfig(): string[] {
 	if (!localeCodes.includes(site.defaultLocale)) {
 		errors.push(`defaultLocale "${site.defaultLocale}" is not one of site.locales`);
 	}
+	const seenLocales = new Set<string>();
+	for (const code of localeCodes) {
+		if (seenLocales.has(code)) errors.push(`duplicate locale code "${code}"`);
+		seenLocales.add(code);
+	}
 	for (const code of localeCodes) {
 		const collide = types.find((t) => t.route === `/${code}`);
 		if (collide) {

@@ -9,7 +9,7 @@
     import { hasFeature } from '$lib/engine/features';
     import { pageTitle } from '$lib/seo';
 
-    const { post, related = [], comments = true } = $props();
+    const { post, related = [], comments = true, translations = [] } = $props();
 
     let progress = $state(0);
     let activeId = $state('');
@@ -74,20 +74,13 @@
       activeId = id;
     }
 
-    // The path within its locale (e.g. `posts/hello`), so alternates can be
-    // rebuilt for every configured locale.
-    const contentPath = $derived.by(() => {
-      const seg = post.url.split('/')[0];
-      return lang !== site.defaultLocale && seg === lang ? post.url.slice(seg.length + 1) : post.url;
-    });
-
+    // Alternates come from the node's group (`group_id`), not from this URL, so a
+    // translation may use a different slug and is still linked correctly.
     const homeLink = $derived(localeHome(lang));
-    const postsPath = $derived(`/${getLink('posts', lang)}`);
-    const switchPath = $derived.by(() => {
-      if (post.hasAlt) return undefined;
-      const other = site.locales.find((l) => l.code !== lang);
-      return other ? localeHome(other.code) : undefined;
-    });
+    const defaultAlt = $derived(translations.find((t) => t.lang === site.defaultLocale));
+    const switcherLinks = $derived(
+      Object.fromEntries(translations.map((t) => [t.lang, `/${t.url}`]))
+    );
 
     const json = $derived(
         JSON.stringify(post.jsonLd)
@@ -118,11 +111,13 @@
     <meta name="twitter:image" content={ogImage} />
     <meta property="og:url" content={`${site.url}/${post.url}`} />
     <link rel="canonical" href={`${site.url}/${post.url}`} />
-    {#if post.hasAlt}
-        {#each site.locales as loc}
-            <link rel="alternate" hreflang={loc.code} href={`${site.url}/${getLink(contentPath, loc.code)}`} />
+    {#if translations.length > 1}
+        {#each translations as alt}
+            <link rel="alternate" hreflang={alt.lang} href={`${site.url}/${alt.url}`} />
         {/each}
-        <link rel="alternate" hreflang="x-default" href={`${site.url}/${getLink(contentPath, site.defaultLocale)}`} />
+        {#if defaultAlt}
+            <link rel="alternate" hreflang="x-default" href={`${site.url}/${defaultAlt.url}`} />
+        {/if}
     {/if}
     {@html `<script type="application/ld+json">${json}</script>`}
 </svelte:head>
@@ -131,7 +126,7 @@
 
 <div class="reading-progress" style={`transform: scaleX(${progress})`} aria-hidden="true"></div>
 
-<LanguageSwitcher overrideHref={switchPath} />
+<LanguageSwitcher links={switcherLinks} />
 
 <PageLogo href={homeLink} />
 

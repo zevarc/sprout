@@ -75,6 +75,29 @@ export function nodeUrl(node: ContentNode): string {
 	return `${getLink(routePath, node.lang)}/${node.slug}`;
 }
 
+export interface TranslationLink {
+	lang: string;
+	url: string;
+}
+
+/**
+ * Alternate-language links for a node, built from its group members (`group_id`):
+ * one entry per language, ordered by `site.locales`. Only published, public nodes
+ * qualify — a draft or private translation must not be advertised via hreflang.
+ * Each URL comes from that member's own slug, so translations need not share one.
+ */
+export function translationLinks(nodes: ContentNode[]): TranslationLink[] {
+	const byLang = new Map<string, TranslationLink>();
+	for (const node of nodes) {
+		if (node.status !== 'published' || node.visibility !== 'public') continue;
+		if (byLang.has(node.lang)) continue;
+		byLang.set(node.lang, { lang: node.lang, url: nodeUrl(node) });
+	}
+	return site.locales
+		.map((locale) => byLang.get(locale.code))
+		.filter((link): link is TranslationLink => Boolean(link));
+}
+
 export function nodeToView(node: ContentNode, hasAlt = false): PostView {
 	const fields = node.fields ?? {};
 	const date = node.publishedAt ?? node.createdAt;

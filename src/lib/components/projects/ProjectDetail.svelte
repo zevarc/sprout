@@ -5,9 +5,13 @@
   import { site } from '$lib/site';
   import { pageTitle } from '$lib/seo';
 
-  let { project, bodyHtml = '', lang = site.defaultLocale } = $props();
+  let { project, bodyHtml = '', lang = site.defaultLocale, translations = [] } = $props();
 
   const t = $derived(getDictionary(lang));
+  const defaultAlt = $derived(translations.find((a) => a.lang === site.defaultLocale));
+  const switcherLinks = $derived(
+    Object.fromEntries(translations.map((a) => [a.lang, `/${a.url}`]))
+  );
   const home = $derived(homePath(lang));
   const projectsPath = $derived(getLink('projects', lang));
   const statusLabels = $derived(/** @type {Record<string, string>} */ (t.projects.status ?? {}));
@@ -33,17 +37,21 @@
   <title>{pageTitle(project.title)}</title>
   <meta name="description" content={project.description} />
   <link rel="canonical" href={`${site.url}/${project.url}`} />
-  {#each site.locales as loc}
-    <link rel="alternate" hreflang={loc.code} href={`${site.url}/${getLink(`projects/${project.slug}`, loc.code)}`} />
-  {/each}
-  {#if site.locales.length > 1}<link rel="alternate" hreflang="x-default" href={`${site.url}/${getLink(`projects/${project.slug}`, site.defaultLocale)}`} />{/if}
+  {#if translations.length > 1}
+    {#each translations as alt}
+      <link rel="alternate" hreflang={alt.lang} href={`${site.url}/${alt.url}`} />
+    {/each}
+    {#if defaultAlt}
+      <link rel="alternate" hreflang="x-default" href={`${site.url}/${defaultAlt.url}`} />
+    {/if}
+  {/if}
   <meta property="og:type" content="article" />
   <meta property="og:image" content={ogImage} />
   <meta name="twitter:image" content={ogImage} />
   {@html `<script type="application/ld+json">${jsonLd}</script>`}
 </svelte:head>
 
-<LanguageSwitcher />
+<LanguageSwitcher links={switcherLinks} />
 <PageLogo href={home} />
 
 <main class="project-page">

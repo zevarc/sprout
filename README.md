@@ -183,7 +183,8 @@ own static routes.
 - Runs on **Cloudflare only** (the data is portable; the runtime is not).
 - **Any number of languages** are supported from one route tree (`site.locales` drives
   links, feeds, sitemap, `hreflang` and the HTML `lang`); adding one needs a dictionary,
-  not a route tree.
+  not a route tree. Translated pieces are grouped (`group_id`), so each language may use
+  its own slug.
 - Generic list/detail pages cover **single-segment** type routes; a multi-segment route
   (`/posts/notes`) needs its own static pages.
 - `fields` in `sprout.config.js` is declarative: the admin form has bespoke inputs for

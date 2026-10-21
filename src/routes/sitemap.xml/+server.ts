@@ -26,17 +26,19 @@ function href(path: string, locale: string): string {
  * passed here — private types have no public URL at all.
  */
 function entry(path: string, locales: string[], lastmod?: string): string {
+	// The default locale owns the unprefixed URL, whatever order `site.locales` is in.
+	const primary = locales.includes(site.defaultLocale) ? site.defaultLocale : locales[0];
 	const lastmodTag = lastmod ? `\n        <lastmod>${lastmod}</lastmod>` : '';
 	const alts =
 		locales.length > 1
 			? locales
 					.map((l) => `\n        <xhtml:link rel="alternate" hreflang="${l}" href="${href(path, l)}"/>`)
 					.join('') +
-				`\n        <xhtml:link rel="alternate" hreflang="x-default" href="${href(path, locales[0])}"/>`
+				`\n        <xhtml:link rel="alternate" hreflang="x-default" href="${href(path, primary)}"/>`
 			: '';
 	return `
     <url>
-        <loc>${href(path, locales[0])}</loc>${lastmodTag}${alts}
+        <loc>${href(path, primary)}</loc>${lastmodTag}${alts}
     </url>`;
 }
 

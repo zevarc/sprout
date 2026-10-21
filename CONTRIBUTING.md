@@ -97,12 +97,15 @@ link: {
 ## 6. Adding a language
 
 1. Add `{ code, label }` to `site.locales`.
-2. Add `src/lib/i18n/<code>.js` with the same keys as `en.js`.
-3. Register it in `src/lib/i18n/index.js`.
+2. Add `src/lib/i18n/<code>.js` with the same keys as `en.js` (including
+   `feed: { label, language }`).
+3. Register it in `src/lib/i18n/index.js` (`baseDictionaries`).
 4. Optionally add `brand.<code>`.
 
 No route files are needed: `src/hooks.js` strips non-default locale prefixes for
-matching, and `event.url` keeps the real path.
+matching, and `event.url` keeps the real path. Translated content is grouped by
+`group_id`, so each language page may use its own slug — the detail pages derive
+`hreflang` and the switcher from that group.
 
 ## 7. Adding a mod
 

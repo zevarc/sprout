@@ -5,9 +5,12 @@ import {
 	updateNode,
 	getNodeBySlug,
 	listFeatured,
+	listGroupNodes,
 	uniqueSlug,
 	relatedIds
 } from '$lib/server/repositories/nodes';
+import { translationLinks } from '$lib/content/view';
+import { site } from '$lib/site';
 import { renderComment } from '$lib/server/render';
 
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -119,6 +122,58 @@ describe('declarative ordering', () => {
 		});
 
 		expect(featured.map((n) => n.slug)).toEqual(['first', 'second', 'third', 'unranked']);
+	});
+});
+
+describe('translation alternates', () => {
+	it('resolves each language from group members, using its own slug', async () => {
+		const { db } = createTestDb();
+		const en = await createNode(db, {
+			type: 'post',
+			slug: 'hello-world',
+			lang: 'en',
+			title: 'Hello',
+			bodyMd: 'x',
+			status: 'published'
+		});
+		await createNode(db, {
+			type: 'post',
+			slug: 'ni-hao',
+			lang: 'zh',
+			title: '你好',
+			bodyMd: 'y',
+			status: 'published',
+			groupId: en.groupId
+		});
+
+		const links = translationLinks(await listGroupNodes(db, en.groupId));
+		expect(Object.fromEntries(links.map((l) => [l.lang, l.url]))).toEqual({
+			en: 'posts/hello-world',
+			zh: 'zh/posts/ni-hao'
+		});
+		expect(links.map((l) => l.lang)).toEqual(site.locales.map((l) => l.code));
+	});
+
+	it('omits a translation that is not published', async () => {
+		const { db } = createTestDb();
+		const en = await createNode(db, {
+			type: 'post',
+			slug: 'a',
+			lang: 'en',
+			bodyMd: 'x',
+			status: 'published'
+		});
+		await createNode(db, {
+			type: 'post',
+			slug: 'b',
+			lang: 'zh',
+			bodyMd: 'y',
+			status: 'draft',
+			groupId: en.groupId
+		});
+
+		const links = translationLinks(await listGroupNodes(db, en.groupId));
+		expect(links).toEqual([{ lang: 'en', url: 'posts/a' }]);
 	});
 });
 
