@@ -1,10 +1,10 @@
 # Data model
 
 The whole schema is one file: [`migrations/0001_init.sql`](../migrations/0001_init.sql).
-`meta.schema_version` records the revision (currently `2`). Timestamps are
+`meta.schema_version` records the revision (currently `3`). Timestamps are
 ISO-8601 UTC strings.
 
-Two rules shape everything:
+Three rules shape everything:
 
 - **Ids are opaque.** Every node/event/actor/media id is a generated ULID, never
   derived from content. `slug`, `lang` and `type` can change without breaking a
@@ -13,6 +13,10 @@ Two rules shape everything:
   and `sessions.role` are constrained. `type`, `events.kind`, `relations.rel` and
   `actors.kind` are meant to grow, so they carry no `CHECK` — new kinds need no
   migration.
+- **What must be queried has a shape.** Cross-type concepts that must be filtered,
+  sorted or aggregated (`visibility`, `occurred_at`, `featured`, `cover`, tags,
+  authorship) are real columns or join tables. Only type-specific attributes that
+  are read with their node live in `node_fields` key-value rows.
 
 Migrations are additive after the canonical `0001`: add a new numbered file; never
 edit a shipped table's shape.
@@ -24,7 +28,7 @@ edit a shipped table's shape.
 | Column | Type | Notes |
 |---|---|---|
 | `key` | TEXT PK | e.g. `schema_version` |
-| `value` | TEXT NOT NULL | `schema_version` is `2` |
+| `value` | TEXT NOT NULL | `schema_version` is `3` |
 
 ## `actors` — local identity
 
@@ -100,16 +104,18 @@ Indexes: `(token_hash)`, `(created_at DESC)`.
 | `published_at` | TEXT | feed ordering |
 | `occurred_at` | TEXT | when it happened; timeline ordering |
 | `visibility` | TEXT NOT NULL DEFAULT `public` | `CHECK ∈ public \| private` |
+| `featured` | INTEGER NOT NULL DEFAULT `0` | `CHECK ∈ 0 \| 1`; cross-type home selection |
+| `cover_media_id` | TEXT | FK → `media(id)` ON DELETE SET NULL; the cover is a media row, not a URL |
 | `author_actor_id` | TEXT | FK → `actors(id)` ON DELETE SET NULL |
 | `created_at` | TEXT NOT NULL | |
 | `updated_at` | TEXT NOT NULL | |
-| `extra` | TEXT NOT NULL DEFAULT `{}` | type-specific JSON |
 
 Constraints/indexes:
 
 - `UNIQUE(type, slug, lang)` — the human identity;
 - `(type, status, published_at DESC)` — feed ordering;
 - `(visibility, status, occurred_at DESC)` — timeline;
+- `(featured, published_at DESC)` — home selection;
 - `(group_id)` — translations/series.
 
 Semantics:
@@ -119,8 +125,38 @@ Semantics:
 - **Visibility.** `private` nodes are invisible to anonymous readers; public
   listings and search default to `public`; a private detail page returns 404.
 - **Derived.** `body_html` is rebuilt on restore and via `/api/admin/rerender`.
-- **`extra`.** Declared by the type registry but not schema-enforced; arbitrary
-  JSON is allowed.
+- **Type-specific data** lives in `node_fields` (below), not in a blob on this
+  row. `summary` is the single source of truth for descriptions.
+- **Cross-type data** is a column or a join table: `featured`, `cover_media_id`,
+  `visibility`, `occurred_at`, and `node_tags`.
+
+## `node_fields` — type-specific attributes
+
+| Column | Type | Notes |
+|---|---|---|
+| `node_id` | TEXT NOT NULL | FK → `nodes(id)` ON DELETE CASCADE |
+| `field` | TEXT NOT NULL | declared in `sprout.config.js`; validated at the write boundary |
+| `value_text` | TEXT | for `text` / `textarea` / `markdown` / `url` / `date` / `select` |
+| `value_number` | REAL | for `number` |
+| `value_bool` | INTEGER | `CHECK ∈ 0 \| 1`, for `boolean` |
+| `value_json` | TEXT | for arrays/objects (`tags`-like multi-values) |
+
+`PRIMARY KEY(node_id, field)` and a `CHECK` that **exactly one** value column is
+non-null. Indexes: `(field, value_number)` and `(field, value_text)`, so filtering
+and sorting by a declared field is ordinary SQL.
+
+Adding a field or a type needs no migration. When a field becomes a cross-type
+concept, promote it to a column (as `featured` and `cover_media_id` were).
+
+## `node_tags` — tags (many-to-many)
+
+| Column | Type | Notes |
+|---|---|---|
+| `node_id` | TEXT NOT NULL | FK → `nodes(id)` ON DELETE CASCADE |
+| `tag` | TEXT NOT NULL | |
+
+`PRIMARY KEY(node_id, tag)`; index `(tag)`. Archives, counts and "related by tag"
+are plain `GROUP BY` / `JOIN` queries.
 
 ## `relations` — ad-hoc edges
 
@@ -209,9 +245,11 @@ import/restore.
 4. `nodes.body_html` is derived; the export never includes HTML.
 5. `media` readability follows its node; unattached media is private.
 6. `events` and `event_status` are append-only.
-7. `visibility` and `status` are the only closed node enums; everything else that
-   is meant to grow is open.
-8. Foreign keys are declared for reference integrity; the in-memory test database
+7. `visibility`, `status`, `featured` and the value columns are the closed enums;
+   everything else that is meant to grow is open.
+8. `node_fields` holds exactly one typed value per `(node_id, field)`; the field
+   key set is validated against the site's type declarations.
+9. Foreign keys are declared for reference integrity; the in-memory test database
    enables them, and the application also deletes children explicitly.
 
 ## Not exported

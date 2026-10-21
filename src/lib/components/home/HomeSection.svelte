@@ -67,13 +67,13 @@
             {#if section.fields?.length}
               <div class="card-fields">
                 {#each section.fields as field}
-                  {#if item.extra?.[field] != null && item.extra[field] !== ''}
-                    {#if isUrl(item.extra[field])}
-                      <a class="card-field link" href={String(item.extra[field])} target="_blank" rel="noopener">
+                  {#if item.fields?.[field] != null && item.fields[field] !== ''}
+                    {#if isUrl(item.fields[field])}
+                      <a class="card-field link" href={String(item.fields[field])} target="_blank" rel="noopener">
                         {field}
                       </a>
                     {:else}
-                      <span class="card-field">{String(item.extra[field])}</span>
+                      <span class="card-field">{String(item.fields[field])}</span>
                     {/if}
                   {/if}
                 {/each}

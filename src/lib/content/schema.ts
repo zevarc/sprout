@@ -56,7 +56,7 @@ export interface HomeSection {
 	/** Path (without locale) the "all" link points at. */
 	morePath: string;
 	limit: number;
-	/** For `cards`: which `extra` keys to surface (e.g. project links). */
+	/** For `cards`: which declared fields to surface (e.g. project links). */
 	fields?: string[];
 }
 

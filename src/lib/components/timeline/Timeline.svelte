@@ -18,8 +18,7 @@
 
   /** @param {any} entry */
   function images(entry) {
-    const value = entry.extra?.images;
-    return Array.isArray(value) ? value : [];
+    return Array.isArray(entry.media) ? entry.media : [];
   }
 
   /** @param {string} iso */
@@ -77,8 +76,8 @@
 
               {#if images(entry).length > 0}
                 <div class="entry-media">
-                  {#each images(entry) as src}
-                    <img src={src} alt="" loading="lazy" decoding="async" />
+                  {#each images(entry) as image}
+                    <img src={image.url} alt={image.alt ?? ''} loading="lazy" decoding="async" />
                   {/each}
                 </div>
               {/if}

@@ -86,6 +86,6 @@ describe('data model invariants', () => {
 		const row = /** @type {{ value: string }} */ (
 			sqlite.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get()
 		);
-		expect(row.value).toBe('2');
+		expect(row.value).toBe('3');
 	});
 });

@@ -18,24 +18,33 @@ describe('export → restore round trip', () => {
 			emailHash: 'hashed'
 		});
 
-		// No explicit id: node ids are generated ULIDs, never derived from content.
 		const node = await createNode(source.db, {
-			type: 'post',
-			slug: 'hello',
-			lang: 'en',
-			title: 'Hello 构建',
-			summary: '摘要',
-			bodyMd: '## 小节\n\n```cpp\nint main(){}\n```\n\nThe end.',
+			type: 'toy',
+			slug: 'blocks',
+			lang: 'zh',
+			title: '积木',
+			summary: '很耐玩',
+			bodyMd: '## 小节\n\n```cpp\nint main(){}\n```\n',
 			status: 'published',
 			occurredAt: '2025-01-02T00:00:00.000Z',
 			visibility: 'private',
+			featured: true,
 			authorActorId: author.id,
-			extra: { tags: ['a', 'b'] }
+			fields: { rating: '5', price: 128, pros: '耐摔', sturdy: true },
+			tags: ['益智', '积木']
 		});
+
+		// Attach media and point the cover at it.
+		await run(
+			source.db,
+			`INSERT INTO media (id, node_id, r2_key, kind, position) VALUES ('m1', ?, 'abc.png', 'image', 0)`,
+			[node.id]
+		);
+		await run(source.db, 'UPDATE nodes SET cover_media_id = ? WHERE id = ?', ['m1', node.id]);
 
 		const event = await addEvent(source.db, {
 			kind: 'comment',
-			targetType: 'post',
+			targetType: 'toy',
 			targetId: node.id,
 			actorId: commenter.id,
 			bodyMd: 'hi',
@@ -43,26 +52,32 @@ describe('export → restore round trip', () => {
 		});
 		await setEventStatus(source.db, event.id, 'approved', null);
 
-		await run(
-			source.db,
-			`INSERT INTO media (id, node_id, r2_key, kind, position) VALUES ('m1', ?, 'abc.png', 'image', 0)`,
-			[node.id]
-		);
-
 		const bundle = await buildExport(source.db);
 		expect(bundle.nodeCount).toBe(1);
 		expect(bundle.eventCount).toBe(1);
+		expect(bundle.files.some((f) => f.path === 'node_fields.jsonl')).toBe(true);
+		expect(bundle.files.some((f) => f.path === 'node_tags.jsonl')).toBe(true);
 
-		// Restore into a fresh database.
 		const target = createTestDb();
 		const result = await restoreFromBundle(target.db, bundle.files);
 
-		expect(result).toEqual({ nodes: 1, events: 1, actors: 2, relations: 0 });
+		expect(result).toEqual({
+			nodes: 1,
+			events: 1,
+			actors: 2,
+			relations: 0,
+			fields: 4,
+			tags: 2
+		});
 
 		const restored = await getNode(target.db, node.id);
 		if (!restored) throw new Error('node was not restored');
-		expect(restored.title).toBe('Hello 构建');
-		expect(restored.extra).toEqual({ tags: ['a', 'b'] });
+		expect(restored.title).toBe('积木');
+		expect(restored.fields).toEqual({ rating: '5', price: 128, pros: '耐摔', sturdy: true });
+		expect(restored.tags).toEqual(['益智', '积木']);
+		expect(restored.featured).toBe(true);
+		expect(restored.coverMediaId).toBe('m1');
+		expect(restored.media.map((m) => m.r2Key)).toEqual(['abc.png']);
 		// Visibility / occurred time / authorship / grouping must survive.
 		expect(restored.visibility).toBe('private');
 		expect(restored.occurredAt).toBe('2025-01-02T00:00:00.000Z');
@@ -78,11 +93,28 @@ describe('export → restore round trip', () => {
 		};
 		expect(count('SELECT COUNT(*) AS n FROM nodes_fts')).toBe(1);
 		expect(count('SELECT COUNT(*) AS n FROM media')).toBe(1);
+		expect(count('SELECT COUNT(*) AS n FROM node_fields')).toBe(4);
+		expect(count('SELECT COUNT(*) AS n FROM node_tags')).toBe(2);
 		expect(count('SELECT COUNT(*) AS n FROM event_status')).toBe(1);
 		expect(count('SELECT COUNT(*) AS n FROM relations')).toBe(0);
 
 		// Determinism: exporting the restored database yields byte-identical files.
 		const again = await buildExport(target.db);
 		expect(again.files).toEqual(bundle.files);
+	});
+
+	it('refuses a bundle from a different export version', async () => {
+		const { db } = createTestDb();
+		await expect(
+			restoreFromBundle(db, [
+				{ path: 'schema.json', content: JSON.stringify({ version: 4 }) }
+			])
+		).rejects.toThrow(/newer/);
+
+		await expect(
+			restoreFromBundle(db, [
+				{ path: 'schema.json', content: JSON.stringify({ version: 2 }) }
+			])
+		).rejects.toThrow(/older/);
 	});
 });

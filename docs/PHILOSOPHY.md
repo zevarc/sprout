@@ -44,15 +44,16 @@ lossless export.
 
 ## 3. Type is data, not schema
 
-- `nodes.type` is an **open vocabulary**; type-specific fields live in
-  `nodes.extra` (JSON).
+- `nodes.type` is an **open vocabulary**; type-specific attributes live in
+  `node_fields` (one typed row per field). Cross-type concepts (visibility,
+  occurred time, featured, cover, tags) are real columns or join tables.
 - Adding a type or a field is a change to `src/sprout.config.js` — **no migration**.
 - **Open vocabularies vs closed enums.** Things meant to grow (`type`,
   `events.kind`, `relations.rel`, `actors.kind`) carry **no `CHECK`**; things that
   are genuinely closed (`status`, `visibility`, `sessions.role`) do. This keeps the
   database self-checking without forcing a migration for every extension.
 
-The table set is meant to stop changing. New capabilities ride on `extra`,
+The table set is meant to stop changing. New capabilities ride on `node_fields`,
 `events` and `relations`; a genuinely new concept may add a **new** table
 (additive), but never reshape an existing one.
 
@@ -79,8 +80,8 @@ presentation  pages · components · theme tokens
 ```
 
 The rule is one-way: **downstream adapts to upstream.** Architecture or UI ideas
-must not force a change to the core tables. Extensions ride on `extra` / `events` /
-`relations`, or add a new table.
+must not force a change to the core tables. Extensions ride on `node_fields` /
+`events` / `relations`, or add a new table.
 
 ## 6. Architecture choices
 
@@ -131,7 +132,8 @@ Key invariants are tests or boot-time checks, not conventions:
 | **node** | An authored record (`nodes` row) |
 | **event** | An interaction (`events` row), append-only |
 | **group** | `nodes.group_id`: translations/series share it |
-| **extra** | JSON column holding type-specific fields |
+| **node_fields** | Typed rows holding a node's type-specific attributes |
+| **node_tags** | Many-to-many tags (aggregatable) |
 | **renderer** | A built-in layout key (`list`/`cards`/`feed`, `article`/`compact`) |
 | **feature** | A cross-cutting capability id (`comments`, `members`, …) |
 | **mod** | A data contribution merged into the assembly |

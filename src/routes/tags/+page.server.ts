@@ -1,5 +1,5 @@
 import { getDb } from '$lib/server/db';
-import { listTags } from '$lib/server/repositories/nodes';
+import { listTags } from '$lib/server/repositories/tags';
 import { localeFromPath } from '$lib/i18n';
 
 export const prerender = false;

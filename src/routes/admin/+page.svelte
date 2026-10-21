@@ -1,8 +1,9 @@
 <script>
   import { onMount } from 'svelte';
   import PageLogo from '$lib/components/PageLogo.svelte';
-  import { contentTypes } from '$lib/content/registry';
+  import { contentTypes, labelText } from '$lib/content/registry';
   import { content } from '$lib/engine/registry';
+  import { initialFieldValues, validateFields } from '$lib/engine/fields';
   import { site } from '$lib/site';
   import { hasFeature } from '$lib/engine/features';
 
@@ -19,10 +20,10 @@
   let draft = $state(null);
   let tagsInput = $state('');
   let featured = $state(false);
-  let projectStatus = $state('');
-  let imagesInput = $state('');
-  let website = $state('');
-  let github = $state('');
+  let coverMediaId = $state('');
+  /** 声明字段的当前值（按当前类型的 `fields` 归一化）。 */
+  /** @type {Record<string, any>} */
+  let fieldValues = $state({});
   let showPreview = $state(false);
   let previewHtml = $state('');
 
@@ -87,6 +88,9 @@
   /** @param {string | null | undefined} iso */
   const toLocal = (iso) => (iso ? new Date(iso).toISOString().slice(0, 16) : '');
 
+  /** 当前类型声明的字段（编辑器据此渲染，不用按类型写死）。 */
+  const fields = $derived(draft ? (contentTypes[draft.type]?.fields ?? []) : []);
+
   function currentState() {
     return JSON.stringify({
       id: draft?.id ?? null,
@@ -102,10 +106,8 @@
       visibility: draft?.visibility ?? '',
       tagsInput,
       featured,
-      projectStatus,
-      imagesInput,
-      website,
-      github
+      coverMediaId,
+      fieldValues
     });
   }
 
@@ -273,10 +275,8 @@
     };
     tagsInput = '';
     featured = false;
-    projectStatus = '';
-    imagesInput = '';
-    website = '';
-    github = '';
+    coverMediaId = '';
+    fieldValues = initialFieldValues(contentTypes.moment?.fields ?? [], {});
     previewHtml = '';
     showPreview = false;
     slugAtLoad = '';
@@ -293,12 +293,10 @@
   function editNode(node) {
     if (dirty && !confirm('当前草稿未保存，仍要切换吗？')) return;
     draft = { ...node, publishedAt: toLocal(node.publishedAt), occurredAt: toLocal(node.occurredAt) };
-    tagsInput = Array.isArray(node.extra?.tags) ? node.extra.tags.join(', ') : '';
-    featured = node.extra?.featured === true;
-    projectStatus = node.extra?.status ?? '';
-    imagesInput = Array.isArray(node.extra?.images) ? node.extra.images.join('\n') : '';
-    website = node.extra?.website ?? '';
-    github = node.extra?.github ?? '';
+    tagsInput = (node.tags ?? []).join(', ');
+    featured = node.featured === true;
+    coverMediaId = node.coverMediaId ?? '';
+    fieldValues = initialFieldValues(contentTypes[node.type]?.fields ?? [], node.fields ?? {});
     previewHtml = '';
     showPreview = false;
     slugAtLoad = node.slug ?? '';
@@ -354,10 +352,8 @@
     draft.visibility = s.visibility;
     tagsInput = s.tagsInput;
     featured = s.featured;
-    projectStatus = s.projectStatus;
-    imagesInput = s.imagesInput;
-    website = s.website;
-    github = s.github;
+    coverMediaId = s.coverMediaId ?? '';
+    fieldValues = s.fieldValues ?? {};
     localHint = null;
     localJson = null;
     message = '已恢复本地草稿';
@@ -366,28 +362,6 @@
   function discardLocal() {
     localStorage.removeItem(autosaveKey());
     clearLocal();
-  }
-
-  /** 只写当前类型真正需要的字段，避免 post 也带项目字段。 */
-  function buildExtra() {
-    const extra = {};
-    const tags = tagsInput.split(',').map((s) => s.trim()).filter(Boolean);
-    if (tags.length > 0) extra.tags = tags;
-
-    if (draft?.type === 'project') {
-      extra.status = projectStatus || null;
-      extra.featured = featured;
-      if (website) extra.website = website;
-      if (github) extra.github = github;
-    } else if (draft?.type === 'moment') {
-      const images = imagesInput.split('\n').map((s) => s.trim()).filter(Boolean);
-      if (images.length > 0) extra.images = images;
-      if (featured) extra.featured = true;
-    } else if (featured) {
-      extra.featured = true;
-    }
-
-    return extra;
   }
 
   async function save() {
@@ -406,6 +380,13 @@
       if (!ok) return;
     }
 
+    // 与后端同一套规则；后端仍是权威（前端可绕过，写入边界不可绕过）。
+    const checked = validateFields(fields, fieldValues);
+    if (!checked.ok) {
+      message = `字段有问题：${checked.errors.join('；')}`;
+      return;
+    }
+
     const payload = {
       type: draft.type,
       slug: draft.slug,
@@ -417,7 +398,10 @@
       publishedAt: draft.publishedAt ? new Date(draft.publishedAt).toISOString() : null,
       occurredAt: draft.occurredAt ? new Date(draft.occurredAt).toISOString() : null,
       visibility: draft.visibility,
-      extra: buildExtra()
+      tags: tagsInput,
+      featured,
+      coverMediaId: coverMediaId || null,
+      fields: checked.value
     };
     const res = draft.id
       ? await fetch(`/api/nodes/${encodeURIComponent(draft.id)}`, {
@@ -438,6 +422,10 @@
     message = '已保存';
     const node = data.node ?? draft;
     draft = { ...node, publishedAt: toLocal(node.publishedAt), occurredAt: toLocal(node.occurredAt) };
+    tagsInput = (node.tags ?? []).join(', ');
+    featured = node.featured === true;
+    coverMediaId = node.coverMediaId ?? '';
+    fieldValues = initialFieldValues(fields, node.fields ?? {});
     slugAtLoad = draft.slug;
     savedSnapshot = currentState();
     dirty = false;
@@ -524,9 +512,6 @@
       const data = await res.json();
       if (res.ok) {
         insertAtCursor(`![${altInput.trim()}](${data.url})`);
-        if (draft && draft.type === 'moment') {
-          imagesInput = imagesInput ? `${imagesInput}\n${data.url}` : data.url;
-        }
         altInput = '';
         void loadMedia();
       } else {
@@ -840,33 +825,85 @@
 
                 <div class="grid">
                   <label>标签（逗号分隔）<input type="text" bind:value={tagsInput} /></label>
-                  {#if draft.type === 'project'}
-                    <label>链接 website<input type="text" bind:value={website} /></label>
-                    <label>仓库 github<input type="text" bind:value={github} /></label>
-                  {/if}
-                </div>
-
-                {#if draft.type === 'project'}
-                  <label>项目状态
-                    <select bind:value={projectStatus}>
-                      <option value="">（未标注）</option>
-                      <option value="active">active</option>
-                      <option value="maintained">maintained</option>
-                      <option value="archived">archived</option>
+                  <label>封面
+                    <select bind:value={coverMediaId}>
+                      <option value="">（无封面）</option>
+                      {#each mediaList as item (item.id)}
+                        <option value={item.id}>{item.alt || item.url}</option>
+                      {/each}
                     </select>
                   </label>
-                {/if}
+                </div>
 
                 <label class="check">
                   <input type="checkbox" bind:checked={featured} />
                   首页精选（Featured on home）
                 </label>
 
-                {#if draft.type === 'moment'}
-                  <label>图片（每行一个 URL，动态正文用）
-                    <textarea rows="3" bind:value={imagesInput}></textarea>
-                  </label>
-                {/if}
+                {#each fields as field (field.key)}
+                  {#if field.type === 'boolean'}
+                    <label class="check">
+                      <input
+                        type="checkbox"
+                        checked={fieldValues[field.key] === true}
+                        onchange={(e) => (fieldValues[field.key] = e.currentTarget.checked)}
+                      />
+                      {labelText(field.label, draft.lang, field.key)}
+                    </label>
+                  {:else}
+                    <label>
+                      {labelText(field.label, draft.lang, field.key)}
+                      {#if field.type === 'select'}
+                        <select
+                          value={fieldValues[field.key] ?? ''}
+                          onchange={(e) => (fieldValues[field.key] = e.currentTarget.value || '')}
+                        >
+                          <option value="">（未标注）</option>
+                          {#each field.options ?? [] as opt}
+                            <option value={opt.value}>{labelText(opt.label, draft.lang, opt.value)}</option>
+                          {/each}
+                        </select>
+                      {:else if field.type === 'tags'}
+                        <input
+                          type="text"
+                          placeholder="逗号分隔"
+                          value={Array.isArray(fieldValues[field.key])
+                            ? fieldValues[field.key].join(', ')
+                            : ''}
+                          oninput={(e) =>
+                            (fieldValues[field.key] = e.currentTarget.value
+                              .split(',')
+                              .map((s) => s.trim())
+                              .filter(Boolean))}
+                        />
+                      {:else if field.type === 'textarea' || field.type === 'markdown'}
+                        <textarea
+                          rows={field.type === 'markdown' ? 6 : 3}
+                          value={fieldValues[field.key] ?? ''}
+                          oninput={(e) => (fieldValues[field.key] = e.currentTarget.value)}
+                        ></textarea>
+                      {:else}
+                        <input
+                          type={field.type === 'number'
+                            ? 'number'
+                            : field.type === 'url'
+                              ? 'url'
+                              : field.type === 'date'
+                                ? 'date'
+                                : 'text'}
+                          value={fieldValues[field.key] ?? ''}
+                          oninput={(e) =>
+                            (fieldValues[field.key] =
+                              field.type === 'number'
+                                ? e.currentTarget.value === ''
+                                  ? ''
+                                  : Number(e.currentTarget.value)
+                                : e.currentTarget.value)}
+                        />
+                      {/if}
+                    </label>
+                  {/if}
+                {/each}
 
                 <div class="upload-row">
                   <input type="text" bind:value={altInput} placeholder="图片 alt（插入正文用）" />

@@ -1,5 +1,5 @@
 import { getDb } from '$lib/server/db';
-import { listTags } from '$lib/server/repositories/nodes';
+import { listTags } from '$lib/server/repositories/tags';
 import { listViews, type PostView } from '$lib/content/view';
 import { publicTypes, listRouteSegments } from '$lib/content/registry';
 import { site } from '$lib/site';

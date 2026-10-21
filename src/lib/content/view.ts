@@ -1,16 +1,28 @@
 /**
  * Maps a stored ContentNode into the shape the presentation components expect.
- * Derived fields (read time, excerpt, TOC) are computed here from `bodyMd`
- * so they never go stale.
+ *
+ * Derived fields (read time, excerpt, TOC) are computed here from `bodyMd` so
+ * they never go stale. Type-specific attributes arrive as `fields` (from
+ * `node_fields`); cross-type concepts (tags, featured, cover) are real columns
+ * or relations and are resolved here.
  */
 
-import type { ContentNode, NodeVisibility } from '$lib/content/types';
+import type { ContentNode, MediaItem, NodeVisibility } from '$lib/content/types';
 import { getContentType } from '$lib/content/registry';
 import { calcReadTime, extractExcerpt, extractHeadings, type TocItem } from '$lib/reading';
 import { getLink } from '$lib/i18n';
 import { site } from '$lib/site';
 import type { D1Database } from '$lib/server/db';
 import { listFeatured, listNodes } from '$lib/server/repositories/nodes';
+
+export interface MediaView {
+	id: string;
+	/** Relative URL served by our own `/media/<key>` route. */
+	url: string;
+	alt: string | null;
+	kind: string;
+	position: number;
+}
 
 export interface PostView {
 	id: string;
@@ -19,26 +31,42 @@ export interface PostView {
 	lng: string;
 	url: string;
 	title: string;
+	/** The node's summary; the single source of truth for descriptions. */
 	description: string;
 	date: string;
 	/** When the thing happened, if recorded (falls back to `date` in views). */
 	occurredAt: string | null;
 	authorActorId: string | null;
 	visibility: NodeVisibility;
+	featured: boolean;
 	updated: string;
 	tags: string[];
+	/** Cover URL resolved from `cover_media_id`, or null. */
 	cover: string | null;
+	/** Attached media, ordered by `position` (the gallery). */
+	media: MediaView[];
 	bodyHtml: string;
 	readTime: number;
 	excerpt: string;
 	headings: TocItem[];
 	hasAlt: boolean;
 	jsonLd: Record<string, unknown>;
-	extra: Record<string, unknown>;
+	/** Type-specific attributes (from `node_fields`). */
+	fields: Record<string, unknown>;
 }
 
 function str(value: unknown, fallback = ''): string {
 	return typeof value === 'string' ? value : fallback;
+}
+
+function mediaView(item: MediaItem): MediaView {
+	return {
+		id: item.id,
+		url: `/media/${item.r2Key}`,
+		alt: item.alt,
+		kind: item.kind,
+		position: item.position
+	};
 }
 
 export function nodeUrl(node: ContentNode): string {
@@ -48,12 +76,14 @@ export function nodeUrl(node: ContentNode): string {
 }
 
 export function nodeToView(node: ContentNode, hasAlt = false): PostView {
-	const extra = node.extra ?? {};
-	const tags = Array.isArray(extra.tags) ? (extra.tags as string[]) : [];
+	const fields = node.fields ?? {};
 	const date = node.publishedAt ?? node.createdAt;
-	const updated = str(extra.updatedAt, node.updatedAt);
-	const description = str(extra.description, node.summary ?? '');
-	const cover = typeof extra.cover === 'string' ? extra.cover : null;
+	const updated = str(fields.updatedAt, node.updatedAt);
+	const description = node.summary ?? '';
+	const media = (node.media ?? []).map(mediaView);
+	const coverItem = node.coverMediaId
+		? (node.media ?? []).find((m) => m.id === node.coverMediaId)
+		: undefined;
 	const url = nodeUrl(node);
 
 	return {
@@ -68,9 +98,11 @@ export function nodeToView(node: ContentNode, hasAlt = false): PostView {
 		occurredAt: node.occurredAt,
 		authorActorId: node.authorActorId,
 		visibility: node.visibility,
+		featured: node.featured,
 		updated,
-		tags,
-		cover,
+		tags: node.tags ?? [],
+		cover: coverItem ? `/media/${coverItem.r2Key}` : null,
+		media,
 		bodyHtml: node.bodyHtml ?? '',
 		readTime: calcReadTime(node.bodyMd),
 		excerpt: extractExcerpt(node.bodyMd, description),
@@ -84,7 +116,7 @@ export function nodeToView(node: ContentNode, hasAlt = false): PostView {
 			dateModified: updated,
 			author: { '@type': 'Person', name: site.author }
 		},
-		extra
+		fields
 	};
 }
 
@@ -95,7 +127,13 @@ export function nodeToView(node: ContentNode, hasAlt = false): PostView {
  */
 export async function listViews(
 	db: D1Database,
-	opts: { types: string[]; lang: string; tag?: string; visibility?: NodeVisibility; limit?: number }
+	opts: {
+		types: string[];
+		lang: string;
+		tag?: string;
+		visibility?: NodeVisibility;
+		limit?: number;
+	}
 ): Promise<PostView[]> {
 	const nodes = await listNodes(db, {
 		types: opts.types,
@@ -108,7 +146,7 @@ export async function listViews(
 	return nodes.map((n) => nodeToView(n));
 }
 
-/** Featured views (nodes marked `extra.featured`). Public by default. */
+/** Featured views (nodes with `featured = 1`). Public by default. */
 export async function listFeaturedViews(
 	db: D1Database,
 	opts: { types: string[]; lang: string; visibility?: NodeVisibility; limit?: number }
@@ -136,19 +174,20 @@ export interface ProjectView {
 }
 
 export function nodeToProjectView(n: ContentNode): ProjectView {
+	const fields = n.fields ?? {};
 	return {
 		id: n.id,
 		slug: n.slug,
 		lang: n.lang,
-		year: String(n.extra?.year ?? ''),
+		year: String(fields.year ?? ''),
 		title: n.title ?? n.slug,
-		description: String(n.extra?.description ?? n.summary ?? ''),
-		image: typeof n.extra?.image === 'string' ? n.extra.image : null,
-		tags: Array.isArray(n.extra?.tags) ? (n.extra.tags as string[]) : [],
-		website: typeof n.extra?.website === 'string' ? n.extra.website : null,
-		github: typeof n.extra?.github === 'string' ? n.extra.github : null,
-		order: Number(n.extra?.order ?? 999),
-		status: typeof n.extra?.status === 'string' ? n.extra.status : null,
+		description: n.summary ?? '',
+		image: typeof fields.image === 'string' ? fields.image : null,
+		tags: n.tags ?? [],
+		website: typeof fields.website === 'string' ? fields.website : null,
+		github: typeof fields.github === 'string' ? fields.github : null,
+		order: Number(fields.order ?? 999),
+		status: typeof fields.status === 'string' ? fields.status : null,
 		url: `${getLink('projects', n.lang)}/${n.slug}`
 	};
 }
@@ -179,11 +218,9 @@ export async function findRelatedViews(
 	node: ContentNode,
 	limit = 3
 ): Promise<PostView[]> {
-	const tags = new Set(
-		(Array.isArray(node.extra?.tags) ? (node.extra!.tags as string[]) : []).map((t) =>
-			t.toLowerCase()
-		)
-	);
+	const tags = new Set((node.tags ?? []).map((t) => t.toLowerCase()));
+	if (tags.size === 0) return [];
+
 	const candidates = await listNodes(db, {
 		type: node.type,
 		lang: node.lang,
@@ -196,7 +233,7 @@ export async function findRelatedViews(
 	return candidates
 		.filter((n) => n.id !== node.id)
 		.map((n) => {
-			const nTags = Array.isArray(n.extra?.tags) ? (n.extra!.tags as string[]) : [];
+			const nTags = n.tags ?? [];
 			const score = nTags.filter((t) => tags.has(t.toLowerCase())).length;
 			return { n, score };
 		})

@@ -1,20 +1,22 @@
--- sprout 内容平台 · 规范 schema（format v2）
+-- sprout 内容平台 · 规范 schema（format v3）
 --
 -- 设计公理：
 --   · 节点（授权内容）与事件（他人交互）对称泛化；状态只追加。
 --   · 主键是不透明 ULID，永不派生于内容（改 slug / 修正语言都不会断引用）。
 --   · group_id 是「同组」（译文 / 系列）的唯一真相源；译文关系由它派生，不落库。
---   · 类型专属字段进 nodes.extra（JSON）；新增类型 / 字段不改表。
+--   · **需要被 SQL 表达的概念有形状**：跨类型、要查询/排序/聚合的字段进真实列
+--     或关联表（featured / cover / tags / visibility / occurred_at …）；
+--     只有「类型专属、只随节点读写」的属性才进 node_fields 的键值行。
 --   · 封闭枚举写 CHECK；开放词汇（type / events.kind / relations.rel / actors.kind）不写 CHECK。
 --   · 渲染产物（body_html）是派生缓存，永不导出，可重建。
---   · 外键用于声明引用完整性（宿主支持时生效；应用层亦显式删除，行为一致），一律不带隐式动作歧义。
+--   · 外键用于声明引用完整性（宿主支持时生效；应用层亦显式删除，行为一致）。
 
 -- ============ 元信息 ============
 CREATE TABLE meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
-INSERT INTO meta (key, value) VALUES ('schema_version', '2');
+INSERT INTO meta (key, value) VALUES ('schema_version', '3');
 
 -- ============ 身份 ============
 CREATE TABLE actors (
@@ -73,7 +75,7 @@ CREATE TABLE nodes (
   lang            TEXT NOT NULL,
   group_id        TEXT NOT NULL,              -- 不透明 ULID；同组=译文/系列；默认=自身 id
   title           TEXT,
-  summary         TEXT,
+  summary         TEXT,                       -- 摘要的唯一来源（类型专属的 description 已废弃）
   body_md         TEXT NOT NULL,              -- 源
   body_html       TEXT,                       -- 派生缓存（不导出，可重建）
   status          TEXT NOT NULL DEFAULT 'draft'
@@ -82,15 +84,45 @@ CREATE TABLE nodes (
   occurred_at     TEXT,                       -- 事情发生时刻（时间线排序）
   visibility      TEXT NOT NULL DEFAULT 'public'
                     CHECK (visibility IN ('public', 'private')),
+  featured        INTEGER NOT NULL DEFAULT 0
+                    CHECK (featured IN (0, 1)), -- 跨类型：首页精选
+  cover_media_id  TEXT REFERENCES media(id) ON DELETE SET NULL, -- 跨类型：封面是媒体引用，不是 URL
   author_actor_id TEXT REFERENCES actors(id) ON DELETE SET NULL,
   created_at      TEXT NOT NULL,
-  updated_at      TEXT NOT NULL,
-  extra           TEXT NOT NULL DEFAULT '{}'  -- 类型专属字段 JSON
+  updated_at      TEXT NOT NULL
 );
 CREATE UNIQUE INDEX idx_nodes_type_slug_lang ON nodes (type, slug, lang);
 CREATE INDEX idx_nodes_feed     ON nodes (type, status, published_at DESC);
 CREATE INDEX idx_nodes_timeline ON nodes (visibility, status, occurred_at DESC);
+CREATE INDEX idx_nodes_featured ON nodes (featured, published_at DESC);
 CREATE INDEX idx_nodes_group    ON nodes (group_id);
+
+-- ============ 类型专属字段（稀疏、异构） ============
+-- 一行一个字段；四个值列恰好有一个非空。加字段/类型不需要 DDL；
+-- 字段一旦成为跨类型概念，应升级为真实列（见 nodes.featured / cover_media_id）。
+CREATE TABLE node_fields (
+  node_id      TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+  field        TEXT NOT NULL,
+  value_text   TEXT,
+  value_number REAL,
+  value_bool   INTEGER CHECK (value_bool IN (0, 1)),
+  value_json   TEXT,                          -- 数组 / 对象（多值字段）
+  CHECK (
+    (value_text IS NOT NULL) + (value_number IS NOT NULL)
+    + (value_bool IS NOT NULL) + (value_json IS NOT NULL) = 1
+  ),
+  PRIMARY KEY (node_id, field)
+);
+CREATE INDEX idx_node_fields_number ON node_fields (field, value_number);
+CREATE INDEX idx_node_fields_text   ON node_fields (field, value_text);
+
+-- ============ 标签（多对多、可聚合） ============
+CREATE TABLE node_tags (
+  node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+  tag     TEXT NOT NULL,
+  PRIMARY KEY (node_id, tag)
+);
+CREATE INDEX idx_node_tags_tag ON node_tags (tag);
 
 -- ============ 关系（仅临时边；译文由 group_id 派生） ============
 CREATE TABLE relations (

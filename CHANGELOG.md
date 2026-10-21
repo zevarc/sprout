@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.8.0 — BREAKING
+
+Type-specific data becomes first-class: the `nodes.extra` JSON blob is gone.
+
+**Data model (`schema_version = 3`, export format `3`)**
+- New `node_fields` table: one **typed** row per `(node_id, field)`
+  (`value_text` / `value_number` / `value_bool` / `value_json`, exactly one
+  non-null). Filtering and sorting by a field is ordinary indexed SQL.
+- New `node_tags` table: tags are a many-to-many relation, so archives, counts and
+  "related by tag" are plain `GROUP BY` / `JOIN` queries.
+- `nodes.featured` is a column (cross-type home selection), not a JSON flag.
+- `nodes.cover_media_id` references a `media` row — a real FK, not a URL string.
+- `extra.images` is gone: a gallery is the node's `media`, ordered by `position`.
+- `nodes.extra` is removed. `nodes.summary` is the single source for descriptions
+  (the old `extra.description` fallback is gone).
+
+**Declarative fields actually land**
+- `sprout.config.js` `fields` now drives the admin editor (one input per field),
+  the write boundary, and the tests.
+- `POST/PATCH /api/nodes` validate and normalize `fields`: unknown keys, wrong
+  types and out-of-options `select` values are **400**. Numbers arriving as strings
+  are coerced.
+- `restore` and `import` deliberately skip validation (the export contract must
+  stay lossless); `import` passes non-core frontmatter keys through as `fields`.
+
+**Export / restore**
+- Export v3: `node_fields.jsonl` + `node_tags.jsonl`; `nodes.jsonl` no longer has
+  `extra`. The Markdown mirror renders `fields` and `tags` in frontmatter.
+- Restore refuses v2 bundles; use `pnpm content:migrate-v2-to-v3 <v2> <v3>` to
+  convert (tags → rows, cover/images → media references, description → summary).
+- Restore order is FK-safe: nodes → fields → tags → media → covers.
+
+**Bug fixes**
+- `scripts/import.mjs` no longer reads the removed `scripts/seed-projects.json`.
+- `listTags` moved to `repositories/tags.ts` (its JSON-column query was replaced
+  by the relation).
+
 ## 0.7.0
 
 UI theming and generic rendering — the data/architecture semantics reach the page.

@@ -46,7 +46,9 @@ Output:
 ```
 export/
   schema.json                 # format version, db_schema, table list
-  nodes.jsonl                 # one node per line (extra parsed)
+  nodes.jsonl                 # one node per line
+  node_fields.jsonl           # type-specific attributes (one row per field)
+  node_tags.jsonl             # many-to-many tags
   relations.jsonl             # ad-hoc edges only
   media.jsonl                 # media metadata (binaries in media/)
   events.jsonl                # interactions + structured payload
@@ -76,9 +78,19 @@ Not exported: `sessions`, `stats_daily`, `invites`, and FTS internal tables.
 | `status` | `draft` \| `scheduled` \| `published` \| `archived` |
 | `published_at`, `occurred_at` | ISO-8601 or null |
 | `visibility` | `public` \| `private` |
+| `featured` | `0` \| `1` |
+| `cover_media_id` | FK into `media`, or null |
 | `author_actor_id` | Nullable |
 | `created_at`, `updated_at` | ISO-8601 |
-| `extra` | Parsed JSON object |
+
+### `node_fields.jsonl`
+
+`{ node_id, field, kind, value }` with `kind ∈ text | number | bool | json`.
+One typed value per `(node_id, field)`.
+
+### `node_tags.jsonl`
+
+`{ node_id, tag }`.
 
 ### `relations.jsonl`
 
@@ -122,10 +134,13 @@ status: published
 published_at: 2026-01-01T00:00:00.000Z
 occurred_at:
 visibility: public
+featured: false
+cover_media_id:
 author_actor_id:
 created_at: …
 updated_at: …
-extra: {"tags":["a"]}
+tags: ["a"]
+fields: {"rating":"5"}
 ---
 body markdown
 ```
@@ -141,8 +156,9 @@ humans and diffs.
   ISO-8601.
 - Two consecutive exports of an unchanged database are **byte-identical**, so the
   folder works as a git mirror with clean diffs.
-- The export format version is **2**; `schema.json` also carries
-  `db_schema` (from `meta.schema_version`). Restore refuses a newer format.
+- The export format version is **3**; `schema.json` also carries
+  `db_schema` (from `meta.schema_version`). Restore refuses a newer format and
+  refuses an older one (convert a v2 bundle with `pnpm content:migrate-v2-to-v3`).
 
 ---
 
@@ -176,8 +192,8 @@ Preconditions: the target database is **empty** and migrations have been applied
 Flow:
 
 1. Sends the text files to `POST /api/admin/restore`.
-2. Writes actors → identities → nodes → relations → media → events →
-   `event_status`.
+2. Writes actors → identities → nodes (cover NULL) → fields → tags → media →
+   relations → events → `event_status`, then points covers at their media rows.
 3. Uses `INSERT … ON CONFLICT DO UPDATE` (never `INSERT OR REPLACE`, which would
    delete-and-reinsert and cascade children away under foreign keys).
 4. Re-renders `body_html` from `body_md` and rebuilds `nodes_fts`.
@@ -257,15 +273,15 @@ Sources:
 
 - `src/content/posts/*.md` → type `post`
 - `src/content/notes/*.md` → type `note`
-- `scripts/seed-projects.json` → type `project` (optional body in
-  `src/content/projects/<slug>.<lang>.md`)
 
 ### Filenames and frontmatter
 
 - `<slug>.<lang>.md` → slug + language (`hello.zh.md` → `hello`, `zh`); no suffix
-  means `en`.
-- Frontmatter parsed: `title`, `description`, `date`, `updated`, `draft`, `tags`,
-  `cover`.
+  means `IMPORT_LANG` (default `zh`).
+- Core frontmatter: `title`, `description` (→ `summary`), `date`, `updated`,
+  `draft`, `tags`.
+- **Any other key becomes a declared field**, so a site can carry type-specific
+  attributes (e.g. `rating: "5"`, `ageMonths: 12`) straight from Markdown.
 
 ### Idempotency and grouping
 

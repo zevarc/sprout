@@ -51,6 +51,40 @@ export async function listMediaForNode(db: D1Database, nodeId: string): Promise<
 	return rows.map(toMedia);
 }
 
+/** Loads media for many nodes in one query, keyed by node id. */
+export async function mediaForNodes(
+	db: D1Database,
+	nodeIds: string[]
+): Promise<Map<string, MediaRow[]>> {
+	const out = new Map<string, MediaRow[]>();
+	if (nodeIds.length === 0) return out;
+
+	const placeholders = nodeIds.map(() => '?').join(', ');
+	const rows = await query<RawMediaRow>(
+		db,
+		`SELECT ${COLUMNS} FROM media
+		  WHERE node_id IN (${placeholders})
+		  ORDER BY node_id, position, id`,
+		nodeIds
+	);
+
+	for (const row of rows) {
+		const bucket = out.get(row.node_id ?? '') ?? [];
+		bucket.push(toMedia(row));
+		out.set(row.node_id ?? '', bucket);
+	}
+	return out;
+}
+
+/** Points a node's cover at a media row (or clears it). */
+export async function setCover(
+	db: D1Database,
+	nodeId: string,
+	mediaId: string | null
+): Promise<void> {
+	await run(db, 'UPDATE nodes SET cover_media_id = ? WHERE id = ?', [mediaId, nodeId]);
+}
+
 export async function getMedia(db: D1Database, id: string): Promise<MediaRow | null> {
 	const row = await first<RawMediaRow>(db, `SELECT ${COLUMNS} FROM media WHERE id = ?`, [id]);
 	return row ? toMedia(row) : null;

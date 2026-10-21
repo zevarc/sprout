@@ -13,6 +13,8 @@ model is in [DATA-MODEL](./DATA-MODEL.md); operational steps in
 export/
   schema.json                    # format version + db schema version + table list
   nodes.jsonl                    # one JSON object per node
+  node_fields.jsonl              # type-specific attributes (one row per field)
+  node_tags.jsonl                # many-to-many tags
   relations.jsonl                # ad-hoc edges only
   media.jsonl                    # media metadata (binaries in media/)
   events.jsonl                   # interactions + structured payload
@@ -27,10 +29,10 @@ export/
 
 ```json
 {
-  "version": 2,
-  "db_schema": "2",
+  "version": 3,
+  "db_schema": "3",
   "generator": "sprout-export",
-  "tables": ["nodes", "relations", "media", "events", "event_status", "actors", "actor_identities"]
+  "tables": ["nodes", "node_fields", "node_tags", "relations", "media", "events", "event_status", "actors", "actor_identities"]
 }
 ```
 
@@ -44,9 +46,19 @@ database it came from.
 ### `nodes.jsonl`
 
 `id`, `type`, `slug`, `lang`, `group_id`, `title`, `summary`, `body_md`, `status`,
-`published_at`, `occurred_at`, `visibility`, `author_actor_id`, `created_at`,
-`updated_at`, `extra` (parsed object).
-`body_html` is **not** included.
+`published_at`, `occurred_at`, `visibility`, `featured`, `cover_media_id`,
+`author_actor_id`, `created_at`, `updated_at`.
+`body_html` is **not** included; type-specific data is in `node_fields.jsonl`.
+
+### `node_fields.jsonl`
+
+`{ node_id, field, kind, value }` where `kind ∈ text | number | bool | json`.
+Exactly one typed value per `(node_id, field)`; the set of `field` keys is the
+site's declaration, validated at the write boundary (restore trusts the bundle).
+
+### `node_tags.jsonl`
+
+`{ node_id, tag }`, sorted by `(node_id, tag)`.
 
 ### `relations.jsonl`
 
@@ -78,8 +90,9 @@ The binary is at `media/<r2_key>`; `r2_key` is relative.
 
 `nodes/<type>/<slug>.<lang>.md` has YAML frontmatter (`id`, `type`, `slug`, `lang`,
 `group_id`, `title`, `summary`, `status`, `published_at`, `occurred_at`,
-`visibility`, `author_actor_id`, `created_at`, `updated_at`, `extra`) followed by
-`body_md`. Restore uses the JSONL; the mirror is for humans and diffs.
+`visibility`, `featured`, `cover_media_id`, `author_actor_id`, `created_at`,
+`updated_at`, `tags`, `fields`) followed by `body_md`. Restore uses the JSONL; the
+mirror is for humans and diffs.
 
 ---
 
@@ -88,10 +101,10 @@ The binary is at `media/<r2_key>`; `r2_key` is relative.
 1. **Deterministic.** Rows are sorted by primary key; JSON object keys are sorted;
    timestamps are ISO-8601. Two consecutive exports of an unchanged database are
    byte-identical.
-2. **Complete for content.** Nodes, ad-hoc relations, media metadata, events,
-   moderation history and actors are included, with `visibility`, `occurred_at`,
-   `author_actor_id` and `group_id`. No rendered HTML is exported; restore
-   re-renders node bodies from `body_md`.
+2. **Complete for content.** Nodes, declared fields, tags, ad-hoc relations, media
+   metadata, events, moderation history and actors are included, with `visibility`,
+   `occurred_at`, `featured`, `cover_media_id`, `author_actor_id` and `group_id`.
+   No rendered HTML is exported; restore re-renders node bodies from `body_md`.
 3. **Lossless round trip.** `export → restore → export` yields the same files
    (enforced by `tests/export-restore.test.js`).
 4. **Storage-agnostic.** Binaries are fetched through `/media/<key>` and stored
@@ -108,10 +121,11 @@ internal tables.
 
 `restoreFromBundle`:
 
-1. validates `schema.json.version`;
-2. writes actors, identities, nodes, relations, media, events and `event_status`;
-3. uses UPSERT (`ON CONFLICT DO UPDATE`) so foreign keys never cascade children
-   away mid-restore;
+1. validates `schema.json.version` (a v2 bundle must be converted with
+   `pnpm content:migrate-v2-to-v3` first);
+2. writes actors, identities, nodes (cover NULL), fields, tags, media, then points
+   covers at their media rows;
+3. writes relations, events and `event_status`;
 4. re-renders `body_html` and rebuilds `nodes_fts`;
 5. the CLI (`pnpm content:restore`) then uploads `media/` binaries with
    `record=0` (metadata is already present);

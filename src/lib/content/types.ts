@@ -10,7 +10,8 @@ export interface ContentNode {
 	type: string;
 	slug: string;
 	lang: string;
-	groupId: string | null;
+	/** Opaque group id (translations/series); defaults to the node's own id. */
+	groupId: string;
 	title: string | null;
 	summary: string | null;
 	bodyMd: string;
@@ -20,11 +21,20 @@ export interface ContentNode {
 	/** When the thing happened (may predate writing it down). */
 	occurredAt: string | null;
 	visibility: NodeVisibility;
+	/** Cross-type: shown in home selections. */
+	featured: boolean;
+	/** Cross-type: the cover is a media row, not a URL. */
+	coverMediaId: string | null;
 	/** Who recorded it — null on single-author sites. */
 	authorActorId: string | null;
 	createdAt: string;
 	updatedAt: string;
-	extra: Record<string, unknown>;
+	/** Type-specific attributes, one row per field in `node_fields`. */
+	fields: Record<string, unknown>;
+	/** Tags live in `node_tags` (many-to-many, aggregatable). */
+	tags: string[];
+	/** Media attached to this node, ordered by `media.position`. */
+	media: MediaItem[];
 }
 
 export interface NewNode {
@@ -40,8 +50,11 @@ export interface NewNode {
 	publishedAt?: string | null;
 	occurredAt?: string | null;
 	visibility?: NodeVisibility;
+	featured?: boolean;
+	coverMediaId?: string | null;
 	authorActorId?: string | null;
-	extra?: Record<string, unknown>;
+	fields?: Record<string, unknown>;
+	tags?: string[];
 }
 
 export interface Relation {

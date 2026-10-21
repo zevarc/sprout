@@ -45,12 +45,9 @@ export const contentTypes = {
 		public: true,
 		feed: true,
 		comments: true,
-		fields: [
-			{ key: 'description', label: { en: 'Description', zh: '摘要' }, type: 'textarea' },
-			{ key: 'cover', label: { en: 'Cover', zh: '封面' }, type: 'url' },
-			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
-			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
-		]
+		// 摘要用 nodes.summary，标签/精选/封面是核心输入（列/关联表），
+		// 所以文章本身没有类型专属字段。
+		fields: []
 	},
 	// `/posts/notes` 是多段路由，由自己的静态路由服务（通用 [type] 只支持单段）。
 	note: {
@@ -60,11 +57,7 @@ export const contentTypes = {
 		public: true,
 		feed: true,
 		comments: true,
-		fields: [
-			{ key: 'description', label: { en: 'Description', zh: '摘要' }, type: 'textarea' },
-			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
-			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
-		]
+		fields: []
 	},
 	moment: {
 		type: 'moment',
@@ -75,10 +68,7 @@ export const contentTypes = {
 		comments: true,
 		listRenderer: 'feed',
 		detailRenderer: 'compact',
-		fields: [
-			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
-			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
-		]
+		fields: []
 	},
 	project: {
 		type: 'project',
@@ -89,18 +79,19 @@ export const contentTypes = {
 		comments: false,
 		fields: [
 			{ key: 'year', label: { en: 'Year', zh: '年份' }, type: 'text' },
-			{ key: 'status', label: { en: 'Status', zh: '状态' }, type: 'text' },
 			{
-				key: 'description',
-				label: { en: 'Description', zh: '描述' },
-				type: 'textarea',
-				required: true
+				key: 'status',
+				label: { en: 'Status', zh: '状态' },
+				type: 'select',
+				options: [
+					{ value: 'active', label: { en: 'Active', zh: '活跃' } },
+					{ value: 'maintained', label: { en: 'Maintained', zh: '维护中' } },
+					{ value: 'archived', label: { en: 'Archived', zh: '已归档' } }
+				]
 			},
 			{ key: 'image', label: { en: 'Image', zh: '配图' }, type: 'url' },
 			{ key: 'website', label: { en: 'Website', zh: '网站' }, type: 'url' },
-			{ key: 'github', label: { en: 'GitHub', zh: 'GitHub' }, type: 'url' },
-			{ key: 'tags', label: { en: 'Tags', zh: '标签' }, type: 'tags' },
-			{ key: 'featured', label: { en: 'Featured on home', zh: '首页精选' }, type: 'boolean' }
+			{ key: 'github', label: { en: 'GitHub', zh: 'GitHub' }, type: 'url' }
 		]
 	}
 };

@@ -1,9 +1,18 @@
-import type { ContentNode, NewNode, NodeStatus, NodeVisibility } from '$lib/content/types';
-import type { D1Database } from '$lib/server/db';
+import type {
+	ContentNode,
+	MediaItem,
+	NewNode,
+	NodeStatus,
+	NodeVisibility
+} from '$lib/content/types';
+import type { D1Database, D1PreparedStatement } from '$lib/server/db';
 import { first, query, run } from '$lib/server/db';
 import { ulid } from '$lib/server/id';
 import { renderMarkdown } from '$lib/server/render';
 import { buildSearchText } from '$lib/server/search';
+import { fieldStatements, readFields } from '$lib/server/repositories/fields';
+import { readTags, tagStatements } from '$lib/server/repositories/tags';
+import { mediaForNodes } from '$lib/server/repositories/media';
 import { site } from '$lib/site';
 
 interface NodeRow {
@@ -11,7 +20,7 @@ interface NodeRow {
 	type: string;
 	slug: string;
 	lang: string;
-	group_id: string | null;
+	group_id: string;
 	title: string | null;
 	summary: string | null;
 	body_md: string;
@@ -20,21 +29,33 @@ interface NodeRow {
 	published_at: string | null;
 	occurred_at: string | null;
 	visibility: string;
+	featured: number;
+	cover_media_id: string | null;
 	author_actor_id: string | null;
 	created_at: string;
 	updated_at: string;
-	extra: string | null;
 }
 
-function toNode(row: NodeRow): ContentNode {
-	let extra: Record<string, unknown> = {};
-	if (row.extra) {
-		try {
-			extra = JSON.parse(row.extra);
-		} catch {
-			extra = {};
-		}
+interface Related {
+	fields: Map<string, Record<string, unknown>>;
+	tags: Map<string, string[]>;
+	media: Map<string, MediaItem[]>;
+}
+
+/** Bulk-loads the three child relations for a set of node ids. */
+async function loadRelated(db: D1Database, ids: string[]): Promise<Related> {
+	if (ids.length === 0) {
+		return { fields: new Map(), tags: new Map(), media: new Map() };
 	}
+	const [fields, tags, media] = await Promise.all([
+		readFields(db, ids),
+		readTags(db, ids),
+		mediaForNodes(db, ids)
+	]);
+	return { fields, tags, media };
+}
+
+function toNode(row: NodeRow, related: Related): ContentNode {
 	return {
 		id: row.id,
 		type: row.type,
@@ -49,11 +70,36 @@ function toNode(row: NodeRow): ContentNode {
 		publishedAt: row.published_at,
 		occurredAt: row.occurred_at,
 		visibility: row.visibility === 'private' ? 'private' : 'public',
+		featured: row.featured === 1,
+		coverMediaId: row.cover_media_id,
 		authorActorId: row.author_actor_id,
 		createdAt: row.created_at,
 		updatedAt: row.updated_at,
-		extra
+		fields: related.fields.get(row.id) ?? {},
+		tags: related.tags.get(row.id) ?? [],
+		media: related.media.get(row.id) ?? []
 	};
+}
+
+/** One numeric/text condition on a declared field. */
+export interface FieldFilter {
+	field: string;
+	/** Numeric equality (`value_number = ?`). */
+	number?: number;
+	/** Numeric range: `value_number >= min` and `< max`. */
+	min?: number;
+	max?: number;
+	/** Text equality (`value_text = ?`). */
+	text?: string;
+	/** Boolean equality (`value_bool = ?`). */
+	bool?: boolean;
+}
+
+/** Orders a list by a declared field (indexed on `(field, value_*)`). */
+export interface FieldOrder {
+	field: string;
+	numeric?: boolean;
+	direction?: 'asc' | 'desc';
 }
 
 export interface ListNodesOptions {
@@ -61,10 +107,14 @@ export interface ListNodesOptions {
 	types?: string[];
 	lang?: string;
 	status?: NodeStatus | 'all';
-	/** Only nodes whose `extra.tags` contains this exact tag. */
+	/** Only nodes carrying this exact tag. */
 	tag?: string;
 	/** Filter by visibility. Omit to include both (owner listings). */
 	visibility?: NodeVisibility;
+	/** Filter by declared field values (SQL, not in-memory). */
+	filterFields?: FieldFilter[];
+	/** Order by a declared field (SQL). */
+	orderByField?: FieldOrder;
 	/** Which timestamp orders the list. Defaults to publish time. */
 	orderBy?: 'published' | 'occurred';
 	limit?: number;
@@ -74,107 +124,137 @@ export interface ListNodesOptions {
 export async function listNodes(db: D1Database, opts: ListNodesOptions = {}): Promise<ContentNode[]> {
 	const where: string[] = [];
 	const params: unknown[] = [];
+	const joins: string[] = [];
+	const joinParams: unknown[] = [];
 
 	if (opts.type) {
-		where.push('type = ?');
+		where.push('n.type = ?');
 		params.push(opts.type);
 	} else if (opts.types && opts.types.length > 0) {
-		where.push(`type IN (${opts.types.map(() => '?').join(', ')})`);
+		where.push(`n.type IN (${opts.types.map(() => '?').join(', ')})`);
 		params.push(...opts.types);
 	}
 	if (opts.lang) {
-		where.push('lang = ?');
+		where.push('n.lang = ?');
 		params.push(opts.lang);
 	}
 	if (opts.status !== 'all') {
-		where.push('status = ?');
+		where.push('n.status = ?');
 		params.push(opts.status ?? 'published');
 	}
 	if (opts.tag) {
-		// `extra.tags` is a JSON array; json_each gives one row per tag.
 		where.push(
-			`EXISTS (SELECT 1 FROM json_each(nodes.extra, '$.tags') AS je WHERE je.value = ?)`
+			'EXISTS (SELECT 1 FROM node_tags t WHERE t.node_id = n.id AND t.tag = ?)'
 		);
 		params.push(opts.tag);
 	}
 	if (opts.visibility) {
-		where.push('visibility = ?');
+		where.push('n.visibility = ?');
 		params.push(opts.visibility);
 	}
 
-	// Timeline ordering keys off when things happened, not when they were written.
-	const order =
-		opts.orderBy === 'occurred'
-			? 'ORDER BY (occurred_at IS NULL), occurred_at DESC, created_at DESC'
-			: 'ORDER BY (published_at IS NULL), published_at DESC, created_at DESC';
+	for (const filter of opts.filterFields ?? []) {
+		if (filter.text !== undefined) {
+			where.push(
+				'EXISTS (SELECT 1 FROM node_fields f WHERE f.node_id = n.id AND f.field = ? AND f.value_text = ?)'
+			);
+			params.push(filter.field, filter.text);
+		}
+		if (filter.bool !== undefined) {
+			where.push(
+				'EXISTS (SELECT 1 FROM node_fields f WHERE f.node_id = n.id AND f.field = ? AND f.value_bool = ?)'
+			);
+			params.push(filter.field, filter.bool ? 1 : 0);
+		}
+		if (filter.number !== undefined) {
+			where.push(
+				'EXISTS (SELECT 1 FROM node_fields f WHERE f.node_id = n.id AND f.field = ? AND f.value_number = ?)'
+			);
+			params.push(filter.field, filter.number);
+		}
+		if (filter.min !== undefined || filter.max !== undefined) {
+			const range: string[] = [];
+			const rangeParams: unknown[] = [filter.field];
+			if (filter.min !== undefined) {
+				range.push('f.value_number >= ?');
+				rangeParams.push(filter.min);
+			}
+			if (filter.max !== undefined) {
+				range.push('f.value_number < ?');
+				rangeParams.push(filter.max);
+			}
+			where.push(
+				`EXISTS (SELECT 1 FROM node_fields f WHERE f.node_id = n.id AND f.field = ? AND ${range.join(' AND ')})`
+			);
+			params.push(...rangeParams);
+		}
+	}
 
-	const sql = `SELECT * FROM nodes ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+	let order = 'ORDER BY (n.published_at IS NULL), n.published_at DESC, n.created_at DESC';
+	if (opts.orderByField) {
+		joins.push('LEFT JOIN node_fields of ON of.node_id = n.id AND of.field = ?');
+		joinParams.push(opts.orderByField.field);
+		const column = opts.orderByField.numeric ? 'of.value_number' : 'of.value_text';
+		const direction = opts.orderByField.direction === 'asc' ? 'ASC' : 'DESC';
+		// NULLs last, then the field, then a stable tiebreak.
+		order = `ORDER BY (${column} IS NULL), ${column} ${direction}, n.published_at DESC, n.created_at DESC`;
+	} else if (opts.orderBy === 'occurred') {
+		order = 'ORDER BY (n.occurred_at IS NULL), n.occurred_at DESC, n.created_at DESC';
+	}
+
+	const sql = `SELECT n.* FROM nodes n
+		${joins.join('\n')}
+		${where.length ? 'WHERE ' + where.join(' AND ') : ''}
 		${order}
 		LIMIT ? OFFSET ?`;
-	params.push(opts.limit ?? 50, opts.offset ?? 0);
 
-	const rows = await query<NodeRow>(db, sql, params);
-	return rows.map(toNode);
+	const rows = await query<NodeRow>(db, sql, [
+		...joinParams,
+		...params,
+		opts.limit ?? 50,
+		opts.offset ?? 0
+	]);
+
+	const related = await loadRelated(
+		db,
+		rows.map((r) => r.id)
+	);
+	return rows.map((r) => toNode(r, related));
 }
 
 /**
- * Published nodes explicitly marked `extra.featured = true`.
- * Public by default — a featured flag must never surface private content.
+ * Published nodes explicitly marked `featured`. Public by default — a featured
+ * flag must never surface private content.
  */
 export async function listFeatured(
 	db: D1Database,
 	opts: { types: string[]; lang: string; visibility?: NodeVisibility; limit?: number }
 ): Promise<ContentNode[]> {
+	if (opts.types.length === 0) return [];
 	const placeholders = opts.types.map(() => '?').join(', ');
 	const rows = await query<NodeRow>(
 		db,
-		`SELECT * FROM nodes
-		 WHERE type IN (${placeholders})
-		   AND lang = ?
-		   AND status = 'published'
-		   AND visibility = ?
-		   AND json_extract(extra, '$.featured') = 1
-		 ORDER BY (published_at IS NULL), published_at DESC, created_at DESC
-		 LIMIT ?`,
+		`SELECT n.* FROM nodes n
+		  WHERE n.type IN (${placeholders})
+		    AND n.lang = ?
+		    AND n.status = 'published'
+		    AND n.visibility = ?
+		    AND n.featured = 1
+		  ORDER BY (n.published_at IS NULL), n.published_at DESC, n.created_at DESC
+		  LIMIT ?`,
 		[...opts.types, opts.lang, opts.visibility ?? 'public', opts.limit ?? 5]
 	);
-	return rows.map(toNode);
-}
-
-export interface TagCount {
-	tag: string;
-	count: number;
-}
-
-/**
- * Distinct tags with how many published nodes carry each, most used first.
- * Public by default — a tag that only exists on a private node must never be
- * advertised on a public archive or in the sitemap.
- */
-export async function listTags(
-	db: D1Database,
-	opts: { lang: string; types: string[]; visibility?: NodeVisibility; limit?: number }
-): Promise<TagCount[]> {
-	const placeholders = opts.types.map(() => '?').join(', ');
-	const rows = await query<{ tag: string; n: number }>(
+	const related = await loadRelated(
 		db,
-		`SELECT je.value AS tag, count(*) AS n
-		 FROM nodes, json_each(nodes.extra, '$.tags') AS je
-		 WHERE nodes.status = 'published'
-		   AND nodes.lang = ?
-		   AND nodes.visibility = ?
-		   AND nodes.type IN (${placeholders})
-		 GROUP BY je.value
-		 ORDER BY n DESC, je.value ASC
-		 LIMIT ?`,
-		[opts.lang, opts.visibility ?? 'public', ...opts.types, opts.limit ?? 200]
+		rows.map((r) => r.id)
 	);
-	return rows.map((r) => ({ tag: r.tag, count: Number(r.n) }));
+	return rows.map((r) => toNode(r, related));
 }
 
 export async function getNode(db: D1Database, id: string): Promise<ContentNode | null> {
 	const row = await first<NodeRow>(db, 'SELECT * FROM nodes WHERE id = ?', [id]);
-	return row ? toNode(row) : null;
+	if (!row) return null;
+	return toNode(row, await loadRelated(db, [row.id]));
 }
 
 export async function getNodeBySlug(
@@ -188,7 +268,8 @@ export async function getNodeBySlug(
 		'SELECT * FROM nodes WHERE type = ? AND slug = ? AND lang = ?',
 		[type, slug, lang]
 	);
-	return row ? toNode(row) : null;
+	if (!row) return null;
+	return toNode(row, await loadRelated(db, [row.id]));
 }
 
 async function indexNode(db: D1Database, node: ContentNode): Promise<void> {
@@ -210,39 +291,46 @@ export async function createNode(db: D1Database, input: NewNode): Promise<Conten
 	const id = input.id ?? ulid();
 	const lang = input.lang ?? site.defaultLocale;
 	const status = input.status ?? 'draft';
-	const publishedAt =
-		input.publishedAt ?? (status === 'published' ? now : null);
+	const publishedAt = input.publishedAt ?? (status === 'published' ? now : null);
 	const visibility = input.visibility ?? 'public';
 	const bodyHtml = await renderMarkdown(input.bodyMd);
 	// A node is its own group of one unless it shares one (translations/series).
 	const groupId = input.groupId ?? id;
 
-	await run(
-		db,
-		`INSERT INTO nodes
-			(id, type, slug, lang, group_id, title, summary, body_md, body_html, status, published_at,
-			 occurred_at, visibility, author_actor_id, created_at, updated_at, extra)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		[
-			id,
-			input.type,
-			input.slug,
-			lang,
-			groupId,
-			input.title ?? null,
-			input.summary ?? null,
-			input.bodyMd,
-			bodyHtml,
-			status,
-			publishedAt,
-			input.occurredAt ?? null,
-			visibility,
-			input.authorActorId ?? null,
-			now,
-			now,
-			JSON.stringify(input.extra ?? {})
-		]
-	);
+	const statements: D1PreparedStatement[] = [
+		db
+			.prepare(
+				`INSERT INTO nodes
+					(id, type, slug, lang, group_id, title, summary, body_md, body_html, status,
+					 published_at, occurred_at, visibility, featured, cover_media_id, author_actor_id,
+					 created_at, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			)
+			.bind(
+				id,
+				input.type,
+				input.slug,
+				lang,
+				groupId,
+				input.title ?? null,
+				input.summary ?? null,
+				input.bodyMd,
+				bodyHtml,
+				status,
+				publishedAt,
+				input.occurredAt ?? null,
+				visibility,
+				input.featured ? 1 : 0,
+				input.coverMediaId ?? null,
+				input.authorActorId ?? null,
+				now,
+				now
+			),
+		...fieldStatements(db, id, input.fields ?? {}),
+		...tagStatements(db, id, input.tags ?? [])
+	];
+
+	await db.batch(statements);
 
 	const node = (await getNode(db, id))!;
 	await indexNode(db, node);
@@ -257,11 +345,16 @@ export interface NodePatch {
 	slug?: string;
 	lang?: string;
 	groupId?: string | null;
-	extra?: Record<string, unknown>;
 	publishedAt?: string | null;
 	occurredAt?: string | null;
 	visibility?: NodeVisibility;
+	featured?: boolean;
+	coverMediaId?: string | null;
 	authorActorId?: string | null;
+	/** Replace all declared fields (omit to leave them untouched). */
+	fields?: Record<string, unknown>;
+	/** Replace all tags (omit to leave them untouched). */
+	tags?: string[];
 }
 
 export async function updateNode(
@@ -279,45 +372,59 @@ export async function updateNode(
 	const status = patch.status ?? existing.status;
 	const slug = patch.slug ?? existing.slug;
 	const lang = patch.lang ?? existing.lang;
-	const groupId = patch.groupId !== undefined ? patch.groupId : existing.groupId;
-	const extra = patch.extra !== undefined ? patch.extra : existing.extra;
+	const groupId =
+		patch.groupId !== undefined ? (patch.groupId ?? existing.id) : existing.groupId;
 
 	let publishedAt = patch.publishedAt !== undefined ? patch.publishedAt : existing.publishedAt;
 	if (status === 'published' && !publishedAt) publishedAt = now;
 
 	const occurredAt = patch.occurredAt !== undefined ? patch.occurredAt : existing.occurredAt;
 	const visibility = patch.visibility ?? existing.visibility;
+	const featured = patch.featured !== undefined ? patch.featured : existing.featured;
+	const coverMediaId =
+		patch.coverMediaId !== undefined ? patch.coverMediaId : existing.coverMediaId;
 	const authorActorId =
 		patch.authorActorId !== undefined ? patch.authorActorId : existing.authorActorId;
 
 	const bodyHtml = patch.bodyMd !== undefined ? await renderMarkdown(bodyMd) : existing.bodyHtml;
 
-	await run(
-		db,
-		`UPDATE nodes SET title = ?, summary = ?, body_md = ?, body_html = ?, status = ?,
-			slug = ?, lang = ?, group_id = ?, published_at = ?, occurred_at = ?, visibility = ?,
-			author_actor_id = ?, updated_at = ?, extra = ?
-		 WHERE id = ?`,
-		[
-			title,
-			summary,
-			bodyMd,
-			bodyHtml,
-			status,
-			slug,
-			lang,
-			groupId,
-			publishedAt,
-			occurredAt,
-			visibility,
-			authorActorId,
-			now,
-			JSON.stringify(extra ?? {}),
-			id
-		]
-	);
+	const statements: D1PreparedStatement[] = [
+		db
+			.prepare(
+				`UPDATE nodes SET title = ?, summary = ?, body_md = ?, body_html = ?, status = ?,
+					slug = ?, lang = ?, group_id = ?, published_at = ?, occurred_at = ?,
+					visibility = ?, featured = ?, cover_media_id = ?, author_actor_id = ?,
+					updated_at = ?
+				 WHERE id = ?`
+			)
+			.bind(
+				title,
+				summary,
+				bodyMd,
+				bodyHtml,
+				status,
+				slug,
+				lang,
+				groupId,
+				publishedAt,
+				occurredAt,
+				visibility,
+				featured ? 1 : 0,
+				coverMediaId,
+				authorActorId,
+				now,
+				id
+			)
+	];
 
-	// Media inherits its node's readability; there is no per-media visibility.
+	if (patch.fields !== undefined) {
+		statements.push(...fieldStatements(db, id, patch.fields));
+	}
+	if (patch.tags !== undefined) {
+		statements.push(...tagStatements(db, id, patch.tags));
+	}
+
+	await db.batch(statements);
 
 	const node = (await getNode(db, id))!;
 	await indexNode(db, node);
@@ -325,9 +432,13 @@ export async function updateNode(
 }
 
 export async function deleteNode(db: D1Database, id: string): Promise<void> {
+	// Children cascade via foreign keys; the explicit deletes keep behaviour
+	// identical when a host does not enforce them.
 	await run(db, 'DELETE FROM nodes WHERE id = ?', [id]);
 	await run(db, 'DELETE FROM nodes_fts WHERE id = ?', [id]);
 	await run(db, 'DELETE FROM media WHERE node_id = ?', [id]);
+	await run(db, 'DELETE FROM node_fields WHERE node_id = ?', [id]);
+	await run(db, 'DELETE FROM node_tags WHERE node_id = ?', [id]);
 	await run(db, 'DELETE FROM relations WHERE from_id = ? OR to_id = ?', [id, id]);
 }
 
@@ -407,5 +518,9 @@ export async function searchNodes(
 		 LIMIT ?`,
 		params
 	);
-	return rows.map(toNode);
+	const related = await loadRelated(
+		db,
+		rows.map((r) => r.id)
+	);
+	return rows.map((r) => toNode(r, related));
 }

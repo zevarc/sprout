@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createTestDb } from './helpers/d1-memory.js';
-import { createNode, listNodes, listTags, searchNodes } from '$lib/server/repositories/nodes';
+import { createNode, listNodes, searchNodes } from '$lib/server/repositories/nodes';
+import { listTags } from '$lib/server/repositories/tags';
 import { listViews } from '$lib/content/view';
 import { loadNodeView } from '$lib/server/loadNode';
 import { toMatchExpression } from '$lib/server/search';
@@ -85,7 +86,7 @@ describe('node visibility', () => {
 			lang: 'en',
 			bodyMd: 'a',
 			status: 'published',
-			extra: { tags: ['public-tag'] }
+			tags: ['public-tag']
 		});
 		await createNode(db, {
 			type: 'post',
@@ -94,7 +95,7 @@ describe('node visibility', () => {
 			bodyMd: 'b',
 			status: 'published',
 			visibility: 'private',
-			extra: { tags: ['secret-tag'] }
+			tags: ['secret-tag']
 		});
 
 		const tags = await listTags(db, { lang: 'en', types: ['post'] });

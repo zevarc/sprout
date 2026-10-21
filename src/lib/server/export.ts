@@ -8,9 +8,15 @@
 
 import type { D1Database } from '$lib/server/db';
 import { first, query } from '$lib/server/db';
+import { exportFieldRows } from '$lib/server/repositories/fields';
+import { exportTagRows } from '$lib/server/repositories/tags';
 
-/** Bumped 1 → 2 when ids became opaque and derived relations/HTML left the export. */
-export const EXPORT_SCHEMA_VERSION = 2;
+/**
+ * v1 → v2: ids became opaque; derived HTML/relations left the export.
+ * v2 → v3: `nodes.extra` became relational — `node_fields` rows, `node_tags`
+ *          rows, and cross-type concepts as columns (featured, cover).
+ */
+export const EXPORT_SCHEMA_VERSION = 3;
 
 /** JSON.stringify with recursively sorted object keys. */
 function stableStringify(value: unknown): string {
@@ -59,9 +65,12 @@ export async function buildExport(db: D1Database): Promise<ExportBundle> {
 	const nodes = await query<Record<string, unknown>>(
 		db,
 		`SELECT id, type, slug, lang, group_id, title, summary, body_md, status,
-			published_at, occurred_at, visibility, author_actor_id, created_at, updated_at, extra
+			published_at, occurred_at, visibility, featured, cover_media_id,
+			author_actor_id, created_at, updated_at
 		 FROM nodes ORDER BY id`
 	);
+	const fieldRows = await exportFieldRows(db);
+	const tagRows = await exportTagRows(db);
 	const relations = await query<Record<string, unknown>>(
 		db,
 		'SELECT from_id, to_id, rel FROM relations ORDER BY from_id, to_id, rel'
@@ -100,10 +109,12 @@ export async function buildExport(db: D1Database): Promise<ExportBundle> {
 		path: 'schema.json',
 		content: stableStringify({
 			version: EXPORT_SCHEMA_VERSION,
-			db_schema: schemaRow?.value ?? '2',
+			db_schema: schemaRow?.value ?? '3',
 			generator: 'sprout-export',
 			tables: [
 				'nodes',
+				'node_fields',
+				'node_tags',
 				'relations',
 				'media',
 				'events',
@@ -114,16 +125,10 @@ export async function buildExport(db: D1Database): Promise<ExportBundle> {
 		})
 	});
 
-	// Canonical node records (without raw markdown duplicated in jsonl body).
-	files.push({
-		path: 'nodes.jsonl',
-		content: toJsonl(
-			nodes.map((n) => ({
-				...n,
-				extra: parseJson(n.extra as string | null)
-			}))
-		)
-	});
+	// Nodes carry no blobs; type-specific data lives in its own files.
+	files.push({ path: 'nodes.jsonl', content: toJsonl(nodes) });
+	files.push({ path: 'node_fields.jsonl', content: toJsonl(fieldRows) });
+	files.push({ path: 'node_tags.jsonl', content: toJsonl(tagRows) });
 	files.push({ path: 'relations.jsonl', content: toJsonl(relations) });
 	files.push({ path: 'media.jsonl', content: toJsonl(media) });
 	files.push({
@@ -134,7 +139,20 @@ export async function buildExport(db: D1Database): Promise<ExportBundle> {
 	files.push({ path: 'actors.jsonl', content: toJsonl(actors) });
 	files.push({ path: 'actor_identities.jsonl', content: toJsonl(actorIdentities) });
 
-	// Human-readable markdown mirror, one file per node.
+	// Human-readable mirror, one file per node: fields render as frontmatter.
+	const fieldsByNode = new Map<string, Record<string, unknown>>();
+	for (const row of fieldRows) {
+		const bucket = fieldsByNode.get(String(row.node_id)) ?? {};
+		bucket[String(row.field)] = row.value;
+		fieldsByNode.set(String(row.node_id), bucket);
+	}
+	const tagsByNode = new Map<string, string[]>();
+	for (const row of tagRows) {
+		const bucket = tagsByNode.get(String(row.node_id)) ?? [];
+		bucket.push(String(row.tag));
+		tagsByNode.set(String(row.node_id), bucket);
+	}
+
 	for (const n of nodes) {
 		const type = String(n.type);
 		const slug = String(n.slug);
@@ -145,17 +163,20 @@ export async function buildExport(db: D1Database): Promise<ExportBundle> {
 			`type: ${type}`,
 			`slug: ${slug}`,
 			`lang: ${lang}`,
-			n.group_id ? `group_id: ${n.group_id}` : 'group_id:',
+			`group_id: ${n.group_id}`,
 			`title: ${JSON.stringify(n.title ?? '')}`,
 			`summary: ${JSON.stringify(n.summary ?? '')}`,
 			`status: ${n.status}`,
 			`published_at: ${n.published_at ?? ''}`,
 			`occurred_at: ${n.occurred_at ?? ''}`,
 			`visibility: ${n.visibility ?? 'public'}`,
+			`featured: ${n.featured === 1 ? 'true' : 'false'}`,
+			`cover_media_id: ${n.cover_media_id ?? ''}`,
 			`author_actor_id: ${n.author_actor_id ?? ''}`,
 			`created_at: ${n.created_at}`,
 			`updated_at: ${n.updated_at}`,
-			`extra: ${stableStringify(parseJson(n.extra as string | null) ?? {})}`,
+			`tags: ${stableStringify(tagsByNode.get(String(n.id)) ?? [])}`,
+			`fields: ${stableStringify(fieldsByNode.get(String(n.id)) ?? {})}`,
 			'---',
 			''
 		].join('\n');

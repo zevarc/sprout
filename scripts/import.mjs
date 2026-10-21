@@ -7,8 +7,13 @@
  *
  *   ADMIN_TOKEN=xxx pnpm dev            # in one terminal
  *   ADMIN_TOKEN=xxx pnpm content:import # in another
+ *
+ * Frontmatter contract (v3):
+ *   - `title`, `description`, `date`, `updated`, `draft`, `tags` are core
+ *   - any other key is passed through as a declared field (`fields`), so a site
+ *     can carry type-specific attributes (e.g. `rating`, `ageMonths`)
  */
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = process.cwd();
@@ -23,6 +28,9 @@ const SOURCES = [
 	{ dir: 'src/content/notes', type: 'note' }
 ];
 
+/** Frontmatter keys that map to columns, not declared fields. */
+const CORE_KEYS = new Set(['title', 'description', 'date', 'updated', 'draft', 'tags']);
+
 /**
  * A stable opaque id per logical work, so its locale variants share a group
  * (translations). Node ids are generated server-side; import is keyed on
@@ -33,12 +41,6 @@ const groupIds = new Map();
 function groupFor(key) {
 	if (!groupIds.has(key)) groupIds.set(key, crypto.randomUUID());
 	return groupIds.get(key);
-}
-
-/** Optional long-form body for a project: src/content/projects/<slug>.<lang>.md */
-function projectBody(slug, lang) {
-	const path = join(ROOT, 'src/content/projects', `${slug}.${lang}.md`);
-	return existsSync(path) ? readFileSync(path, 'utf8').trim() : null;
 }
 
 /** Minimal frontmatter parser for the shapes used in this repo. */
@@ -75,79 +77,54 @@ function toIsoDate(value) {
 	return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-function slugFromFile(file) {
+function slugFromFile(file, fallbackLang) {
 	const base = file.replace(/\.md$/, '');
 	const parts = base.split('.');
 	if (parts.length >= 2) return { slug: parts.slice(0, -1).join('.'), lang: parts[parts.length - 1] };
-	return { slug: base, lang: 'en' };
+	return { slug: base, lang: fallbackLang };
+}
+
+/** Everything that is not a core key becomes a declared field. */
+function extraFields(data) {
+	const fields = {};
+	for (const [key, value] of Object.entries(data)) {
+		if (!CORE_KEYS.has(key)) fields[key] = value;
+	}
+	return fields;
 }
 
 async function main() {
+	const lang = process.env.IMPORT_LANG ?? 'zh';
 	const nodes = [];
+
 	for (const source of SOURCES) {
 		const dir = join(ROOT, source.dir);
-		for (const file of readdirSync(dir).filter((f) => f.endsWith('.md'))) {
+		let files;
+		try {
+			files = readdirSync(dir).filter((f) => f.endsWith('.md'));
+		} catch {
+			continue; // source directory is optional
+		}
+		for (const file of files) {
 			const raw = readFileSync(join(dir, file), 'utf8');
 			const { data, body } = parseFrontmatter(raw);
-			const { slug, lang } = slugFromFile(file);
+			const slugged = slugFromFile(file, lang);
 			const date = toIsoDate(data.date) ?? new Date().toISOString();
-			const updated = toIsoDate(data.updated) ?? date;
 			const draft = data.draft === true;
 			nodes.push({
 				type: source.type,
-				slug,
-				lang,
-				groupId: groupFor(`${source.type}:${slug}`),
-				title: String(data.title ?? slug),
+				slug: slugged.slug,
+				lang: slugged.lang,
+				groupId: groupFor(`${source.type}:${slugged.slug}`),
+				title: String(data.title ?? slugged.slug),
 				summary: String(data.description ?? ''),
 				bodyMd: body.trimStart(),
 				status: draft ? 'draft' : 'published',
 				publishedAt: date,
-				extra: {
-					description: data.description ?? '',
-					cover: data.cover ?? null,
-					tags: Array.isArray(data.tags) ? data.tags : [],
-					createdAt: date,
-					updatedAt: updated
-				}
+				tags: Array.isArray(data.tags) ? data.tags : [],
+				fields: extraFields(data)
 			});
 		}
-	}
-
-	// Projects were migrated out of the i18n dictionaries; their seed data now
-	// lives in scripts/seed-projects.json.
-	const seedProjects = JSON.parse(
-		readFileSync(join(ROOT, 'scripts/seed-projects.json'), 'utf8')
-	);
-
-	for (const project of seedProjects) {
-		const common = {
-			type: 'project',
-			slug: project.slug,
-			groupId: groupFor(`project:${project.slug}`),
-			publishedAt: `${project.year ?? '2026'}-01-01T00:00:00.000Z`
-		};
-		const build = (lang, data, tags) => ({
-			...common,
-			lang,
-			title: data.title,
-			summary: data.description ?? '',
-			bodyMd: projectBody(project.slug, lang) ?? data.description ?? '',
-			status: 'published',
-			extra: {
-				year: project.year ?? '',
-				status: project.status ?? null,
-				featured: project.featured === true,
-				description: data.description ?? '',
-				image: project.image ?? null,
-				tags: tags ?? [],
-				website: project.website ?? null,
-				github: project.github ?? null,
-				order: project.order
-			}
-		});
-		nodes.push(build('en', project.en, project.tags));
-		nodes.push(build('zh', project.zh, project.zhTags ?? project.tags));
 	}
 
 	const selected = ONLY ? nodes.filter((n) => n.type === ONLY) : nodes;
@@ -175,9 +152,6 @@ async function main() {
 	}
 
 	console.log(`\nImported ${total} nodes → ${API}`);
-	console.log(`  posts: ${selected.filter((n) => n.type === 'post').length}`);
-	console.log(`  notes: ${selected.filter((n) => n.type === 'note').length}`);
-	console.log(`  projects: ${selected.filter((n) => n.type === 'project').length}`);
 }
 
 main().catch((err) => {

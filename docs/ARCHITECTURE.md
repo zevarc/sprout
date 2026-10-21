@@ -24,7 +24,7 @@ detail is in [IMPLEMENTATION](./IMPLEMENTATION.md).
 | Presentation | `src/lib/components/**`, `src/styles/**`, `src/lib/engine/theme.ts` | UI that reads views + tokens |
 
 One-way dependency is a hard rule: architecture/UI must not reshape core tables.
-Extensions ride on `extra` / `events` / `relations`, or add a new table.
+Extensions ride on `node_fields` / `events` / `relations`, or add a new table.
 
 ---
 
@@ -35,7 +35,9 @@ Full column/constraint detail: [DATA-MODEL](./DATA-MODEL.md). Export format:
 
 | Table | Purpose | Key facts |
 |---|---|---|
-| `nodes` | Authored content | Opaque ULID `id`; human key `(type, slug, lang)`; `group_id` groups translations/series; `visibility`; `occurred_at`; `extra` JSON; `body_html` derived |
+| `nodes` | Authored content | Opaque ULID `id`; human key `(type, slug, lang)`; `group_id` groups translations/series; `visibility`; `occurred_at`; `featured`; `cover_media_id`; `body_html` derived |
+| `node_fields` | Type-specific attributes | One typed row per `(node_id, field)`; key set validated against the type declaration |
+| `node_tags` | Tags | Many-to-many; archives/counts are plain SQL |
 | `events` | Interactions | Append-only; `target_type` + `target_id` are type-agnostic |
 | `event_status` | Moderation log | Append-only; latest row wins |
 | `relations` | Ad-hoc edges | Only `related` / `reply-to` / … — **not** translations |
@@ -262,6 +264,6 @@ tests/                  unit tests + architecture guards
 - **Only single-segment type routes get a generic list page.** Multi-segment
   routes (`/posts/notes`) are served by their own static routes and are not
   advertised as list pages in the sitemap.
-- **The table set is closed.** New capabilities use `extra`/events/relations or
-  add a new table; shipped table shapes are never edited (migrations are additive
+- **The table set is closed.** New capabilities use `node_fields`/events/relations
+  or add a new table; shipped table shapes are never edited (migrations are additive
   after the canonical `0001`).

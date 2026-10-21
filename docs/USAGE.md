@@ -80,7 +80,7 @@ export const site = {
 
 `HomeSection`: `types: string[]`, `layout: 'list' | 'cards'`, `title` (dotted i18n
 key), `more` (dotted i18n key), `morePath` (path without locale), `limit: number`,
-optional `fields: string[]` (which `extra` keys cards display).
+optional `fields: string[]` (which declared fields cards display).
 
 `Mod`: `id` (required), optional `contentTypes`, `features`, `home.sections`,
 `theme.tokens`, `i18n`.
@@ -118,10 +118,21 @@ No migration and no route files. If the route is multi-segment
 
 ### 3.2 Declarative fields
 
-`fields` describes what a type carries, and is stored in `nodes.extra`.
-The server does **not** enforce an `extra` schema, and the admin editor has
-bespoke inputs for the built-in types. Custom fields for a new type are written
-through the API or import (or by extending the editor).
+`fields` describes what a type carries. Each field becomes a row in
+`node_fields` (one typed value per `(node_id, field)`), and the **same
+declaration drives three things**:
+
+1. the admin editor renders one input per field (text, textarea, markdown, tags,
+   url, number, date, boolean, select);
+2. the write boundary (`POST`/`PATCH /api/nodes`) validates and normalizes the
+   values — an unknown key, a bad type or a value outside a `select`'s options is
+   a **400**;
+3. tests and the export checker assert the stored shape.
+
+Adding a field is a config change, not a migration. Cross-type concepts
+(`tags`, `featured`, `cover`, `visibility`, `occurred_at`) are columns or join
+tables instead — see [DATA-MODEL](./DATA-MODEL.md). `restore` and `import` skip
+validation on purpose (the export contract must stay lossless).
 
 ### 3.3 Renderers
 
@@ -156,7 +167,7 @@ export const home = {
 
 - Each section selects declared types; featured nodes win, otherwise the latest.
 - `title` / `more` are dotted keys in `src/lib/i18n/*.js`.
-- `fields` applies to `cards` and reads `node.extra[key]`.
+- `fields` applies to `cards` and reads `node.fields[key]`.
 - Sections with no declared types render nothing.
 
 ---

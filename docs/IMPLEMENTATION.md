@@ -12,7 +12,7 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 
 | File | Responsibility |
 |---|---|
-| `lib/content/schema.ts` | Dependency-free types: `Label`, `FieldDef`, `FieldOption`, `ContentTypeDef`, `HomeSection`, `Mod`. Note: `fields` is **declarative** — the server does not enforce `extra`, and the admin form has bespoke inputs for the built-in types |
+| `lib/content/schema.ts` | Dependency-free types: `Label`, `FieldDef`, `FieldOption`, `ContentTypeDef`, `HomeSection`, `Mod`. `fields` is the **declaration** that drives the editor and the write-boundary validation (`lib/engine/fields.ts`) |
 | `lib/content/types.ts` | Domain types: `ContentNode`, `NewNode`, `ContentEvent`, `MediaItem`, `NodeVisibility`, `Actor`, … |
 | `lib/content/registry.ts` | Type helpers: `getContentType`, `getTypeByRouteSegment`, `listTypes`, `publicTypes`, `privateTypes`, `feedTypes`, `listRouteSegments`, `labelText` |
 | `lib/content/view.ts` | `nodeToView()` (readTime, excerpt, TOC, URL, JSON-LD), `listViews`, `listFeaturedViews`, `findRelatedViews`, `nodeToProjectView`, `listProjects` |
@@ -288,7 +288,7 @@ Rebuild (`rebuildBodyHtml`): optional node id; idempotent; only rewrites
 |---|---|---|
 | `GET /api/nodes?type&lang&status` | editor | owner/member listing |
 | `POST /api/nodes` | editor | create; 409 on slug conflict; 400 unknown type |
-| `GET/PATCH/DELETE /api/nodes/[id]` | editor | patch: title/summary/body/status/slug/lang/group/publishedAt/occurredAt/visibility/extra; 409 on slug conflict |
+| `GET/PATCH/DELETE /api/nodes/[id]` | editor | patch: title/summary/body/status/slug/lang/group/publishedAt/occurredAt/visibility/featured/coverMediaId/fields/tags; 400 on invalid fields; 409 on slug conflict |
 | `GET /api/search?q&lang` | public | anonymous = public only; editors = all |
 | `GET/POST /api/events` | public | comments/reactions |
 | `POST /api/events/pageview` | public | no cookies; no-op when analytics off |
@@ -407,6 +407,7 @@ cached; feed/sitemap/og carry a short `s-maxage`.
 - Generic list/detail pages cover **single-segment** type routes only.
 - No dynamic component registry; bespoke visuals are static routes.
 - `?theme=` previews one request; it does not persist.
-- `fields` is declarative (no server-side `extra` validation; admin form has
-  bespoke inputs for built-in types).
+- `fields` is validated at the write boundary (`lib/engine/fields.ts`); the admin
+  editor renders one input per declared field. Unknown keys are rejected, not
+  silently dropped.
 - Analytics is not part of the content export.

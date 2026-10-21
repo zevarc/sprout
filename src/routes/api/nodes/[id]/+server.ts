@@ -3,8 +3,10 @@ import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { isEditor } from '$lib/server/auth';
 import { deleteNode, getNode, getNodeBySlug, updateNode } from '$lib/server/repositories/nodes';
+import { getContentType } from '$lib/content/registry';
 import { nodeUrl } from '$lib/content/view';
 import { invalidateAll, invalidateNode } from '$lib/server/cache';
+import { normalizeTags, validateFields } from '$lib/engine/fields';
 import type { NodeStatus, NodeVisibility } from '$lib/content/types';
 
 export const prerender = false;
@@ -29,6 +31,9 @@ export const PATCH: RequestHandler = async (event) => {
 		return json({ error: 'invalid json' }, { status: 400 });
 	}
 
+	const existing = await getNode(db, event.params.id);
+	if (!existing) return json({ error: 'not found' }, { status: 404 });
+
 	if (
 		body.status !== undefined &&
 		!['draft', 'scheduled', 'published', 'archived'].includes(String(body.status))
@@ -48,18 +53,27 @@ export const PATCH: RequestHandler = async (event) => {
 
 	// Slugs are unique per (type, lang) — report a conflict rather than a 500.
 	if (nextSlug !== undefined || body.lang !== undefined) {
-		const existing = await getNode(db, event.params.id);
-		if (existing) {
-			const clash = await getNodeBySlug(
-				db,
-				existing.type,
-				nextSlug ?? existing.slug,
-				body.lang !== undefined ? String(body.lang) : existing.lang
-			);
-			if (clash && clash.id !== existing.id) {
-				return json({ error: 'slug already exists' }, { status: 409 });
-			}
+		const clash = await getNodeBySlug(
+			db,
+			existing.type,
+			nextSlug ?? existing.slug,
+			body.lang !== undefined ? String(body.lang) : existing.lang
+		);
+		if (clash && clash.id !== existing.id) {
+			return json({ error: 'slug already exists' }, { status: 409 });
 		}
+	}
+
+	// Declared fields are validated here — the single write boundary. Omit
+	// `fields` to leave them untouched; send `{}` to clear them.
+	let fields: Record<string, unknown> | undefined;
+	if (body.fields !== undefined) {
+		const definition = getContentType(existing.type);
+		const validated = validateFields(definition?.fields ?? [], body.fields);
+		if (!validated.ok) {
+			return json({ error: 'invalid fields', details: validated.errors }, { status: 400 });
+		}
+		fields = validated.value;
 	}
 
 	const node = await updateNode(db, event.params.id, {
@@ -84,7 +98,15 @@ export const PATCH: RequestHandler = async (event) => {
 				: undefined,
 		visibility:
 			body.visibility !== undefined ? (body.visibility as NodeVisibility) : undefined,
-		extra: body.extra !== undefined ? (body.extra as Record<string, unknown>) : undefined
+		featured: body.featured !== undefined ? body.featured === true : undefined,
+		coverMediaId:
+			body.coverMediaId !== undefined
+				? body.coverMediaId == null || body.coverMediaId === ''
+					? null
+					: String(body.coverMediaId)
+				: undefined,
+		fields,
+		tags: body.tags !== undefined ? normalizeTags(body.tags) : undefined
 	});
 
 	if (!node) return json({ error: 'not found' }, { status: 404 });

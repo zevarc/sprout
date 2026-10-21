@@ -7,6 +7,9 @@
  *
  * Writes use UPSERT (never `INSERT OR REPLACE`): replacing a node row would
  * delete-and-reinsert it and, with foreign keys on, cascade away its children.
+ *
+ * Order matters because of foreign keys: nodes are inserted with a NULL cover,
+ * media is inserted afterwards, and only then is `cover_media_id` pointed at it.
  */
 
 import type { D1Database } from '$lib/server/db';
@@ -25,6 +28,8 @@ export interface RestoreResult {
 	events: number;
 	actors: number;
 	relations: number;
+	fields: number;
+	tags: number;
 }
 
 function parseJsonl(content: string | undefined): Record<string, unknown>[] {
@@ -45,14 +50,23 @@ export async function restoreFromBundle(
 	const schemaRaw = map.get('schema.json');
 	if (schemaRaw) {
 		const schema = JSON.parse(schemaRaw) as { version?: number };
-		if (typeof schema.version === 'number' && schema.version > EXPORT_SCHEMA_VERSION) {
+		const version = typeof schema.version === 'number' ? schema.version : 1;
+		if (version > EXPORT_SCHEMA_VERSION) {
 			throw new Error(
-				`export format v${schema.version} is newer than this build supports (v${EXPORT_SCHEMA_VERSION})`
+				`export format v${version} is newer than this build supports (v${EXPORT_SCHEMA_VERSION})`
+			);
+		}
+		if (version < EXPORT_SCHEMA_VERSION) {
+			throw new Error(
+				`export format v${version} is older than this build supports (v${EXPORT_SCHEMA_VERSION}); ` +
+					`run scripts/migrate-v2-to-v3.mjs on the bundle first`
 			);
 		}
 	}
 
 	const nodes = parseJsonl(map.get('nodes.jsonl'));
+	const fieldRows = parseJsonl(map.get('node_fields.jsonl'));
+	const tagRows = parseJsonl(map.get('node_tags.jsonl'));
 	const relations = parseJsonl(map.get('relations.jsonl'));
 	const media = parseJsonl(map.get('media.jsonl'));
 	const events = parseJsonl(map.get('events.jsonl'));
@@ -86,6 +100,7 @@ export async function restoreFromBundle(
 		);
 	}
 
+	// Nodes first, with the cover left NULL — media does not exist yet.
 	for (const n of nodes) {
 		const bodyMd = String(n.body_md ?? '');
 		// `body_html` is derived, not exported — re-render so output is identical.
@@ -94,33 +109,35 @@ export async function restoreFromBundle(
 			db,
 			`INSERT INTO nodes
 				(id, type, slug, lang, group_id, title, summary, body_md, body_html, status,
-				 published_at, occurred_at, visibility, author_actor_id, created_at, updated_at, extra)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				 published_at, occurred_at, visibility, featured, cover_media_id, author_actor_id,
+				 created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
 			 ON CONFLICT(id) DO UPDATE SET
 				type = excluded.type, slug = excluded.slug, lang = excluded.lang,
 				group_id = excluded.group_id, title = excluded.title, summary = excluded.summary,
 				body_md = excluded.body_md, body_html = excluded.body_html, status = excluded.status,
 				published_at = excluded.published_at, occurred_at = excluded.occurred_at,
-				visibility = excluded.visibility, author_actor_id = excluded.author_actor_id,
-				created_at = excluded.created_at, updated_at = excluded.updated_at, extra = excluded.extra`,
+				visibility = excluded.visibility, featured = excluded.featured,
+				author_actor_id = excluded.author_actor_id,
+				created_at = excluded.created_at, updated_at = excluded.updated_at`,
 			[
 				n.id,
 				n.type,
 				n.slug,
 				n.lang,
 				n.group_id ?? n.id,
-				n.title,
-				n.summary,
+				n.title ?? null,
+				n.summary ?? null,
 				bodyMd,
 				html,
 				n.status,
 				n.published_at ?? null,
 				n.occurred_at ?? null,
 				n.visibility ?? 'public',
+				n.featured ? 1 : 0,
 				n.author_actor_id ?? null,
 				n.created_at,
-				n.updated_at,
-				typeof n.extra === 'string' ? n.extra : JSON.stringify(n.extra ?? {})
+				n.updated_at
 			]
 		);
 		await run(db, 'DELETE FROM nodes_fts WHERE id = ?', [n.id]);
@@ -132,12 +149,34 @@ export async function restoreFromBundle(
 		]);
 	}
 
-	for (const r of relations) {
+	// Declared fields and tags: replace per node so restore is idempotent.
+	for (const row of fieldRows) {
+		const nodeId = String(row.node_id);
+		const field = String(row.field);
+		const value = row.value;
+		if (value === null || value === undefined) continue;
+		const kind = String(row.kind ?? 'text');
+		await run(db, 'DELETE FROM node_fields WHERE node_id = ? AND field = ?', [nodeId, field]);
 		await run(
 			db,
-			`INSERT INTO relations (from_id, to_id, rel) VALUES (?, ?, ?)
-			 ON CONFLICT(from_id, to_id, rel) DO NOTHING`,
-			[r.from_id, r.to_id, r.rel]
+			`INSERT INTO node_fields (node_id, field, value_text, value_number, value_bool, value_json)
+			 VALUES (?, ?, ?, ?, ?, ?)`,
+			[
+				nodeId,
+				field,
+				kind === 'text' ? String(value) : null,
+				kind === 'number' ? Number(value) : null,
+				kind === 'bool' ? (value ? 1 : 0) : null,
+				kind === 'json' ? JSON.stringify(value) : null
+			]
+		);
+	}
+
+	for (const row of tagRows) {
+		await run(
+			db,
+			'INSERT INTO node_tags (node_id, tag) VALUES (?, ?) ON CONFLICT DO NOTHING',
+			[String(row.node_id), String(row.tag)]
 		);
 	}
 
@@ -151,6 +190,24 @@ export async function restoreFromBundle(
 				width = excluded.width, height = excluded.height, alt = excluded.alt,
 				position = excluded.position, sha256 = excluded.sha256`,
 			[m.id, m.node_id, m.r2_key, m.kind, m.width, m.height, m.alt, m.position, m.sha256]
+		);
+	}
+
+	// Media exists now — point covers at it.
+	for (const n of nodes) {
+		if (!n.cover_media_id) continue;
+		await run(db, 'UPDATE nodes SET cover_media_id = ? WHERE id = ?', [
+			n.cover_media_id,
+			n.id
+		]);
+	}
+
+	for (const r of relations) {
+		await run(
+			db,
+			`INSERT INTO relations (from_id, to_id, rel) VALUES (?, ?, ?)
+			 ON CONFLICT(from_id, to_id, rel) DO NOTHING`,
+			[r.from_id, r.to_id, r.rel]
 		);
 	}
 
@@ -191,6 +248,8 @@ export async function restoreFromBundle(
 		nodes: nodes.length,
 		events: events.length,
 		actors: actors.length,
-		relations: relations.length
+		relations: relations.length,
+		fields: fieldRows.length,
+		tags: tagRows.length
 	};
 }

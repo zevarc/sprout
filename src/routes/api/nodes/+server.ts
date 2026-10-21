@@ -8,6 +8,7 @@ import { nodeUrl } from '$lib/content/view';
 import { invalidateNode } from '$lib/server/cache';
 import { site } from '$lib/site';
 import { content } from '$lib/engine/registry';
+import { normalizeTags, validateFields } from '$lib/engine/fields';
 import type { NodeStatus, NodeVisibility } from '$lib/content/types';
 
 export const prerender = false;
@@ -40,7 +41,8 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const type = String(body.type ?? '');
-	if (!getContentType(type)) return json({ error: 'unknown type' }, { status: 400 });
+	const definition = getContentType(type);
+	if (!definition) return json({ error: 'unknown type' }, { status: 400 });
 
 	const slug = String(body.slug ?? '').trim();
 	if (!slug) return json({ error: 'slug required' }, { status: 400 });
@@ -49,6 +51,12 @@ export const POST: RequestHandler = async (event) => {
 	const status = (body.status as NodeStatus) ?? 'draft';
 	if (!['draft', 'published', 'archived', 'scheduled'].includes(status)) {
 		return json({ error: 'invalid status' }, { status: 400 });
+	}
+
+	// Declared fields are validated here — the single write boundary.
+	const fields = validateFields(definition.fields, body.fields ?? {});
+	if (!fields.ok) {
+		return json({ error: 'invalid fields', details: fields.errors }, { status: 400 });
 	}
 
 	// Slugs are unique per (type, lang) — a clear conflict beats a raw 500.
@@ -73,8 +81,11 @@ export const POST: RequestHandler = async (event) => {
 		publishedAt: body.publishedAt ? String(body.publishedAt) : null,
 		occurredAt: body.occurredAt ? String(body.occurredAt) : null,
 		visibility,
+		featured: body.featured === true,
+		coverMediaId: body.coverMediaId ? String(body.coverMediaId) : null,
 		authorActorId: session?.actorId ?? null,
-		extra: (body.extra as Record<string, unknown>) ?? {}
+		fields: fields.value,
+		tags: normalizeTags(body.tags)
 	});
 
 	await invalidateNode(event.url.origin, nodeUrl(node), node.slug);
