@@ -266,6 +266,9 @@
     } catch {
       /* ignore */
     }
+    // 没有记录时，沿用最近编辑过的那条内容的语言。
+    const latest = nodes[0]?.lang;
+    if (latest && site.locales.some((l) => l.code === latest)) return latest;
     return site.defaultLocale;
   }
 
