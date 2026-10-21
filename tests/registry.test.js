@@ -9,40 +9,64 @@ import {
 	listTypes
 } from '$lib/content/registry';
 
+/**
+ * These assertions are written against whatever `sprout.config.js` declares —
+ * they are engine invariants, not a demo-site fixture. Any site can run them.
+ */
+const types = listTypes();
+/** @param {string} route */
+const segmentOf = (route) => route.replace(/^\//, '');
+
 describe('content registry', () => {
-	it('resolves a type from its single-segment route', () => {
-		expect(getTypeByRouteSegment('posts')?.type).toBe('post');
-		expect(getTypeByRouteSegment('moments')?.type).toBe('moment');
-		expect(getTypeByRouteSegment('projects')?.type).toBe('project');
-		expect(getTypeByRouteSegment('nope')).toBeUndefined();
+	it('resolves every single-segment type from its route segment', () => {
+		for (const type of types) {
+			const segment = segmentOf(type.route);
+			if (segment.includes('/')) continue;
+			expect(getTypeByRouteSegment(segment)?.type).toBe(type.type);
+		}
+		expect(getTypeByRouteSegment('definitely-not-a-type')).toBeUndefined();
 	});
 
-	it('does not resolve multi-segment routes', () => {
-		// `note` lives at `/posts/notes`, so it is served by its own static route.
-		expect(getTypeByRouteSegment('notes')).toBeUndefined();
+	it('does not resolve multi-segment routes by their last segment', () => {
+		for (const type of types) {
+			const segment = segmentOf(type.route);
+			if (!segment.includes('/')) continue;
+			// The generic `[type]` route only ever receives one segment, so the
+			// last segment of a nested route must not resolve on its own.
+			const last = segment.split('/').pop();
+			expect(getTypeByRouteSegment(String(last))).toBeUndefined();
+		}
 	});
 
 	it('splits public and private types exhaustively', () => {
-		expect(publicTypes().length + privateTypes().length).toBe(listTypes().length);
-		expect(publicTypes().map((t) => t.type)).toContain('post');
+		expect(publicTypes().length + privateTypes().length).toBe(types.length);
+		const seen = new Set([...publicTypes(), ...privateTypes()].map((t) => t.type));
+		expect(seen.size).toBe(types.length);
 	});
 
 	it('reports only feed types as feeding the feed', () => {
 		expect(feedTypes().every((t) => t.feed === true)).toBe(true);
 	});
 
-	it('lets a type select built-in renderers', () => {
-		const moment = getTypeByRouteSegment('moments');
-		expect(moment?.listRenderer).toBe('feed');
-		expect(moment?.detailRenderer).toBe('compact');
+	it('uses known renderer keys', () => {
+		const listRenderers = ['list', 'cards', 'feed'];
+		const detailRenderers = ['article', 'compact'];
+		for (const type of types) {
+			if (type.listRenderer) expect(listRenderers).toContain(type.listRenderer);
+			if (type.detailRenderer) expect(detailRenderers).toContain(type.detailRenderer);
+		}
 	});
 
-	it('advertises only single-segment public routes as list pages', () => {
+	it('advertises exactly the single-segment public routes as list pages', () => {
 		const segments = listRouteSegments();
-		expect(segments).toContain('posts');
-		expect(segments).toContain('moments');
-		// `/posts/notes` has no generic list page — it must not be advertised.
-		expect(segments).not.toContain('posts/notes');
+		for (const type of publicTypes()) {
+			const segment = segmentOf(type.route);
+			if (segment.includes('/')) {
+				expect(segments).not.toContain(segment);
+			} else {
+				expect(segments).toContain(segment);
+			}
+		}
 	});
 
 	it('picks a label for the active locale with fallbacks', () => {
