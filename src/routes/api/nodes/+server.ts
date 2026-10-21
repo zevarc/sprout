@@ -2,8 +2,9 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { getSession, isEditor } from '$lib/server/auth';
-import { createNode, getNodeBySlug, listNodes } from '$lib/server/repositories/nodes';
+import { createNode, getNodeBySlug, listNodes, uniqueSlug } from '$lib/server/repositories/nodes';
 import { getContentType } from '$lib/content/registry';
+import { slugify } from '$lib/reading';
 import { nodeUrl } from '$lib/content/view';
 import { invalidateNode } from '$lib/server/cache';
 import { site } from '$lib/site';
@@ -44,8 +45,18 @@ export const POST: RequestHandler = async (event) => {
 	const definition = getContentType(type);
 	if (!definition) return json({ error: 'unknown type' }, { status: 400 });
 
-	const slug = String(body.slug ?? '').trim();
-	if (!slug) return json({ error: 'slug required' }, { status: 400 });
+	const lang = String(body.lang ?? site.defaultLocale);
+
+	// A slug is optional. Filling in a URL identifier by hand is a typing tax,
+	// especially for micro-posts, so derive one: the title when there is one,
+	// otherwise the date. `uniqueSlug` appends -2, -3, … within (type, lang).
+	let slug = String(body.slug ?? '').trim();
+	if (!slug) {
+		const title = body.title != null ? String(body.title).trim() : '';
+		const day = String(body.publishedAt ?? body.occurredAt ?? new Date().toISOString()).slice(0, 10);
+		const base = (title ? slugify(title) : '') || day || 'entry';
+		slug = await uniqueSlug(db, type, lang, base);
+	}
 
 	const bodyMd = String(body.bodyMd ?? '');
 	const status = (body.status as NodeStatus) ?? 'draft';
@@ -60,7 +71,6 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	// Slugs are unique per (type, lang) — a clear conflict beats a raw 500.
-	const lang = String(body.lang ?? site.defaultLocale);
 	if (await getNodeBySlug(db, type, slug, lang)) {
 		return json({ error: 'slug already exists' }, { status: 409 });
 	}

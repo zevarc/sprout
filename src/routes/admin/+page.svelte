@@ -116,7 +116,6 @@
     /** @type {string[]} */
     const out = [];
     if (!draft) return out;
-    if (!String(draft.slug ?? '').trim()) out.push('slug 为空');
     if (!String(draft.summary ?? '').trim()) out.push('摘要为空（列表与分享卡片会缺描述）');
 
     const md = String(draft.bodyMd ?? '');
@@ -259,12 +258,23 @@
     else if (tab === 'members') loadMembers();
   });
 
+  /** 上次写作使用的语言：短内容不该每次都被拽回默认语言。 */
+  function rememberedLang() {
+    try {
+      const saved = localStorage.getItem('admin:lang');
+      if (saved && site.locales.some((l) => l.code === saved)) return saved;
+    } catch {
+      /* ignore */
+    }
+    return site.defaultLocale;
+  }
+
   function newDraft() {
     draft = {
       id: null,
       type: 'moment',
       slug: '',
-      lang: site.defaultLocale,
+      lang: rememberedLang(),
       title: '',
       summary: '',
       bodyMd: '',
@@ -632,6 +642,17 @@
     await loadNodes();
   }
 
+  // 记住上次写作使用的语言（下次「新建」沿用它）。
+  $effect(() => {
+    const lang = draft?.lang;
+    if (!lang) return;
+    try {
+      localStorage.setItem('admin:lang', lang);
+    } catch {
+      /* ignore */
+    }
+  });
+
   // 脏标记：和载入时的快照比较
   $effect(() => {
     const state = currentState();
@@ -803,7 +824,7 @@
                     </select>
                   </label>
                 </div>
-                <label>Slug<input type="text" bind:value={draft.slug} placeholder="my-article" /></label>
+                <label>Slug<input type="text" bind:value={draft.slug} placeholder="留空自动生成（标题或日期）" /></label>
                 <label>标题<input type="text" bind:value={draft.title} /></label>
                 <label>摘要<textarea rows="2" bind:value={draft.summary}></textarea></label>
 

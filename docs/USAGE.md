@@ -271,9 +271,10 @@ Open `/admin` and sign in with `ADMIN_TOKEN`.
 
 Editor features: Markdown toolbar, unsaved-changes guard, local autosave,
 ⌘/Ctrl+S save, ⌘/Ctrl+Enter preview, split preview, editable publish date,
-**occurred time** and **visibility**, pre-publish warnings (empty slug, empty
-summary, missing alt, heading level skips, duplicate slug), slug-change
-confirmation, media panel (alt/reorder/delete), translation pairing (same
+**occurred time** and **visibility**. The slug is optional — leave it empty and
+it is generated from the title, or from the date for untitled entries; the editor
+remembers the last language you wrote in. Pre-publish warnings (empty summary, missing alt,
+heading level skips, duplicate slug), slug-change confirmation, media panel (alt/reorder/delete), translation pairing (same
 `group_id`).
 
 ---

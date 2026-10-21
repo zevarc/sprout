@@ -290,6 +290,26 @@ export async function getNodeBySlug(
 	return toNode(row, await loadRelated(db, [row.id]));
 }
 
+/**
+ * Make `base` unique within (type, lang) by suffixing `-2`, `-3`, ….
+ * Used when a writer leaves the slug empty: filling in a URL identifier by hand
+ * is a typing tax, especially for micro-posts.
+ */
+export async function uniqueSlug(
+	db: D1Database,
+	type: string,
+	lang: string,
+	base: string
+): Promise<string> {
+	let slug = base;
+	let n = 1;
+	while (await getNodeBySlug(db, type, slug, lang)) {
+		n += 1;
+		slug = `${base}-${n}`;
+	}
+	return slug;
+}
+
 async function indexNode(db: D1Database, node: ContentNode): Promise<void> {
 	await run(db, 'DELETE FROM nodes_fts WHERE id = ?', [node.id]);
 	await run(

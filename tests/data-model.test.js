@@ -5,6 +5,7 @@ import {
 	updateNode,
 	getNodeBySlug,
 	listFeatured,
+	uniqueSlug,
 	relatedIds
 } from '$lib/server/repositories/nodes';
 import { renderComment } from '$lib/server/render';
@@ -118,5 +119,20 @@ describe('declarative ordering', () => {
 		});
 
 		expect(featured.map((n) => n.slug)).toEqual(['first', 'second', 'third', 'unranked']);
+	});
+});
+
+describe('slug generation', () => {
+	it('derives a unique slug within (type, lang)', async () => {
+		const { db } = createTestDb();
+		await createNode(db, {
+			type: 'moment',
+			slug: '2026-10-21',
+			lang: 'en',
+			bodyMd: 'a',
+			status: 'published'
+		});
+		expect(await uniqueSlug(db, 'moment', 'en', '2026-10-21')).toBe('2026-10-21-2');
+		expect(await uniqueSlug(db, 'moment', 'zh', '2026-10-21')).toBe('2026-10-21');
 	});
 });
