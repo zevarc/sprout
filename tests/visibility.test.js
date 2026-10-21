@@ -4,6 +4,8 @@ import { createNode, listNodes, searchNodes } from '$lib/server/repositories/nod
 import { listTags } from '$lib/server/repositories/tags';
 import { listViews } from '$lib/content/view';
 import { loadNodeView } from '$lib/server/loadNode';
+import { mediaAccess } from '$lib/server/mediaAccess';
+import { run } from '$lib/server/db';
 import { toMatchExpression } from '$lib/server/search';
 
 describe('node visibility', () => {
@@ -103,6 +105,38 @@ describe('node visibility', () => {
 
 		const all = await listTags(db, { lang: 'en', types: ['post'], visibility: 'private' });
 		expect(all.map((t) => t.tag)).toEqual(['secret-tag']);
+	});
+
+	it('treats a content-addressed key as public when any owner is public', async () => {
+		const { db } = createTestDb();
+		const priv = await createNode(db, {
+			type: 'post',
+			slug: 'priv',
+			lang: 'en',
+			bodyMd: 'x',
+			status: 'published',
+			visibility: 'private'
+		});
+		const pub = await createNode(db, {
+			type: 'post',
+			slug: 'pub',
+			lang: 'en',
+			bodyMd: 'y',
+			status: 'published',
+			visibility: 'public'
+		});
+
+		// Same bytes → same r2_key, attached to two nodes.
+		await run(db, `INSERT INTO media (id, node_id, r2_key) VALUES ('a', ?, 'same.png')`, [priv.id]);
+		await run(db, `INSERT INTO media (id, node_id, r2_key) VALUES ('b', ?, 'same.png')`, [pub.id]);
+
+		expect((await mediaAccess(db, 'same.png')).public).toBe(true);
+
+		// Only private owners → private.
+		await run(db, `DELETE FROM media WHERE id = 'b'`);
+		expect((await mediaAccess(db, 'same.png')).public).toBe(false);
+		// Unknown / unattached objects stay private.
+		expect(await mediaAccess(db, 'nope.png')).toEqual({ public: false, attached: false });
 	});
 
 	it('404s a private detail page unless the caller opts in', async () => {
