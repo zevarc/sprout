@@ -40,15 +40,16 @@ push and pull requests.
 1. **Keep the domain layer vendor-free.** Cloudflare specifics belong in
    `src/lib/server/db.ts`, `wrangler*.toml` and `src/app.d.ts`; everything else is
    plain TypeScript.
-2. **Never mutate `events`.** Moderation is append-only (`event_status`).
+2. **Derived data is never authoritative.** `body_html` and the `<kind>_fts` tables
+   are recomputed from the source; never edit them by hand.
 3. **Determinism matters.** Anything touching the export format must keep output
    stable (sorted keys, sorted rows, ISO-8601), or `content:verify` breaks.
 4. **No personal data in the repository.** No tokens, no real content, no media.
    `.dev.vars*` and `export/` stay out of git.
 5. **Add a test** for new logic in `src/lib/server/*` where practical.
-6. **Data → architecture → presentation, one way only.** New capabilities ride on
-   `nodes.extra`, `events` or `relations`; do not reshape the core tables to make
-   an architecture or UI idea fit.
+6. **Data → architecture → presentation, one way only.** New capabilities ride on a
+   column of `assets` or of a kind's own table, or on a new table; do not reshape
+   the core tables to make an architecture or UI idea fit.
 7. **Two guards must stay green** (`tests/architecture.test.js`):
    - routes never issue SQL (`db.prepare` / `query` / `run` / `first`);
    - components contain no hex/rgba colour literals.
@@ -59,16 +60,18 @@ push and pull requests.
 
 ## 4. Changing the schema
 
-- `migrations/0001_init.sql` is the canonical baseline. **Never edit a shipped
-  table's shape.**
-- Every change after that is a **new numbered migration**.
-- Keep the data model closed under extension: prefer `extra` / `events` /
-  `relations`; add a new table only for a genuinely new concept.
+- The canonical schema is the DDL in
+  [DATA-MODEL](./docs/DATA-MODEL.md) (Appendix A). **Never edit a shipped table's
+  shape.**
+- Every change after that is a **new numbered migration** in `migrations/`.
+- Grow by addition: a new content kind is a new table plus its search index; a new
+  shared capability is one column on `assets`. Neither edits a shipped table.
 - If you change the export format, bump `EXPORT_SCHEMA_VERSION` and update
   [EXPORT-CONTRACT](./docs/EXPORT-CONTRACT.md).
 - Run the round-trip test: `pnpm test` includes export → restore → export.
 
-Adding a field or a type should **not** require a migration.
+Adding a content kind touches only its own table; adding a shared capability
+touches only `assets`.
 
 ---
 

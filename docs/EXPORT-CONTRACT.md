@@ -5,94 +5,106 @@ site can be written to a folder of plain text**, and restored from it. The data
 model is in [DATA-MODEL](./DATA-MODEL.md); operational steps in
 [DATA-IMPORT-EXPORT](./DATA-IMPORT-EXPORT.md).
 
+The contract below is export format **v4** — the format that goes with the model in
+DATA-MODEL.md. The shipped build still writes v3 until the schema switch lands
+(DATA-MODEL.md §10 describes the converter).
+
 ---
 
 ## 1. Layout
 
 ```
 export/
-  schema.json                    # format version + db schema version + table list
-  nodes.jsonl                    # one JSON object per node
-  node_fields.jsonl              # type-specific attributes (one row per field)
-  node_tags.jsonl                # many-to-many tags
-  relations.jsonl                # ad-hoc edges only
-  media.jsonl                    # media metadata (binaries in media/)
-  events.jsonl                   # interactions + structured payload
-  event_status.jsonl             # full moderation history
-  actors.jsonl
-  actor_identities.jsonl
-  nodes/<type>/<slug>.<lang>.md  # human-readable mirror, one per node
-  media/<sha256>.<ext>           # binaries fetched from /media/<key>
+  schema.json                    # format version + db schema version + tables + kinds
+  people.jsonl                   # every human (owner, member, commenter)
+  identities.jsonl               # external accounts → person
+  assets.jsonl                   # the part of content shared by all kinds
+  posts.jsonl                    # one file per declared content kind
+  moments.jsonl
+  projects.jsonl
+  comments.jsonl                 # comments on any asset
+  reactions.jsonl                # person × emoji × asset
+  tags.jsonl                     # the tag vocabulary
+  asset_tags.jsonl               # which asset carries which tag
+  media.jsonl                    # stored objects (binaries in media/)
+  asset_media.jsonl              # where each object is used
+  nodes/<kind>/<slug>.<lang>.md  # human-readable mirror, one per asset
+  media/<r2_key>                 # binaries fetched from /media/<key>
 ```
 
 `schema.json`:
 
 ```json
 {
-  "version": 3,
-  "db_schema": "3",
+  "version": 4,
+  "db_schema": "4",
   "generator": "sprout-export",
-  "tables": ["nodes", "node_fields", "node_tags", "relations", "media", "events", "event_status", "actors", "actor_identities"]
+  "tables": ["people", "identities", "assets", "posts", "moments", "projects",
+             "comments", "reactions", "tags", "asset_tags", "media", "asset_media"],
+  "types": ["post", "moment", "project"]
 }
 ```
 
 `version` is the **export format**; `db_schema` is `meta.schema_version` in the
-database it came from.
+database it came from; `types` is the list of content kinds whose files are
+present.
 
 ---
 
 ## 2. Record shapes
 
-### `nodes.jsonl`
+### `people.jsonl`
 
-`id`, `type`, `slug`, `lang`, `group_id`, `title`, `summary`, `body_md`, `status`,
-`published_at`, `occurred_at`, `visibility`, `featured`, `cover_media_id`,
-`author_actor_id`, `created_at`, `updated_at`.
-`body_html` is **not** included; type-specific data is in `node_fields.jsonl`.
+`id`, `role` (`null` | `owner` | `member`), `handle`, `display_name`, `avatar_url`,
+`email_hash`, `created_at`, `updated_at`.
 
-### `node_fields.jsonl`
+### `identities.jsonl`
 
-`{ node_id, field, kind, value }` where `kind ∈ text | number | bool | json`.
-Exactly one typed value per `(node_id, field)`; the set of `field` keys is the
-site's declaration, validated at the write boundary (restore trusts the bundle).
+`provider`, `provider_uid`, `person_id`, `created_at`.
 
-### `node_tags.jsonl`
+### `assets.jsonl`
 
-`{ node_id, tag }`, sorted by `(node_id, tag)`.
+`id`, `type`, `lang`, `group_id`, `status` (`draft` | `published` | `archived`),
+`visibility` (`public` | `private`), `published_at`, `occurred_at`, `author_id`,
+`created_at`, `updated_at`.
 
-### `relations.jsonl`
+### `<kind>.jsonl` — `posts.jsonl`, `moments.jsonl`, `projects.jsonl`, …
 
-`from_id`, `to_id`, `rel`. Only ad-hoc edges; translations/series are derived from
-`group_id`, so no translation rows exist.
+The asset id, the human identity and the content of that kind:
+`id`, `lang`, `slug`, `title`, `summary`, `body_md`, followed by that kind's own
+columns (for `projects`: `year`, `stage`, `website`, `repo_url`, `order_index`).
 
-### `media.jsonl`
+`body_html` is **not** included — it is derived and recomputed on restore.
 
-`id`, `node_id`, `r2_key`, `kind`, `width`, `height`, `alt`, `position`, `sha256`.
-The binary is at `media/<r2_key>`; `r2_key` is relative.
+### `comments.jsonl`
 
-### `events.jsonl`
+`id`, `asset_id`, `parent_id`, `author_id`, `body_md`, `status`
+(`pending` | `approved` | `spam` | `deleted`), `moderated_at`, `moderated_by`,
+`payload` (parsed object), `created_at`.
 
-`id`, `kind`, `target_type`, `target_id`, `actor_id`, `parent_id`, `body_md`,
-`payload` (parsed object), `created_at`. `payload` holds structured metadata
-(`ipHash`, emoji, …) and never rendered HTML.
+### `reactions.jsonl`
 
-### `event_status.jsonl`
+`asset_id`, `person_id`, `emoji`, `created_at`.
 
-`event_id`, `status`, `at`, `by`. Append-only; the newest row is effective.
+### `tags.jsonl` / `asset_tags.jsonl`
 
-### `actors.jsonl` / `actor_identities.jsonl`
+`tags`: `id`, `name`.
+`asset_tags`: `asset_id`, `tag_id`.
 
-`actors`: `id`, `kind`, `handle`, `display_name`, `avatar_url`, `email_hash`,
-`created_at`.
-`actor_identities`: `actor_id`, `provider`, `provider_uid`.
+### `media.jsonl` / `asset_media.jsonl`
+
+`media`: `id`, `r2_key`, `kind`, `sha256`, `created_at`. The binary is at
+`media/<r2_key>`; `r2_key` is relative.
+`asset_media`: `asset_id`, `media_id`, `position`, `alt`, `role`
+(`body` | `cover`).
 
 ### Markdown mirror
 
-`nodes/<type>/<slug>.<lang>.md` has YAML frontmatter (`id`, `type`, `slug`, `lang`,
-`group_id`, `title`, `summary`, `status`, `published_at`, `occurred_at`,
-`visibility`, `featured`, `cover_media_id`, `author_actor_id`, `created_at`,
-`updated_at`, `tags`, `fields`) followed by `body_md`. Restore uses the JSONL; the
-mirror is for humans and diffs.
+`nodes/<kind>/<slug>.<lang>.md` has YAML frontmatter (`id`, `type`, `lang`,
+`slug`, `group_id`, `title`, `summary`, `status`, `published_at`, `occurred_at`,
+`visibility`, `author_id`, `created_at`, `updated_at`, `tags`, plus that kind's
+own columns) followed by `body_md`. Restore uses the JSONL; the mirror is for
+humans and diffs.
 
 ---
 
@@ -101,19 +113,23 @@ mirror is for humans and diffs.
 1. **Deterministic.** Rows are sorted by primary key; JSON object keys are sorted;
    timestamps are ISO-8601. Two consecutive exports of an unchanged database are
    byte-identical.
-2. **Complete for content.** Nodes, declared fields, tags, ad-hoc relations, media
-   metadata, events, moderation history and actors are included, with `visibility`,
-   `occurred_at`, `featured`, `cover_media_id`, `author_actor_id` and `group_id`.
-   No rendered HTML is exported; restore re-renders node bodies from `body_md`.
+2. **Complete for content.** People, identities, assets, every kind's rows,
+   comments, reactions, tags, media metadata and how each object is used are
+   included. No rendered HTML is exported; restore re-renders bodies from
+   `body_md`.
 3. **Lossless round trip.** `export → restore → export` yields the same files
    (enforced by `tests/export-restore.test.js`).
 4. **Storage-agnostic.** Binaries are fetched through `/media/<key>` and stored
    under their content hash, not a bucket URL.
-5. **Versioned.** Restore refuses an export whose `version` is newer than the
-   build supports.
+5. **Versioned.** Restore refuses a bundle whose `version` is newer than the build
+   supports, and refuses an older one with a pointer to the converter.
+6. **Kind-tolerant.** The importer restores the kinds listed in `schema.json.types`
+   and **skips an unknown kind file with a warning**, so a bundle from a newer
+   build does not crash an older one. Adding a content kind is therefore additive
+   on both sides.
 
-Deliberately **not** exported: `sessions`, `stats_daily`, `invites`, and FTS
-internal tables.
+Deliberately **not** exported: `sessions`, `invites`, `page_views`, `meta`,
+`body_html`, and the `*_fts` search tables.
 
 ---
 
@@ -121,15 +137,17 @@ internal tables.
 
 `restoreFromBundle`:
 
-1. validates `schema.json.version` (a v2 bundle must be converted with
-   `pnpm content:migrate-v2-to-v3` first);
-2. writes actors, identities, nodes (cover NULL), fields, tags, media, then points
-   covers at their media rows;
-3. writes relations, events and `event_status`;
-4. re-renders `body_html` and rebuilds `nodes_fts`;
-5. the CLI (`pnpm content:restore`) then uploads `media/` binaries with
+1. validates `schema.json.version` (an older bundle must be converted first —
+   DATA-MODEL.md §10);
+2. writes `people`, then `identities`;
+3. writes `assets`, then each declared kind's rows;
+4. writes `tags` and `asset_tags`;
+5. writes `media`, then `asset_media` (the object exists before it is referenced);
+6. writes `comments` and `reactions`;
+7. re-renders `body_html` from `body_md` and rebuilds each `*_fts` table;
+8. the CLI (`pnpm content:restore`) then uploads `media/` binaries with
    `record=0` (metadata is already present);
-6. the HTTP endpoint invalidates derived caches afterwards.
+9. the HTTP endpoint invalidates derived caches afterwards.
 
 Restore expects an **empty** database.
 
@@ -158,8 +176,8 @@ Full detail: [DATA-IMPORT-EXPORT](./DATA-IMPORT-EXPORT.md).
 
 The export is a **full** log:
 
-- `actors.email_hash` — salted SHA-256 of commenter emails;
-- `events.payload.ipHash` — salted, per-day IP hash;
+- `people.email_hash` — salted SHA-256 of commenter emails;
+- `comments.payload.ipHash` — salted, per-day IP hash;
 - comments in `pending`, `spam` and `deleted` states;
 - **private media binaries**.
 

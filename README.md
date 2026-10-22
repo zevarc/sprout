@@ -173,7 +173,7 @@ own static routes.
 - [Usage](./docs/USAGE.md) — configuring, writing, admin, members, search
 - [Deploy](./docs/DEPLOY.md) — clone → Cloudflare → custom domain → upgrades
 - [Data import/export](./docs/DATA-IMPORT-EXPORT.md) — export → verify → restore, Markdown import
-- [Data model](./docs/DATA-MODEL.md) — every table and why it exists
+- [Data model](./docs/DATA-MODEL.md) — the model: tables, rules, migration
 - [Export contract](./docs/EXPORT-CONTRACT.md) — the portability guarantee
 - [Verification](./docs/VERIFY.md) — step-by-step checks, including a disaster-recovery drill
 - [GitHub login](./docs/GITHUB-LOGIN.md) — optional OAuth for commenters

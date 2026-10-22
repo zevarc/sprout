@@ -45,79 +45,80 @@ Output:
 
 ```
 export/
-  schema.json                 # format version, db_schema, table list
-  nodes.jsonl                 # one node per line
-  node_fields.jsonl           # type-specific attributes (one row per field)
-  node_tags.jsonl             # many-to-many tags
-  relations.jsonl             # ad-hoc edges only
-  media.jsonl                 # media metadata (binaries in media/)
-  events.jsonl                # interactions + structured payload
-  event_status.jsonl          # full moderation history
-  actors.jsonl
-  actor_identities.jsonl
-  nodes/<type>/<slug>.<lang>.md   # human-readable mirror
-  media/<sha256>.<ext>            # binaries
+  schema.json                 # format version, db_schema, table list, content kinds
+  people.jsonl                # everyone: owner, members, commenters
+  identities.jsonl            # external accounts → person
+  assets.jsonl                # the shared part of every piece of content
+  posts.jsonl                 # one file per declared content kind
+  moments.jsonl
+  projects.jsonl
+  comments.jsonl              # comments on any asset
+  reactions.jsonl             # person × emoji × asset
+  tags.jsonl                  # the tag vocabulary
+  asset_tags.jsonl            # which asset carries which tag
+  media.jsonl                 # stored objects (binaries in media/)
+  asset_media.jsonl           # where each object is used
+  nodes/<kind>/<slug>.<lang>.md   # human-readable mirror
+  media/<r2_key>                  # binaries
 ```
 
-Not exported: `sessions`, `stats_daily`, `invites`, and FTS internal tables.
+Not exported: `sessions`, `invites`, `page_views`, `meta`, and the search tables.
 `body_html` is not exported either (it is derived); comment HTML is never stored.
 
 ---
 
 ## 3. File schemas
 
-### `nodes.jsonl`
+### `assets.jsonl`
 
 | Field | Notes |
 |---|---|
-| `id` | Opaque ULID |
-| `type`, `slug`, `lang` | Human identity; unique together |
+| `id` | Opaque ULID; the target of comments, tags, media and reactions |
+| `type` | Which content kind this is |
+| `lang` | Locale code |
 | `group_id` | Translation/series group (opaque) |
-| `title`, `summary` | Nullable |
-| `body_md` | Source Markdown |
-| `status` | `draft` \| `scheduled` \| `published` \| `archived` |
-| `published_at`, `occurred_at` | ISO-8601 or null |
+| `status` | `draft` \| `published` \| `archived` |
 | `visibility` | `public` \| `private` |
-| `featured` | `0` \| `1` |
-| `cover_media_id` | FK into `media`, or null |
-| `author_actor_id` | Nullable |
+| `published_at`, `occurred_at` | ISO-8601 or null |
+| `author_id` | Person id, never null |
 | `created_at`, `updated_at` | ISO-8601 |
 
-### `node_fields.jsonl`
+### `posts.jsonl` / `moments.jsonl` / `projects.jsonl` (one per kind)
 
-`{ node_id, field, kind, value }` with `kind ∈ text | number | bool | json`.
-One typed value per `(node_id, field)`.
+`{ id, lang, slug, title, summary, body_md, … }` — the asset id, the human
+identity and the content of that kind, plus that kind's own columns (for projects:
+`year`, `stage`, `website`, `repo_url`, `order_index`). `body_html` is never
+included; it is recomputed on restore.
 
-### `node_tags.jsonl`
+### `comments.jsonl`
 
-`{ node_id, tag }`.
+`{ id, asset_id, parent_id, author_id, body_md, status, moderated_at, moderated_by, payload, created_at }`
+with `status ∈ pending | approved | spam | deleted`.
 
-### `relations.jsonl`
+### `reactions.jsonl`
 
-`{ from_id, to_id, rel }` — ad-hoc edges only (translations are derived from
-`group_id`, so no translation rows exist).
+`{ asset_id, person_id, emoji, created_at }`.
 
-### `media.jsonl`
+### `tags.jsonl` / `asset_tags.jsonl`
 
-`{ id, node_id, r2_key, kind, width, height, alt, position, sha256 }`.
-`r2_key` is relative; the binary lives at `media/<r2_key>`.
+`tags`: `{ id, name }`.
+`asset_tags`: `{ asset_id, tag_id }`.
 
-### `events.jsonl`
+### `media.jsonl` / `asset_media.jsonl`
 
-`{ id, kind, target_type, target_id, actor_id, parent_id, body_md, payload, created_at }`.
-`payload` holds structured metadata (`ipHash`, emoji, …); it never contains
-rendered HTML.
+`media`: `{ id, r2_key, kind, sha256, created_at }`. `r2_key` is relative; the
+binary lives at `media/<r2_key>`.
+`asset_media`: `{ asset_id, media_id, position, alt, role }` with
+`role ∈ body | cover` — one row per use, so the same object can be referenced by
+several assets.
 
-### `event_status.jsonl`
+### `people.jsonl` / `identities.jsonl`
 
-`{ event_id, status, at, by }` — append-only; the newest row wins.
+`people`: `{ id, role, handle, display_name, avatar_url, email_hash, created_at, updated_at }`
+with `role ∈ null | owner | member`.
+`identities`: `{ provider, provider_uid, person_id, created_at }`.
 
-### `actors.jsonl` / `actor_identities.jsonl`
-
-`actors`: `{ id, kind, handle, display_name, avatar_url, email_hash, created_at }`.
-`actor_identities`: `{ actor_id, provider, provider_uid }`.
-
-### `nodes/<type>/<slug>.<lang>.md`
+### `nodes/<kind>/<slug>.<lang>.md`
 
 A human-readable mirror with frontmatter:
 
@@ -125,8 +126,8 @@ A human-readable mirror with frontmatter:
 ---
 id: …
 type: post
-slug: hello
 lang: en
+slug: hello
 group_id: …
 title: "Hello"
 summary: "…"
@@ -134,19 +135,17 @@ status: published
 published_at: 2026-01-01T00:00:00.000Z
 occurred_at:
 visibility: public
-featured: false
-cover_media_id:
-author_actor_id:
+author_id: …
 created_at: …
 updated_at: …
 tags: ["a"]
-fields: {"rating":"5"}
 ---
 body markdown
 ```
 
-Restore ignores the Markdown mirror (it reads the JSONL); the mirror exists for
-humans and diffs.
+A kind's own columns appear as extra keys (for projects: `year`, `stage`,
+`website`, `repo_url`, `order_index`). Restore ignores the Markdown mirror (it
+reads the JSONL); the mirror exists for humans and diffs.
 
 ---
 
@@ -156,9 +155,12 @@ humans and diffs.
   ISO-8601.
 - Two consecutive exports of an unchanged database are **byte-identical**, so the
   folder works as a git mirror with clean diffs.
-- The export format version is **3**; `schema.json` also carries
-  `db_schema` (from `meta.schema_version`). Restore refuses a newer format and
-  refuses an older one (convert a v2 bundle with `pnpm content:migrate-v2-to-v3`).
+- The export format version is **4**; `schema.json` also carries
+  `db_schema` (from `meta.schema_version`) and `types` (the content kinds whose
+  files are present). Restore refuses a newer format, refuses an older one, and
+  **skips a kind file it does not know** — with a warning — so a bundle from a
+  newer build does not crash an older one.
+  An older bundle is converted with the v3 → v4 converter (DATA-MODEL.md §10).
 
 ---
 
@@ -192,16 +194,18 @@ Preconditions: the target database is **empty** and migrations have been applied
 Flow:
 
 1. Sends the text files to `POST /api/admin/restore`.
-2. Writes actors → identities → nodes (cover NULL) → fields → tags → media →
-   relations → events → `event_status`, then points covers at their media rows.
+2. Writes people → identities → assets → each declared kind's rows → tags →
+   `asset_tags` → media → `asset_media` → comments → reactions. Objects are
+   always written before anything references them.
 3. Uses `INSERT … ON CONFLICT DO UPDATE` (never `INSERT OR REPLACE`, which would
    delete-and-reinsert and cascade children away under foreign keys).
-4. Re-renders `body_html` from `body_md` and rebuilds `nodes_fts`.
+4. Re-renders `body_html` from `body_md` and rebuilds each kind's search table.
 5. Re-uploads media binaries with `record=0` (metadata already restored from
    `media.jsonl`).
 6. Invalidates derived caches.
 
-Restore checks `schema.json.version`; an export from a newer build is rejected.
+Restore checks `schema.json.version`; an export from a newer build is rejected,
+and an older one must be converted first.
 
 ### Disaster recovery / move to another host
 

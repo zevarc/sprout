@@ -24,7 +24,8 @@ detail is in [IMPLEMENTATION](./IMPLEMENTATION.md).
 | Presentation | `src/lib/components/**`, `src/styles/**`, `src/lib/engine/theme.ts` | UI that reads views + tokens |
 
 One-way dependency is a hard rule: architecture/UI must not reshape core tables.
-Extensions ride on `node_fields` / `events` / `relations`, or add a new table.
+A new capability rides on a column of `assets` or of a kind's own table, or on a
+new table; a new content kind is a new table.
 
 ---
 
@@ -35,17 +36,16 @@ Full column/constraint detail: [DATA-MODEL](./DATA-MODEL.md). Export format:
 
 | Table | Purpose | Key facts |
 |---|---|---|
-| `nodes` | Authored content | Opaque ULID `id`; human key `(type, slug, lang)`; `group_id` groups translations/series; `visibility`; `occurred_at`; `featured`; `cover_media_id`; `body_html` derived |
-| `node_fields` | Type-specific attributes | One typed row per `(node_id, field)`; key set validated against the type declaration |
-| `node_tags` | Tags | Many-to-many; archives/counts are plain SQL |
-| `events` | Interactions | Append-only; `target_type` + `target_id` are type-agnostic |
-| `event_status` | Moderation log | Append-only; latest row wins |
-| `relations` | Ad-hoc edges | Only `related` / `reply-to` / … — **not** translations |
-| `media` | R2 metadata | Relative key; readability follows the owning node |
-| `actors`, `actor_identities` | Local identity | Provider ids map to *your* actor id |
-| `sessions`, `invites` | Login | Only HMACs of tokens are stored |
-| `stats_daily` | Analytics | Aggregated on write; not exported |
-| `nodes_fts` | Search | FTS5 + bigram tokens; derived |
+| `assets` | The shared part of content | Opaque ULID `id`; `type` says which kind table holds the detail; `lang`; `group_id` groups translations/series; `status`; `visibility`; `published_at` / `occurred_at`; `author_id` never null |
+| `posts`, `moments`, `projects`, … | One table per content kind | The asset id is the primary key; the kind's own columns carry real `NOT NULL` / `CHECK`; `UNIQUE (lang, slug)` locally |
+| `comments` | Comments on any asset | Points at `assets.id`, never at a kind table; one `status` column; author never null |
+| `reactions` | Reactions | `(asset, person, emoji)` is the primary key |
+| `tags`, `asset_tags` | Tags | A vocabulary table plus usage, so renaming a tag is one `UPDATE` |
+| `media`, `asset_media` | R2 metadata | One row per stored object (`r2_key` unique); `alt` / `position` / `role` are per use; deleting is "unbind, then collect" |
+| `people`, `identities` | Identity | `role` (`owner` / `member` / null) is the only authority; provider ids map to *your* person id |
+| `sessions`, `invites` | Login | Only HMACs of tokens are stored; sessions carry no role |
+| `page_views` | Analytics | Aggregated on write; not exported |
+| `<kind>_fts` | Search | One FTS5 index per kind; derived |
 
 ---
 
@@ -263,12 +263,13 @@ tests/                  unit tests + architecture guards
   inside a Worker blows CPU/memory limits; write-time rendering only runs
   markdown-it.
 - **Search is FTS5 + bigram.** CJK has no spaces; bigrams make two-character words
-  searchable; Latin words are lowercased.
-- **Events are append-only.** Deleting a comment adds a `deleted` status row.
+  searchable; Latin words are lowercased. One index per content kind.
+- **Comments carry one status column.** `pending` / `approved` / `spam` / `deleted`
+  is a column, not a log, so no read has to resolve "the newest row".
 - **Media uses relative keys.** Changing storage providers changes one handler.
 - **Only single-segment type routes get a generic list page.** Multi-segment
   routes (`/posts/notes`) are served by their own static routes and are not
   advertised as list pages in the sitemap.
-- **The table set is closed.** New capabilities use `node_fields`/events/relations
-  or add a new table; shipped table shapes are never edited (migrations are additive
-  after the canonical `0001`).
+- **The table set grows by addition.** A new content kind is a new table (plus its
+  search index and an exporter line); a new shared capability is one column on
+  `assets`. A shipped table's shape is never edited to make a feature fit.

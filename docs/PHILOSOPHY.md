@@ -26,48 +26,47 @@ Consequences that show up everywhere in the code:
 - No vendor id is ever a primary key. Moving off Cloudflare means replacing one
   small adapter (`src/lib/server/db.ts`), not the application.
 
-## 2. Two primitives: nodes and events
+## 2. What you author, what others do, and who is involved
 
 | Primitive | What it is | Why it is separate |
 |---|---|---|
-| **node** | Everything *you author* (post, note, moment, project, toy, …) | Mutable, versioned by `updated_at` |
-| **event** | Everything *other people do* (comment, reaction, page view, mention) | **Append-only**, auditable |
+| **asset** | Everything *you author* (post, moment, project, …) | `assets` holds the shared part; one table per kind holds the content |
+| **interaction** | Everything *other people do* (comment, reaction) | Points at an asset id, never at a kind table |
+| **person** | Everyone involved, on both sides | Content authorship and comment authorship are the same table |
 
-The comment system knows **nothing** about content types: it only stores
-`target_type` + `target_id`. Adding a content type, or a new interaction kind
-(`reaction`, `subscribe`, `mention`), needs no schema change and no change to
-comments.
+A comment knows **nothing** about content kinds: it stores an asset id. Adding a
+content kind therefore touches no comment, tag or media row.
 
-Moderation is also append-only: `event_status` rows are added, never updated.
-Deleting a comment appends a `deleted` row; the text stays in the log for audit and
-lossless export.
+Moderation is a status **column** on a comment (`pending` / `approved` / `spam` /
+`deleted`), not a separate log, so no read has to work out "the newest row".
 
-## 3. Type is data, not schema
+## 3. Kind is data, content is columns
 
-- `nodes.type` is an **open vocabulary**; type-specific attributes live in
-  `node_fields` (one typed row per field). Cross-type concepts (visibility,
-  occurred time, featured, cover, tags) are real columns or join tables.
-- Adding a type or a field is a change to `src/sprout.config.js` — **no migration**.
-- **Open vocabularies vs closed enums.** Things meant to grow (`type`,
-  `events.kind`, `relations.rel`, `actors.kind`) carry **no `CHECK`**; things that
-  are genuinely closed (`status`, `visibility`, `sessions.role`) do. This keeps the
-  database self-checking without forcing a migration for every extension.
+- `assets.type` is an **open vocabulary**: it says which kind table holds the
+  detail. Shared concepts (`visibility`, `status`, `occurred_at`, `lang`, `author`)
+  are columns on `assets`; everything a reader experiences as "this content" is a
+  real column on the kind's own table, with its own `NOT NULL` / `CHECK`.
+- Adding a content kind is a **new table** and touches nothing else; adding a
+  shared capability is one column on `assets`.
+- **Open vocabularies vs closed enums.** Things meant to grow (`type`, `media.kind`,
+  `identities.provider`) carry **no `CHECK`**; things that are genuinely closed
+  (`status`, `visibility`, `role`, `comments.status`) do. The database stays
+  self-checking without a migration for every extension.
 
-The table set is meant to stop changing. New capabilities ride on `node_fields`,
-`events` and `relations`; a genuinely new concept may add a **new** table
-(additive), but never reshape an existing one.
+The table set grows by **addition**: a new kind, a new interaction — new tables.
+A shipped table's shape is not edited to make a feature fit.
 
 ## 4. One source of truth per concept
 
-- **Grouping (translations / series) is `nodes.group_id` only.** There is no
-  separate translation edge table to keep in sync; `relations` holds only ad-hoc
-  edges (`related`, `reply-to`, …).
-- **Rendered HTML is always derived.** `nodes.body_html` is a rebuildable cache;
-  comment HTML is rendered on read and never stored. The export contains **no
-  HTML**.
-- **Visibility lives on the node.** Media follows its node; unattached or unknown
-  media is private.
-- **Authorship is an actor id**, not a copied name.
+- **Grouping (translations / series) is `assets.group_id` only.** There is no
+  separate translation edge table to keep in sync.
+- **Rendered HTML is always derived.** `body_html` on a kind table is a rebuildable
+  cache; comment HTML is rendered on read and never stored. The export contains
+  **no HTML**.
+- **Visibility lives on the asset.** Media readability follows the assets that use
+  it; an object nothing references is private.
+- **Authority lives in one column** (`people.role`); sessions do not copy it.
+- **Authorship is a person id**, never a copied name.
 
 ## 5. Layers and one-way dependency
 
@@ -80,8 +79,8 @@ presentation  pages · components · theme tokens
 ```
 
 The rule is one-way: **downstream adapts to upstream.** Architecture or UI ideas
-must not force a change to the core tables. Extensions ride on `node_fields` /
-`events` / `relations`, or add a new table.
+must not force a change to the core tables. A new capability rides on a column of
+`assets` or of a kind's own table, or on a new table.
 
 ## 6. Architecture choices
 
@@ -129,11 +128,12 @@ Key invariants are tests or boot-time checks, not conventions:
 
 | Term | Meaning |
 |---|---|
-| **node** | An authored record (`nodes` row) |
-| **event** | An interaction (`events` row), append-only |
-| **group** | `nodes.group_id`: translations/series share it |
-| **node_fields** | Typed rows holding a node's type-specific attributes |
-| **node_tags** | Many-to-many tags (aggregatable) |
+| **asset** | An authored record; the shared row that comments, tags and media point at |
+| **kind** | A content kind (`post`, `moment`, `project`, …) — one table each |
+| **interaction** | A comment or a reaction on an asset |
+| **person** | A human: owner, member, or commenter (`people` row) |
+| **group** | `assets.group_id`: translations/series share it |
+| **tag** | A vocabulary row (`tags`) plus usage rows (`asset_tags`) |
 | **renderer** | A built-in layout key (`list`/`cards`/`feed`, `article`/`compact`) |
 | **feature** | A cross-cutting capability id (`comments`, `members`, …) |
 | **mod** | A data contribution merged into the assembly |
