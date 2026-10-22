@@ -31,6 +31,14 @@ export function kindTable(type: string): string {
 	return `${name}s`;
 }
 
+/**
+ * Kinds whose `title` column is `NOT NULL` (migrations/0001_init.sql): a row
+ * without one cannot be stored, so an absent title falls back to the slug.
+ * Kinds with an optional title store NULL and let the display fall back to the
+ * summary — see `nodeToView`.
+ */
+const TITLE_REQUIRED = new Set(['post', 'project']);
+
 /** A declared field key, as a column name. */
 export function fieldColumn(key: string): string {
 	const name = key.trim().replace(/[^A-Za-z0-9_]/g, '_');
@@ -368,7 +376,7 @@ export async function createAsset(db: D1Database, input: NewAsset): Promise<Cont
 				id,
 				lang,
 				input.slug,
-				input.title ?? input.slug,
+				input.title?.trim() || (TITLE_REQUIRED.has(input.type) ? input.slug : null),
 				input.summary ?? null,
 				input.bodyMd,
 				bodyHtml,

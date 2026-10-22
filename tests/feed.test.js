@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateRss } from '$lib/feed';
 import { site } from '$lib/site';
+import { dictionaries } from '$lib/i18n';
 
 /** Minimal PostView shape the feed needs. */
 const view = {
@@ -11,15 +12,17 @@ const view = {
 	description: 'd'
 };
 
+// Expectations come from the site's own dictionaries and locale list — an
+// instance may rename the channel or add languages, and the tests still hold.
 describe('rss feed localization', () => {
-	it('takes the channel title and <language> from the dictionary', () => {
-		const en = generateRss([/** @type {any} */ (view)], 'en');
-		expect(en).toContain(`<title>${site.name} - Blog</title>`);
-		expect(en).toContain('<language>en</language>');
-
-		const zh = generateRss([/** @type {any} */ (view)], 'zh');
-		expect(zh).toContain(`<title>${site.name} - 博客</title>`);
-		expect(zh).toContain('<language>zh-cn</language>');
+	it('takes the channel title and <language> from each locale dictionary', () => {
+		for (const locale of site.locales) {
+			const xml = generateRss([/** @type {any} */ (view)], locale.code);
+			const label = dictionaries[locale.code]?.feed?.label;
+			const language = dictionaries[locale.code]?.feed?.language;
+			if (label) expect(xml).toContain(`<title>${site.name} - ${label}</title>`);
+			if (language) expect(xml).toContain(`<language>${language}</language>`);
+		}
 	});
 
 	it('falls back to the locale code when a language has no dictionary', () => {
@@ -28,7 +31,9 @@ describe('rss feed localization', () => {
 	});
 
 	it('points each locale at its own feed URL', () => {
-		expect(generateRss([], 'en')).toContain(`href="${site.url}/feed.xml"`);
-		expect(generateRss([], 'zh')).toContain(`href="${site.url}/zh/feed.xml"`);
+		for (const locale of site.locales) {
+			const home = locale.code === site.defaultLocale ? '' : `/${locale.code}`;
+			expect(generateRss([], locale.code)).toContain(`href="${site.url}${home}/feed.xml"`);
+		}
 	});
 });

@@ -1,9 +1,7 @@
 # Data model
 
-**Target: database schema `4`, export format `4`.** The schema in this repository
-is still `3`, so the operational pages — Deploy, Verify, Implementation, Usage —
-follow the shipped code until the switch in §10 lands. Design and contract pages
-(Architecture, Export contract, Data import/export, Philosophy) follow this page.
+**Database schema `4`, export format `4`** — this page describes what ships.
+§10 is the converter from the previous model, kept for instances that still run it.
 
 ---
 

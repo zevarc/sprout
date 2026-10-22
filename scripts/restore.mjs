@@ -12,6 +12,9 @@ import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const API = process.env.API_URL ?? 'http://localhost:5173';
+// SvelteKit rejects cross-site form POSTs, so the multipart media upload must
+// declare the site's own origin even though this script runs outside a browser.
+const ORIGIN = new URL(API).origin;
 const TOKEN = process.env.ADMIN_TOKEN ?? '';
 const DIR = process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : 'export';
 
@@ -68,6 +71,8 @@ const MIME = {
 };
 
 let mediaCount = 0;
+/** @type {string[]} */
+const failedMedia = [];
 if (existsSync(MEDIA_DIR)) {
 	for (const name of readdirSync(MEDIA_DIR)) {
 		const full = join(MEDIA_DIR, name);
@@ -79,11 +84,17 @@ if (existsSync(MEDIA_DIR)) {
 		form.append('record', '0');
 		const upload = await fetch(`${API}/api/admin/media`, {
 			method: 'POST',
-			headers: { Authorization: `Bearer ${TOKEN}` },
+			headers: { Authorization: `Bearer ${TOKEN}`, Origin: ORIGIN },
 			body: form
 		});
 		if (upload.ok) mediaCount++;
-		else console.warn(`  media upload failed: ${name} (${upload.status})`);
+		else failedMedia.push(`${name} (${upload.status})`);
 	}
 }
 console.log(`  media: ${mediaCount}`);
+if (failedMedia.length > 0) {
+	// A partial restore is a broken site: the binaries never reached R2.
+	console.error(`  media upload failed for ${failedMedia.length} object(s):`);
+	for (const item of failedMedia) console.error(`    · ${item}`);
+	process.exitCode = 1;
+}

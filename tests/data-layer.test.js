@@ -81,6 +81,36 @@ describe('assets', () => {
 		expect(await getAssetBySlug(db, 'moment', 'dup', 'en')).toBeNull();
 	});
 
+	it('stores NULL titles for kinds that allow them, so the summary can show', async () => {
+		const { db } = createTestDb();
+		const owner = await ensureOwner(db);
+
+		const moment = await createAsset(db, {
+			type: 'moment',
+			slug: '2026-10-22',
+			lang: 'zh',
+			title: null,
+			summary: '只要有搜索框的地方就有流量',
+			bodyMd: 'x',
+			status: 'published',
+			authorId: owner.id
+		});
+		expect(moment.title).toBeNull();
+		expect(moment.summary).toBe('只要有搜索框的地方就有流量');
+
+		// `posts.title` is NOT NULL, so the slug keeps an untitled post addressable.
+		const post = await createAsset(db, {
+			type: 'post',
+			slug: 'hello',
+			lang: 'en',
+			title: null,
+			bodyMd: 'x',
+			status: 'published',
+			authorId: owner.id
+		});
+		expect(post.title).toBe('hello');
+	});
+
 	it('filters by visibility and status in SQL', async () => {
 		const { db } = createTestDb();
 		const owner = await ensureOwner(db);

@@ -5,9 +5,9 @@ site can be written to a folder of plain text**, and restored from it. The data
 model is in [DATA-MODEL](./DATA-MODEL.md); operational steps in
 [DATA-IMPORT-EXPORT](./DATA-IMPORT-EXPORT.md).
 
-The contract below is export format **v4** — the format that goes with the model in
-DATA-MODEL.md. The shipped build still writes v3 until the schema switch lands
-(DATA-MODEL.md §10 describes the converter).
+The contract below is export format **v4** — what `pnpm content:export` writes and
+`pnpm content:restore` reads. Bundles from v3 are converted with
+`pnpm content:migrate-v3-to-v4` (DATA-MODEL.md §10).
 
 ---
 

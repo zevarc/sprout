@@ -7,8 +7,13 @@ export const prerender = false;
 
 /**
  * Only these extensions are served with their real type. Anything else — HTML,
- * SVG, XML, unknown — is forced to a download so it can never run as a document
- * on this origin (stored XSS via uploaded/restored media).
+ * XML, unknown — is forced to a download so it can never run as a document on
+ * this origin (stored XSS via uploaded/restored media).
+ *
+ * SVG is in the list because it is a normal logo/cover format and is what
+ * `<img>` needs; the response below is sandboxed (`sandbox`, `default-src
+ * 'none'`) and sniff-proof, so a hostile SVG can neither run script nor reach
+ * this origin even when it is opened directly.
  */
 const ALLOWED_TYPES: Record<string, string> = {
 	png: 'image/png',
@@ -16,6 +21,7 @@ const ALLOWED_TYPES: Record<string, string> = {
 	jpeg: 'image/jpeg',
 	webp: 'image/webp',
 	avif: 'image/avif',
+	svg: 'image/svg+xml',
 	gif: 'image/gif',
 	ico: 'image/x-icon',
 	mp4: 'video/mp4',
@@ -58,7 +64,7 @@ export const GET: RequestHandler = async (event) => {
 		'Content-Type': known ?? 'application/octet-stream',
 		'Cache-Control': isPublic ? 'public, max-age=31536000, immutable' : 'private, no-store',
 		'X-Content-Type-Options': 'nosniff',
-		// Neutralises any HTML/SVG that slips in: no scripts, no subresources.
+		// Neutralises any HTML that slips in: no scripts, no subresources.
 		'Content-Security-Policy': "default-src 'none'; sandbox"
 	};
 

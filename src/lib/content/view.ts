@@ -107,6 +107,10 @@ export function nodeToView(node: ContentNode, hasAlt = false): PostView {
 	const coverItem = node.coverMediaId
 		? (node.media ?? []).find((m) => m.id === node.coverMediaId)
 		: undefined;
+	// Kinds like `note` and `moment` may carry no title. An empty title must not
+	// reach a heading, a feed item or structured data, so fall back to what the
+	// author did write (the summary), then to the slug — never to an empty string.
+	const title = (node.title ?? '').trim() || (node.summary ?? '').trim() || node.slug;
 
 	return {
 		id: node.id,
@@ -114,7 +118,7 @@ export function nodeToView(node: ContentNode, hasAlt = false): PostView {
 		type: node.type,
 		lng: node.lang,
 		url: nodeUrl(node),
-		title: node.title ?? node.slug,
+		title,
 		description: node.summary ?? '',
 		date,
 		occurredAt: node.occurredAt,
@@ -132,7 +136,7 @@ export function nodeToView(node: ContentNode, hasAlt = false): PostView {
 		jsonLd: {
 			'@context': 'https://schema.org',
 			'@type': 'TechArticle',
-			headline: node.title ?? node.slug,
+			headline: title,
 			datePublished: node.publishedAt ?? node.createdAt,
 			dateModified: updated,
 			author: { '@type': 'Person', name: site.author }

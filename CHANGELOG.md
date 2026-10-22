@@ -57,6 +57,19 @@ pnpm content:restore ./v4
 - No "featured" toggle; the cover is set from the media list (`role = 'cover'`),
   and field inputs edit the kind's real columns.
 
+**Fixes found by migrating a real site (zevarc.com) to this model**
+- An untitled asset no longer stores its slug as the title: kinds whose `title` is
+  optional store `NULL`, and `nodeToView` shows the summary (then the slug) — feed
+  items, headings and structured data are never empty.
+- `/media/<key>` serves `image/svg+xml` instead of forcing a download, so SVG
+  logos and covers render in `<img>`. Still sandboxed (`sandbox`, `default-src
+  'none'`) and sniff-proof.
+- `content:restore` sends the target origin with its multipart upload: SvelteKit's
+  CSRF check used to reject every media upload on a deployed site (local dev hid
+  it), and the script reported success with R2 empty. It now fails loudly.
+- Engine tests take their expectations from the instance's own dictionaries and
+  locale list, so they pass in any site, not just the template.
+
 ## 0.8.0 — BREAKING
 
 Type-specific data becomes first-class: the `nodes.extra` JSON blob is gone.
