@@ -120,21 +120,21 @@ No migration and no route files. If the route is multi-segment
 
 ### 3.2 Declarative fields
 
-`fields` describes what a type carries. Each field becomes a row in
-`node_fields` (one typed value per `(node_id, field)`), and the **same
-declaration drives three things**:
+`fields` describes what a type carries. **Each declared field is a real column on
+that kind's table**, and the **same declaration drives three things**:
 
-1. the admin editor renders one input per field (text, textarea, markdown, tags,
-   url, number, date, boolean, select);
+1. the admin editor renders one input per field (text, textarea, markdown, url,
+   number, date, boolean, select);
 2. the write boundary (`POST`/`PATCH /api/nodes`) validates and normalizes the
    values — an unknown key, a bad type or a value outside a `select`'s options is
    a **400**;
-3. tests and the export checker assert the stored shape.
+3. the database holds it: the column exists, so `NOT NULL` and indexes apply.
 
-Adding a field is a config change, not a migration. Cross-type concepts
-(`tags`, `featured`, `cover`, `visibility`, `occurred_at`) are columns or join
-tables instead — see [DATA-MODEL](./DATA-MODEL.md). `restore` and `import` skip
-validation on purpose (the export contract must stay lossless).
+Adding a field is a migration (one `ALTER TABLE` on that kind), not a config-only
+change — that is the price of real columns. Cross-type concepts (`tags`,
+`visibility`, `occurred_at`, authorship) are columns or join tables instead — see
+[DATA-MODEL](./DATA-MODEL.md). `restore` trusts the bundle; `import` runs the same
+validation as the API.
 
 ### 3.3 Renderers
 
@@ -252,7 +252,7 @@ i18n key groups: `nav`, `home`, `posts`, `search`, `comments`, `moments`,
 
 ## 7. Private content and members
 
-- `nodes.visibility`: `public` | `private`; the default comes from
+- `assets.visibility`: `public` | `private`; the default comes from
   `content.defaultVisibility`.
 - `contentTypes[type].public = false`: every route for that type requires an
   owner/member session.
@@ -329,8 +329,8 @@ curl -s --get --data-urlencode "q=构建" --data "lang=zh" \
 
 ## 12. Analytics
 
-- Cookie-free, self-hosted; aggregated to `stats_daily` (day, path, referrer,
-  views).
+- Cookie-free, self-hosted; aggregated to `page_views` (day, path, referrer,
+  views), pruned after 400 days.
 - Disable by removing `analytics` from `features` (the beacon stops and the
   endpoint returns `{ok:true}` without writing).
 - Not part of the content export.

@@ -160,7 +160,7 @@ ADMIN_TOKEN=dev-admin-token API_URL=http://localhost:5173 pnpm content:verify
 # expected: "Mirror matches the database"
 
 # simulate losing the cloud database (keeps meta + migration tracking)
-pnpm db:console:local "DELETE FROM event_status; DELETE FROM events; DELETE FROM relations; DELETE FROM media; DELETE FROM nodes_fts; DELETE FROM nodes; DELETE FROM sessions; DELETE FROM invites; DELETE FROM actor_identities; DELETE FROM actors;"
+pnpm db:console:local "DELETE FROM asset_media; DELETE FROM media; DELETE FROM asset_tags; DELETE FROM tags; DELETE FROM reactions; DELETE FROM comments; DELETE FROM sessions; DELETE FROM invites; DELETE FROM identities; DELETE FROM people; DELETE FROM posts_fts; DELETE FROM notes_fts; DELETE FROM moments_fts; DELETE FROM projects_fts; DELETE FROM posts; DELETE FROM notes; DELETE FROM moments; DELETE FROM projects; DELETE FROM assets;"
 
 ADMIN_TOKEN=dev-admin-token API_URL=http://localhost:5173 pnpm content:restore
 ADMIN_TOKEN=dev-admin-token API_URL=http://localhost:5173 pnpm content:verify
@@ -191,12 +191,12 @@ The test suite includes architecture guards:
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Every data route 500s: `no such table: nodes` | changed `database_id` → new empty local DB | `pnpm db:migrate:local`, then `pnpm content:import` |
+| Every data route 500s: `no such table: assets` | changed `database_id` → new empty local DB | `pnpm db:migrate:local`, then `pnpm content:import` |
 | 500 but another port works | stale dev server / module graph | `pnpm dev:clean` |
 | Wrong port | Vite auto-increments when busy | `pnpm dev --port 5180 --strictPort` |
 | Code blocks have no colours in `curl` output | highlighting is browser-side | open it in a browser |
 | Counting `data-lang=` gives 2× the blocks | the page embeds an escaped hydration copy | count `class="code-pre"` instead |
 | `content:verify` reports drift | export folder not pruned / new writes | re-run `content:export` (it prunes) |
-| Moderation state looks wrong after manual SQL | effective status = newest `event_status` row | use `/admin`, or insert a later timestamp |
+| Moderation state looks wrong after manual SQL | the state is one `comments.status` column | use `/admin`, or set the column |
 | `check:sitemap` hits production | it defaults to `site.url` | pass `BASE_URL=http://localhost:5173` |
 | Private page 404 while logged out | expected | sign in as owner/member |

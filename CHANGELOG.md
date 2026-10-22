@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.9.0 — BREAKING (data model v4)
+
+The single `nodes` table becomes a shared `assets` row plus one table per content
+kind; identity merges into `people`. Database schema `4`, export format `4`.
+Existing data moves through the export contract, not through `migrations apply`:
+
+```bash
+pnpm content:export ./v3
+node scripts/migrate-v3-to-v4.mjs ./v3 ./v4
+# fresh schema, then:
+pnpm content:restore ./v4
+```
+
+**Data model**
+- `assets` holds only what code must filter or sort by without knowing the kind:
+  `type`, `lang`, `group_id`, `status`, `visibility`, `published_at`,
+  `occurred_at`, `author_id` (never null), timestamps.
+- One table per kind (`posts`, `notes`, `moments`, `projects`, …): the asset id is
+  the primary key; title, body, slug and the kind's own attributes are real
+  columns with real constraints. `node_fields` and its key/value rows are gone.
+- `people` replaces `actors`: `role` (`owner` / `member` / null) is the only
+  authority, a partial unique index allows one owner, and sessions carry no role.
+  `email_enc` is gone. Revoking a member retires the person instead of deleting
+  them, so attribution survives.
+- `comments` replace the generic `events` table for comments; moderation is one
+  status column (no log, no "newest row wins"). `reactions` is its own table with
+  an `(asset, person, emoji)` primary key.
+- `tags` + `asset_tags` replace per-node tag strings, so renaming a tag is one
+  UPDATE and per-kind counts are one `GROUP BY`.
+- `media` is one row per stored object (`r2_key` unique) plus `asset_media`
+  bindings: `alt`, `position` and `role` (`body` / `cover`) belong to the use.
+  Deleting is "unbind, then collect"; an object in use cannot be dropped. Reads
+  are public only when **every** binding is public.
+- Each kind has its own FTS5 index; search is per kind.
+- `scheduled` is gone (nothing could schedule it); `featured` is gone (curation,
+  if wanted, gets its own table); `body_html` is still a derived, unexported cache.
+
+**Export contract v4**
+- One file per table, and `schema.json` carries `types`; a bundle from a newer
+  build no longer crashes an older one (unknown kind files are skipped with a
+  warning). Restore orders writes by foreign key and recomputes the HTML and the
+  search indexes.
+- Not exported: `sessions`, `invites`, `page_views`, `meta`, the FTS tables.
+
+**Admin**
+- No "featured" toggle; the cover is set from the media list (`role = 'cover'`),
+  and field inputs edit the kind's real columns.
+
 ## 0.8.0 — BREAKING
 
 Type-specific data becomes first-class: the `nodes.extra` JSON blob is gone.

@@ -41,14 +41,16 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 | `server/loadNode.ts` | Detail loader: status + visibility + translations (per-locale URLs) + related |
 | `lib/feed.ts` | RSS 2.0 builder; channel copy (`feed.label`, `feed.language`) comes from the dictionaries |
 | `server/export.ts` | Deterministic export bundle |
-| `server/restore.ts` | Restore from a bundle (UPSERT, re-render HTML) |
-| `server/rebuild.ts` | Rebuild the derived `body_html` |
-| `server/stats.ts` | `recordPageview`, `pageviewStats` |
-| `server/mediaAccess.ts` | Media readability (node wins, unattached = private) |
-| `server/repositories/nodes.ts` | Node CRUD, listings, featured, tags, group siblings (`listGroupNodes`), search, FTS indexing |
-| `server/repositories/events.ts` | Append events, status log, rate-limit counts |
-| `server/repositories/actors.ts` | Actors, identities, sessions, owner/member helpers |
-| `server/repositories/media.ts` | Media rows |
+| `server/restore.ts` | Restore from a bundle (UPSERT, re-render HTML, skip unknown kinds) |
+| `server/rebuild.ts` | Rebuild the derived `body_html` of every kind |
+| `server/stats.ts` | `recordPageview`, `pageviewStats`, `prunePageviews` |
+| `server/mediaAccess.ts` | Media readability (public only if **every** binding is public) |
+| `server/repositories/assets.ts` | `assets` + one table per kind: CRUD, multi-kind listings, per-kind search and FTS |
+| `server/repositories/comments.ts` | Comments (one status column), trust check, rate-limit counts |
+| `server/repositories/reactions.ts` | One row per (asset, person, emoji) |
+| `server/repositories/people.ts` | People, identities, sessions; `role` is the only authority |
+| `server/repositories/tags.ts` | Tag vocabulary + `asset_tags` |
+| `server/repositories/media.ts` | Objects + bindings; strict audience rule |
 | `server/repositories/invites.ts` | Invite links |
 | `server/id.ts` | ULID |
 
@@ -140,10 +142,10 @@ POST/PATCH /api/nodes
   → isEditor(event, db)                 // owner | member | Bearer ADMIN_TOKEN
   → validate type/slug/status
   → slug conflict → 409
-  → createNode / updateNode
-      · renderMarkdown(bodyMd) → body_html
-      · re-index nodes_fts (bigram)
-      · updateNode persists group_id / occurred_at / visibility / author
+  → createAsset / updateAsset
+      · renderMarkdown(bodyMd) → body_html (on the kind table)
+      · re-index that kind's FTS table (bigram)
+      · write the shared row, the kind row, tags and bindings in one batch
   → invalidateNode(origin, nodeUrl(node), node.slug)
 ```
 
@@ -185,8 +187,8 @@ Example: `构建配置` → `构建 建配 配置`; `Hello 构建` → `hello �
 
 `toMatchExpression(q)` returns `"token1" AND "token2" …` (quotes escaped), or `''`.
 
-`nodes_fts` is FTS5 (`unicode61`) over `(id, title, summary, body)`; it is derived
-and rebuilt on import/restore.
+Each kind has its own FTS5 table (`<kind>s_fts`) over
+`(id, lang, title, summary, body)`; they are derived and rebuilt on import/restore.
 
 ---
 
@@ -211,7 +213,7 @@ Rules:
 - Status: owner → approved; an actor with a previously approved comment →
   approved; otherwise pending.
 - Read: HTML is rendered on read; raw HTML is escaped.
-- Moderation appends to `event_status`; the newest row wins.
+- Moderation is one `comments.status` column; there is no status log to resolve.
 
 ---
 
@@ -278,14 +280,15 @@ Export (`buildExport`):
 
 Restore (`restoreFromBundle`):
 
-- rejects an export whose `version` is newer than the build;
-- `actors` → `actor_identities` → `nodes` → `relations` → `media` → `events` →
-  `event_status`;
+- rejects an export whose `version` is newer (or older) than the build;
+- `people` → `identities` → `assets` → each kind's rows → `tags` → `asset_tags` →
+  `media` → `asset_media` → `comments` → `reactions`;
 - uses `INSERT … ON CONFLICT DO UPDATE` (never `INSERT OR REPLACE`);
-- re-renders `body_html` from `body_md`; rebuilds `nodes_fts`;
+- re-renders `body_html` from `body_md`; rebuilds each kind's FTS table;
+- skips a kind it does not know, with a warning;
 - expects an empty database.
 
-Rebuild (`rebuildBodyHtml`): optional node id; idempotent; only rewrites
+Rebuild (`rebuildBodyHtml`): optional asset id; idempotent; only rewrites
 `body_html`.
 
 ---

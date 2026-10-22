@@ -187,37 +187,51 @@ curl -X POST https://your-domain/api/admin/rerender \
 # {"ok":true,"scanned":N,"updated":M,"skipped":K}   (idempotent)
 ```
 
-It only rewrites `nodes.body_html`; source Markdown and timestamps are untouched.
+It only rewrites the derived `body_html` column of each kind table; source
+Markdown and timestamps are untouched.
 
-### Schema rewrite (this release)
+### Schema rewrite (v4)
 
-This version folds 0002/0003 into one canonical `0001_init.sql`. An older database
-cannot simply run `migrations apply`. Migrate through the export contract:
+v4 replaces the single `nodes` table with `assets` + one table per content kind,
+and merges identity into `people`. An older database cannot simply run
+`migrations apply`. Migrate through the export contract:
 
 ```bash
 # 1) back up from the old instance
-ADMIN_TOKEN=… API_URL=https://old-domain pnpm content:export ./export
+ADMIN_TOKEN=… API_URL=https://old-domain pnpm content:export ./v3
 
-# 2) drop everything (including migration tracking) on the target DB
+# 2) convert the bundle to format v4
+node scripts/migrate-v3-to-v4.mjs ./v3 ./v4
+
+# 3) drop everything (including migration tracking) on the target DB
 cat > /tmp/sprout-reset.sql <<'SQL'
 PRAGMA foreign_keys = OFF;
-DROP TABLE IF EXISTS nodes_fts;
-DROP TABLE IF EXISTS stats_daily;
-DROP TABLE IF EXISTS event_status;
-DROP TABLE IF EXISTS events;
+DROP TABLE IF EXISTS posts_fts;
+DROP TABLE IF EXISTS notes_fts;
+DROP TABLE IF EXISTS moments_fts;
+DROP TABLE IF EXISTS projects_fts;
+DROP TABLE IF EXISTS page_views;
+DROP TABLE IF EXISTS asset_media;
 DROP TABLE IF EXISTS media;
-DROP TABLE IF EXISTS relations;
-DROP TABLE IF EXISTS nodes;
+DROP TABLE IF EXISTS asset_tags;
+DROP TABLE IF EXISTS tags;
+DROP TABLE IF EXISTS reactions;
+DROP TABLE IF EXISTS comments;
+DROP TABLE IF EXISTS posts;
+DROP TABLE IF EXISTS notes;
+DROP TABLE IF EXISTS moments;
+DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS assets;
 DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS invites;
-DROP TABLE IF EXISTS actor_identities;
-DROP TABLE IF EXISTS actors;
+DROP TABLE IF EXISTS identities;
+DROP TABLE IF EXISTS people;
 DROP TABLE IF EXISTS meta;
 DROP TABLE IF EXISTS d1_migrations;
 SQL
 pnpm exec wrangler d1 execute <DB_NAME> --remote --file /tmp/sprout-reset.sql
 
-# 3) apply the canonical schema
+# 4) apply the canonical schema
 pnpm exec wrangler d1 migrations apply <DB_NAME> --remote
 
 # 4) deploy the new code
