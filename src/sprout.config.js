@@ -45,8 +45,7 @@ export const contentTypes = {
 		public: true,
 		feed: true,
 		comments: true,
-		// 摘要用 nodes.summary，标签/精选/封面是核心输入（列/关联表），
-		// 所以文章本身没有类型专属字段。
+		// 摘要用 assets.summary；标签与封面是关联表（不是字段），所以文章本身没有类型专属字段。
 		fields: []
 	},
 	// `/posts/notes` 是多段路由，由自己的静态路由服务（通用 [type] 只支持单段）。

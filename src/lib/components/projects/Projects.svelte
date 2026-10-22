@@ -37,8 +37,8 @@
             <h2 class="project-title"><a href={`/${project.url}`}>{project.title}</a></h2>
           </div>
           <div class="project-links">
-            {#if project.status}
-              <span class="project-status pill">{project.status}</span>
+            {#if project.stage}
+              <span class="project-status pill">{project.stage}</span>
             {/if}
             {#if project.website}
               <a
@@ -49,10 +49,10 @@
                 aria-label={`${project.title} — ${t.projects.websiteLabel}`}
               ><span aria-hidden="true">↗</span></a>
             {/if}
-            {#if project.github}
+            {#if project.repoUrl}
               <a
                 class="project-link"
-                href={project.github}
+                href={project.repoUrl}
                 target="_blank"
                 rel="noopener"
                 aria-label={`${project.title} — ${t.projects.githubLabel}`}

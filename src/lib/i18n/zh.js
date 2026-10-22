@@ -20,7 +20,7 @@ export const zh = {
     timeline: '时间线',
   },
   home: {
-    selectedWriting: '精选文章',
+    selectedWriting: '最新文章',
     allWriting: '全部文章 →',
     selectedProjects: '精选项目',
     allProjects: '全部项目 →',
@@ -42,7 +42,8 @@ export const zh = {
   },
   search: {
     title: '搜索',
-    placeholder: '搜索文章与笔记…',
+    placeholder: '搜索这个类别…',
+    category: '类别',
     empty: '没有找到结果',
   },
   comments: {
@@ -75,6 +76,7 @@ export const zh = {
     subtitle: '在这里装载，出发远方',
     next: '回航',
     status: { active: '活跃', maintained: '维护中', archived: '已归档' },
+    stageLabel: '阶段',
     websiteLabel: '官网（新窗口打开）',
     githubLabel: 'GitHub 仓库（新窗口打开）',
   },

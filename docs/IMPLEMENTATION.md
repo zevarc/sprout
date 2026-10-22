@@ -299,7 +299,7 @@ Rebuild (`rebuildBodyHtml`): optional asset id; idempotent; only rewrites
 |---|---|---|
 | `GET /api/nodes?type&lang&status` | editor | owner/member listing |
 | `POST /api/nodes` | editor | create; 409 on slug conflict; 400 unknown type |
-| `GET/PATCH/DELETE /api/nodes/[id]` | editor | patch: title/summary/body/status/slug/lang/group/publishedAt/occurredAt/visibility/featured/coverMediaId/fields/tags; 400 on invalid fields; 409 on slug conflict |
+| `GET/PATCH/DELETE /api/nodes/[id]` | editor | patch: title/summary/body/status/slug/lang/groupId/publishedAt/occurredAt/visibility/fields/tags; 400 on invalid fields; 409 on slug conflict |
 | `GET /api/search?q&lang` | public | anonymous = public only; editors = all |
 | `GET/POST /api/events` | public | comments/reactions |
 | `POST /api/events/pageview` | public | no cookies; no-op when analytics off |

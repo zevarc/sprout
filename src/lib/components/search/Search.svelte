@@ -3,6 +3,7 @@
   import PageLogo from '$lib/components/PageLogo.svelte';
   import { onMount } from 'svelte';
   import { getDictionary, homePath } from '$lib/i18n/index.js';
+  import { labelText, publicTypes } from '$lib/content/registry';
   import { site } from '$lib/site';
   import { pageTitle } from '$lib/seo';
 
@@ -11,6 +12,9 @@
   const home = $derived(homePath(lang));
 
   let query = $state('');
+  /** Search is per content kind: each kind has its own index. */
+  let type = $state('post');
+  const categories = $derived(publicTypes());
   /** @type {Array<{id:string,title:string,type:string,url:string,excerpt:string}>} */
   let results = $state([]);
   let loading = $state(false);
@@ -30,7 +34,9 @@
     }
     loading = true;
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}&lang=${lang}`);
+      const res = await fetch(
+        `/api/search?q=${encodeURIComponent(trimmed)}&lang=${lang}&type=${encodeURIComponent(type)}`
+      );
       const data = await res.json();
       results = data.results ?? [];
       searched = true;
@@ -77,14 +83,26 @@
     <h1 class="search-title">{t.search.title}</h1>
   </header>
 
-  <input
-    class="search-input"
-    type="search"
-    bind:value={query}
-    oninput={onInput}
-    placeholder={t.search.placeholder}
-    aria-label={t.search.title}
-  />
+  <div class="search-controls">
+    <input
+      class="search-input"
+      type="search"
+      bind:value={query}
+      oninput={onInput}
+      placeholder={t.search.placeholder}
+      aria-label={t.search.title}
+    />
+    <select
+      class="search-type"
+      bind:value={type}
+      onchange={() => query.trim() && runSearch(query)}
+      aria-label={t.search.category}
+    >
+      {#each categories as category (category.type)}
+        <option value={category.type}>{labelText(category.label, lang, category.type)}</option>
+      {/each}
+    </select>
+  </div>
 
   {#if loading}
     <p class="search-status">…</p>
@@ -110,6 +128,21 @@
     margin: 0 auto;
     padding: 120px 24px 80px;
     min-height: 100vh;
+  }
+
+  .search-controls {
+    display: flex;
+    gap: 10px;
+  }
+
+  .search-type {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    padding: 0 14px;
+    border: 1px solid var(--color-paper-line);
+    border-radius: 999px;
+    background: var(--color-surface);
+    color: var(--color-ink-soft);
   }
 
   .search-head {

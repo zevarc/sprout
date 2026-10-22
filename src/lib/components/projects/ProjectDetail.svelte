@@ -14,9 +14,9 @@
   );
   const home = $derived(homePath(lang));
   const projectsPath = $derived(getLink('projects', lang));
-  const statusLabels = $derived(/** @type {Record<string, string>} */ (t.projects.status ?? {}));
+  const statusLabels = $derived(/** @type {Record<string, string>} */ (t.projects.stage ?? {}));
   const statusLabel = $derived(
-    project.status ? (statusLabels[project.status] ?? project.status) : ''
+    project.stage ? (statusLabels[project.stage] ?? project.stage) : ''
   );
   const ogImage = $derived(`${site.url}/${getLink(`og/${project.slug}.svg`, lang)}`);
   const jsonLd = $derived(
@@ -60,8 +60,8 @@
   <header class="project-head">
     <div class="meta">
       <span class="year">{project.year}</span>
-      {#if project.status}
-        <span class="status pill" data-status={project.status}>{statusLabel}</span>
+      {#if project.stage}
+        <span class="status pill" data-stage={project.stage}>{statusLabel}</span>
       {/if}
     </div>
     <div class="title-row">
@@ -77,8 +77,8 @@
       {#if project.website}
         <a href={project.website} target="_blank" rel="noopener">↗ {project.website.replace(/^https?:\/\//, '')}</a>
       {/if}
-      {#if project.github}
-        <a href={project.github} target="_blank" rel="noopener">github</a>
+      {#if project.repoUrl}
+        <a href={project.repoUrl} target="_blank" rel="noopener">github</a>
       {/if}
     </div>
   </header>
@@ -140,7 +140,7 @@
     text-transform: uppercase;
   }
 
-  .status[data-status='archived'] {
+  .status[data-stage='archived'] {
     background: var(--color-surface-container-high);
     color: var(--color-ink-faint);
   }

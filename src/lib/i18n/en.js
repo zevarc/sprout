@@ -20,7 +20,7 @@ export const en = {
     timeline: 'Timeline',
   },
   home: {
-    selectedWriting: 'Selected writing',
+    selectedWriting: 'Latest writing',
     allWriting: 'All writing →',
     selectedProjects: 'Selected projects',
     allProjects: 'All projects →',
@@ -42,7 +42,8 @@ export const en = {
   },
   search: {
     title: 'Search',
-    placeholder: 'Search posts & notes…',
+    placeholder: 'Search this category…',
+    category: 'Category',
     empty: 'No results found',
   },
   comments: {
@@ -75,6 +76,7 @@ export const en = {
     subtitle: 'Load up here, then set sail for the horizon',
     next: 'Go home',
     status: { active: 'Active', maintained: 'Maintained', archived: 'Archived' },
+    stageLabel: 'Stage',
     websiteLabel: 'Website (opens in a new tab)',
     githubLabel: 'GitHub repository (opens in a new tab)',
   },

@@ -36,6 +36,9 @@ pnpm content:restore ./v4
 - Each kind has its own FTS5 index; search is per kind.
 - `scheduled` is gone (nothing could schedule it); `featured` is gone (curation,
   if wanted, gets its own table); `body_html` is still a derived, unexported cache.
+- Home sections order by publish time, or by a declared field when `sort` is set
+  (projects use `order_index`). The writing section is therefore "latest", not
+  "selected".
 
 **Export contract v4**
 - One file per table, and `schema.json` carries `types`; a bundle from a newer
@@ -43,6 +46,12 @@ pnpm content:restore ./v4
   warning). Restore orders writes by foreign key and recomputes the HTML and the
   search indexes.
 - Not exported: `sessions`, `invites`, `page_views`, `meta`, the FTS tables.
+
+**Search and the site**
+- Search is per content kind (each kind has its own index), so the search page now
+  has a category selector and the API takes `type`.
+- Project cards and the project page read `stage` / `repoUrl` (the columns are
+  `stage` and `repo_url`).
 
 **Admin**
 - No "featured" toggle; the cover is set from the media list (`role = 'cover'`),

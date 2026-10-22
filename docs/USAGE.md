@@ -169,9 +169,10 @@ export const home = {
 };
 ```
 
-- Each section selects declared types; featured nodes win, otherwise the latest.
+- Each section selects declared types and orders by publish time — or by a
+  declared field when `sort` is set (projects use `order_index`).
 - `title` / `more` are dotted keys in `src/lib/i18n/*.js`.
-- `fields` applies to `cards` and reads `node.fields[key]`.
+- `fields` applies to `cards` and reads the item's declared attribute.
 - Sections with no declared types render nothing.
 
 ---
