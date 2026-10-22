@@ -19,8 +19,6 @@
   /** @type {any} */
   let draft = $state(null);
   let tagsInput = $state('');
-  let featured = $state(false);
-  let coverMediaId = $state('');
   /** 声明字段的当前值（按当前类型的 `fields` 归一化）。 */
   /** @type {Record<string, any>} */
   let fieldValues = $state({});
@@ -105,8 +103,6 @@
       occurredAt: draft?.occurredAt ?? '',
       visibility: draft?.visibility ?? '',
       tagsInput,
-      featured,
-      coverMediaId,
       fieldValues
     });
   }
@@ -287,8 +283,6 @@
       visibility: content.defaultVisibility ?? 'public'
     };
     tagsInput = '';
-    featured = false;
-    coverMediaId = '';
     fieldValues = initialFieldValues(contentTypes.moment?.fields ?? [], {});
     previewHtml = '';
     showPreview = false;
@@ -307,8 +301,6 @@
     if (dirty && !confirm('当前草稿未保存，仍要切换吗？')) return;
     draft = { ...node, publishedAt: toLocal(node.publishedAt), occurredAt: toLocal(node.occurredAt) };
     tagsInput = (node.tags ?? []).join(', ');
-    featured = node.featured === true;
-    coverMediaId = node.coverMediaId ?? '';
     fieldValues = initialFieldValues(contentTypes[node.type]?.fields ?? [], node.fields ?? {});
     previewHtml = '';
     showPreview = false;
@@ -364,8 +356,6 @@
     draft.occurredAt = s.occurredAt;
     draft.visibility = s.visibility;
     tagsInput = s.tagsInput;
-    featured = s.featured;
-    coverMediaId = s.coverMediaId ?? '';
     fieldValues = s.fieldValues ?? {};
     localHint = null;
     localJson = null;
@@ -412,8 +402,6 @@
       occurredAt: draft.occurredAt ? new Date(draft.occurredAt).toISOString() : null,
       visibility: draft.visibility,
       tags: tagsInput,
-      featured,
-      coverMediaId: coverMediaId || null,
       fields: checked.value
     };
     const res = draft.id
@@ -436,8 +424,6 @@
     const node = data.node ?? draft;
     draft = { ...node, publishedAt: toLocal(node.publishedAt), occurredAt: toLocal(node.occurredAt) };
     tagsInput = (node.tags ?? []).join(', ');
-    featured = node.featured === true;
-    coverMediaId = node.coverMediaId ?? '';
     fieldValues = initialFieldValues(fields, node.fields ?? {});
     slugAtLoad = draft.slug;
     savedSnapshot = currentState();
@@ -519,7 +505,7 @@
     try {
       const form = new FormData();
       form.append('file', file);
-      if (draft) form.append('nodeId', draft.id ?? '');
+      if (draft) form.append('assetId', draft.id ?? '');
       form.append('alt', altInput.trim());
       const res = await fetch('/api/admin/media', { method: 'POST', body: form });
       const data = await res.json();
@@ -542,7 +528,7 @@
       mediaList = [];
       return;
     }
-    const res = await fetch(`/api/admin/media?nodeId=${encodeURIComponent(draft.id)}`);
+    const res = await fetch(`/api/admin/media?assetId=${encodeURIComponent(draft.id)}`);
     mediaList = res.ok ? ((await res.json()).media ?? []) : [];
   }
 
@@ -552,7 +538,7 @@
     await fetch('/api/admin/media', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: item.id, alt })
+      body: JSON.stringify({ assetId: draft.id, id: item.id, alt })
     });
     await loadMedia();
   }
@@ -566,12 +552,12 @@
       fetch('/api/admin/media', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: a.id, position: index + delta })
+        body: JSON.stringify({ assetId: draft.id, id: a.id, position: index + delta })
       }),
       fetch('/api/admin/media', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: b.id, position: index })
+        body: JSON.stringify({ assetId: draft.id, id: b.id, position: index })
       })
     ]);
     await loadMedia();
@@ -579,8 +565,32 @@
 
   /** @param {any} item */
   async function removeMedia(item) {
-    if (!confirm('删除这个媒体？存储对象也会被删除。')) return;
-    await fetch(`/api/admin/media?id=${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+    if (!confirm('删除这个媒体？不再被引用时存储对象也会被删除。')) return;
+    await fetch(
+      `/api/admin/media?assetId=${encodeURIComponent(draft.id)}&id=${encodeURIComponent(item.id)}`,
+      { method: 'DELETE' }
+    );
+    await loadMedia();
+  }
+
+  /**
+   * 设为封面：封面是"这次使用"的属性，一个内容只能有一个。先清掉旧的再设新的。
+   * @param {any} item
+   */
+  async function setCover(item) {
+    const current = mediaList.find((m) => m.role === 'cover');
+    if (current && current.id !== item.id) {
+      await fetch('/api/admin/media', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetId: draft.id, id: current.id, role: 'body' })
+      });
+    }
+    await fetch('/api/admin/media', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assetId: draft.id, id: item.id, role: 'cover' })
+    });
     await loadMedia();
   }
 
@@ -849,20 +859,7 @@
 
                 <div class="grid">
                   <label>标签（逗号分隔）<input type="text" bind:value={tagsInput} /></label>
-                  <label>封面
-                    <select bind:value={coverMediaId}>
-                      <option value="">（无封面）</option>
-                      {#each mediaList as item (item.id)}
-                        <option value={item.id}>{item.alt || item.url}</option>
-                      {/each}
-                    </select>
-                  </label>
                 </div>
-
-                <label class="check">
-                  <input type="checkbox" bind:checked={featured} />
-                  首页精选（Featured on home）
-                </label>
 
                 {#each fields as field (field.key)}
                   {#if field.type === 'boolean'}
@@ -965,6 +962,11 @@
                               disabled={index === mediaList.length - 1}
                               aria-label="下移"
                             >↓</button>
+                            <button
+                              class="ghost"
+                              onclick={() => setCover(item)}
+                              disabled={item.role === 'cover'}
+                            >{item.role === 'cover' ? '封面' : '设为封面'}</button>
                             <button class="danger" onclick={() => removeMedia(item)}>删除</button>
                           </li>
                         {/each}
