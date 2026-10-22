@@ -137,7 +137,7 @@ curl -s http://localhost:5173/moments | grep -o 'content-page' | head -1
 # theme preview injects a token block
 curl -s 'http://localhost:5173/?theme=warm' | grep -o 'data-sprout-theme' | head -1
 
-# sitemap must not advertise `/posts/notes` as a list page (no such route)
+# sitemap must advertise `/notes` as a list page (single-segment type)
 BASE_URL=http://localhost:5173 pnpm check:sitemap
 # expected: "Checked N unique URLs, 0 missing."
 ```

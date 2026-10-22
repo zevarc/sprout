@@ -13,6 +13,7 @@ export const zh = {
   nav: {
     home: '首页',
     posts: '博客',
+    notes: '笔记',
     projects: '项目',
     moments: '动态',
     about: '关于',

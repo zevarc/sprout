@@ -1,6 +1,6 @@
 ---
 title: "第一篇笔记"
-description: "笔记更短小，位于 /posts/notes。"
+description: "笔记更短小，放在 /notes。"
 date: "2026-01-02"
 updated: "2026-01-02"
 tags: ["笔记"]

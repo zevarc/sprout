@@ -8,6 +8,5 @@ export async function load({ platform, url }) {
 	const db = getDb(platform);
 	const lang = localeFromPath(url.pathname);
 	const posts = await listViews(db, { types: ['post'], lang, limit: 100 });
-	const notes = await listViews(db, { types: ['note'], lang, limit: 100 });
-	return { posts, notes, lang };
+	return { posts, lang };
 }

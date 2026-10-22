@@ -6,7 +6,7 @@
   import { site } from '$lib/site';
   import { pageTitle } from '$lib/seo';
 
-  const { lang = site.defaultLocale, posts, notes } = $props();
+  const { lang = site.defaultLocale, posts } = $props();
 
   let t = $derived(getDictionary(lang));
   const home = $derived(homePath(lang));
@@ -38,15 +38,6 @@
     title={t.posts.blogTitle}
     description={t.posts.blogSubtitle}
     posts={posts}
-    readMoreLabel={t.posts.readMore}
-    readTimeLabel={t.posts.readTime}
-  />
-
-  <PostFrame
-    {lang}
-    title={t.posts.noteTitle}
-    description={t.posts.noteSubtitle}
-    posts={notes}
     readMoreLabel={t.posts.readMore}
     readTimeLabel={t.posts.readTime}
   />

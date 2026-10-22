@@ -10,6 +10,7 @@
   let t = $derived(getDictionary(lang));
   const brand = $derived(site.brand[lang] ?? site.brand[site.defaultLocale]);
   const postsPath = $derived(getLink('posts', lang));
+  const notesPath = $derived(getLink('notes', lang));
   const projectsPath = $derived(getLink('projects', lang));
   const tagsPath = $derived(getLink('tags', lang));
   const aboutPath = $derived(getLink('about', lang));
@@ -148,6 +149,7 @@
 
   <footer class="site-footer">
     <a href={`/${postsPath}`}>{t.nav.posts}</a>
+    <a href={`/${notesPath}`}>{t.nav.notes}</a>
     <a href={`/${projectsPath}`}>{t.nav.projects}</a>
     {#if hasFeature('timeline')}
       <a href={`/${getLink('timeline', lang)}`}>{t.nav.timeline}</a>

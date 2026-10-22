@@ -19,7 +19,7 @@ export function getContentType(type: string): ContentTypeDef | undefined {
 /**
  * Resolves a type from its URL segment (e.g. `posts` → the `post` type). The
  * generic `[type]` routes use this, which requires a type's route to be a
- * single path segment (`/posts`, not `/posts/notes`).
+ * single path segment (`/posts`, not `/lab/notes`).
  */
 export function getTypeByRouteSegment(segment: string): ContentTypeDef | undefined {
 	return listTypes().find((t) => t.route === `/${segment}`);
@@ -41,7 +41,7 @@ export function privateTypes(): ContentTypeDef[] {
 
 /**
  * Public type routes that resolve to a generic list page — i.e. single-segment
- * routes. Multi-segment routes (`/posts/notes`) are served by their own static
+ * routes. Multi-segment routes (e.g. `/lab/notes`) are served by their own static
  * routes and must not be advertised as list pages.
  */
 export function listRouteSegments(): string[] {

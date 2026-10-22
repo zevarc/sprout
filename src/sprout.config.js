@@ -48,10 +48,10 @@ export const contentTypes = {
 		// 摘要用 assets.summary；标签与封面是关联表（不是字段），所以文章本身没有类型专属字段。
 		fields: []
 	},
-	// `/posts/notes` 是多段路由，由自己的静态路由服务（通用 [type] 只支持单段）。
+	// 单段路由：通用 `[type]` 列表页与详情页直接可用，sitemap 也会自动收录。
 	note: {
 		type: 'note',
-		route: '/posts/notes',
+		route: '/notes',
 		label: { en: 'Notes', zh: '笔记' },
 		public: true,
 		feed: true,

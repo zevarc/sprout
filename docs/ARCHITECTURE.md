@@ -88,7 +88,7 @@ non-default locale prefixes **for matching**. The effective routes:
 | `/[type]` | Generic list (single-segment types) | public if `type.public` |
 | `/[type]/[slug]` | Generic detail | public if `type.public`; private nodes 404 |
 | `/posts`, `/posts/[slug]` | Bespoke post list/detail (static override) | public |
-| `/posts/notes/[slug]` | Note detail (multi-segment type) | public |
+| `/notes/[slug]` | Note detail (generic detail) | public |
 | `/projects`, `/projects/[slug]` | Bespoke project list/detail | public |
 | `/tags`, `/tags/[tag]` | Tag archive | public |
 | `/about`, `/search` | Static pages | public |
@@ -268,7 +268,7 @@ tests/                  unit tests + architecture guards
   is a column, not a log, so no read has to resolve "the newest row".
 - **Media uses relative keys.** Changing storage providers changes one handler.
 - **Only single-segment type routes get a generic list page.** Multi-segment
-  routes (`/posts/notes`) are served by their own static routes and are not
+  routes (e.g. `/lab/notes`) are served by their own static routes and are not
   advertised as list pages in the sitemap.
 - **The table set grows by addition.** A new content kind is a new table (plus its
   search index and an exporter line); a new shared capability is one column on

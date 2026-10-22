@@ -139,7 +139,7 @@ Declared in `src/sprout.config.js`:
 | type | route | rendering |
 |---|---|---|
 | `post` | `/posts` | bespoke list + article detail (static routes) |
-| `note` | `/posts/notes` | multi-segment; bespoke detail routes |
+| `note` | `/notes` | ordinary type: generic list + detail |
 | `moment` | `/moments` | generic `feed` list + `compact` detail |
 | `project` | `/projects` | bespoke list + detail (static routes) |
 
@@ -189,7 +189,7 @@ own static routes.
   `dir`), but the stylesheets use physical properties: `<html dir>` is emitted and
   the hooks exist, yet a full RTL layout needs its own stylesheet.
 - Generic list/detail pages cover **single-segment** type routes; a multi-segment route
-  (`/posts/notes`) needs its own static pages.
+  (e.g. `/lab/notes`) needs its own static pages.
 - `fields` in `sprout.config.js` is declarative: the admin form has bespoke inputs for
   the built-in types; custom fields for a new type go through the API/import.
 - No newsletter/subscriptions or rich-text editor (Markdown + preview).

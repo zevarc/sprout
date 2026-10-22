@@ -13,6 +13,7 @@ export const en = {
   nav: {
     home: 'Home',
     posts: 'Posts',
+    notes: 'Notes',
     projects: 'Projects',
     moments: 'Moments',
     about: 'About',

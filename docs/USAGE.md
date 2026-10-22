@@ -115,8 +115,8 @@ export const contentTypes = {
 };
 ```
 
-No migration and no route files. If the route is multi-segment
-(`/posts/notes`), provide static routes instead.
+No migration and no route files. A **multi-segment** route (for example
+`/lab/notes`) cannot use the generic pages; give it static routes instead.
 
 ### 3.2 Declarative fields
 

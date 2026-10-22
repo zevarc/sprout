@@ -1,6 +1,6 @@
 ---
 title: "A first note"
-description: "Notes are shorter and live under /posts/notes."
+description: "Notes are shorter pieces with their own place at /notes."
 date: "2026-01-02"
 updated: "2026-01-02"
 tags: ["Note"]

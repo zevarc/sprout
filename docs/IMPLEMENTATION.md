@@ -57,7 +57,7 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 ### Routes
 
 - Generic: `routes/[type]` (list), `routes/[type]/[slug]` (detail).
-- Static overrides: `posts`, `posts/[slug]`, `posts/notes/[slug]`, `projects`,
+- Static overrides: `posts`, `posts/[slug]`, `projects`,
   `projects/[slug]`, `tags`, `tags/[tag]`.
 - Fixed pages: `about`, `search`, `timeline`, `admin`, `login`, `invite/[token]`.
 - Outputs: `feed.xml`, `og/[slug].svg`, `sitemap.xml`, `media/[...key]`.
