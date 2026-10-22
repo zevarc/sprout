@@ -303,6 +303,20 @@ A vocabulary table (rather than a text column) means renaming a tag is one
   wrote a value. When the upload path actually measures images, add the two
   columns.
 
+**Who may read a shared object.** Keys are content-addressed, so one object can be
+bound to several assets; its audience must therefore be unambiguous:
+
+- An object is readable **only if every asset that binds it is public** (an owner
+  session may always read).
+- Every key therefore belongs to bindings of a single audience. When a binding
+  would mix audiences — a public asset binding an object that a private asset
+  already uses, or the reverse — **copy the object, give the copy its own key**
+  (`sha256` stays the same, `r2_key` differs) and bind the copy.
+- Rationale: leaking one private image is worse than a broken image, and copies
+  are cheap because keys are content-addressed. The alternative ("public if *any*
+  binding is public") protects nothing: attaching a private draft's picture to a
+  post would publish it.
+
 ### 4.11 `page_views`
 
 | Column | Type | Notes |
@@ -312,8 +326,10 @@ A vocabulary table (rather than a text column) means renaming a tag is one
 | `referrer` | TEXT NOT NULL DEFAULT `''` | referrer host only |
 | `views` | INTEGER NOT NULL DEFAULT 0 | |
 
-`PRIMARY KEY (day, path, referrer)`. No cookies, no ids, no raw IPs. Not
-exported. A retention window should be decided (§12).
+`PRIMARY KEY (day, path, referrer)`. No cookies, no ids, no raw IPs. Not exported,
+and **no long-term archive**: rows older than **400 days** are pruned by the
+maintenance pass. Daily rows are kept only as long as they can still be read;
+longer history is added only if a real need appears.
 
 ### 4.12 Search tables — one per content kind
 
@@ -514,31 +530,25 @@ is the reason the drop of `sessions.role` costs nothing operationally.
 6. At most one `role = 'cover'` row per asset.
 7. `status = 'published'` implies `published_at` is set (application rule, tested
    — not a `CHECK`, because changing a `CHECK` in SQLite rebuilds the table).
-8. Public reads never return a private asset, and never return media that is only
-   used by private assets — see §12 for the exact rule.
+8. Public reads never return a private asset, and never return an object bound to
+   a private asset (§4.10).
 9. `export → restore → export` is byte-identical.
 10. No table outside this document exists (a test asserts the schema matches).
 
 ---
 
-## 12. Open decisions
+## 12. Decided rules
 
-1. **Media visibility rule (needed before implementing).** A shared object can be
-   used by both public and private assets. Two rules:
-   - *any reference public → public*: no broken images, but a picture used in a
-     private draft becomes publicly readable;
-   - *all references public → public*: nothing leaks, but sharing a file between
-     a private and a public asset requires storing a second copy.
-   Recommendation: **all references public**, because a leak is worse than a
-   missing image, and the copy is cheap because keys are content-addressed.
-2. **Editing history** — include `asset_revisions` (§4.14) or not.
-3. **`page_views` retention** — how long before rows are aggregated away.
-4. **Erase procedure** — confirm §5.3 (reassign to a standing anonymous person,
-   then delete).
-5. **`projects.stage` vocabulary** — the allowed list for active / maintained /
-   archived.
-6. **Soft delete / recycle bin** — v4 has no `deleted_at`; deleting is real.
-   Adding it later means every read filters on it.
+Every question is settled here. There is nothing left to choose.
+
+| Question | Decision | Why |
+|---|---|---|
+| Media visibility for a shared object | readable only if **every** binding is public; mixing audiences copies the object (§4.10) | a leak is worse than a broken image, and copies are cheap with content-addressed keys |
+| Editing history | **not built**; `asset_revisions` (§4.14) is the extension point | nothing in the requirements asks to see past versions, and revisions cost storage per edit |
+| `page_views` retention | daily rows pruned after **400 days**, no rollup | unbounded rows with no reader; a monthly rollup is added only if a need appears |
+| Erasing a person | reactions cascade; content and comments are reassigned to a standing anonymous person row, then the row is deleted (§5.3) | keeps the record intact, satisfies the request, and never destroys content by accident |
+| `projects.stage` values | `active` / `maintained` / `archived`, with **no `CHECK`** | a kind's own vocabulary is open, like every other content vocabulary |
+| Soft delete | **none**; deleting is real | the export/mirror is the recovery mechanism; a `deleted_at` column would tax every read |
 
 ---
 
