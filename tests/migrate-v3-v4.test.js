@@ -257,4 +257,76 @@ describe('v3 → v4 export conversion', () => {
 			rmSync(base, { recursive: true, force: true });
 		}
 	});
+
+	it('synthesizes an owner when the v3 bundle has no actors', async () => {
+		const base = mkdtempSync(join(tmpdir(), 'sprout-v3v4-owner-'));
+		const input = join(base, 'v3');
+		const output = join(base, 'v4');
+		const now = '2025-01-01T00:00:00.000Z';
+
+		// The demo's real shape: filled through the API with a Bearer token, so no
+		// actor row was ever created and every author is null.
+		writeBundle(input, {
+			'schema.json': JSON.stringify({ version: 3 }),
+			'nodes.jsonl': jsonl([
+				{
+					id: 'N1',
+					type: 'post',
+					slug: 'hello',
+					lang: 'en',
+					group_id: 'N1',
+					title: 'Hello',
+					summary: '',
+					body_md: 'x',
+					status: 'published',
+					published_at: now,
+					occurred_at: null,
+					visibility: 'public',
+					author_actor_id: null,
+					created_at: now,
+					updated_at: now
+				}
+			]),
+			'node_fields.jsonl': '',
+			'node_tags.jsonl': '',
+			'media.jsonl': '',
+			'events.jsonl': '',
+			'event_status.jsonl': '',
+			'actors.jsonl': '',
+			'actor_identities.jsonl': ''
+		});
+
+		try {
+			const stdout = execFileSync(
+				process.execPath,
+				['scripts/migrate-v3-to-v4.mjs', input, output],
+				{ cwd: ROOT, encoding: 'utf8' }
+			);
+			expect(stdout).toContain('synthesized');
+
+			const people = readJsonl(output, 'people.jsonl');
+			expect(people).toHaveLength(1);
+			expect(people[0].role).toBe('owner');
+			const [asset] = readJsonl(output, 'assets.jsonl');
+			expect(asset.author_id).toBe(people[0].id);
+
+			// And the v4 build restores it.
+			const { db } = createTestDb();
+			const files = ['schema.json', 'people.jsonl', 'assets.jsonl', 'posts.jsonl']
+				.filter((name) => {
+					try {
+						readFileSync(join(output, name));
+						return true;
+					} catch {
+						return false;
+					}
+				})
+				.map((name) => ({ path: name, content: readFileSync(join(output, name), 'utf8') }));
+			const result = await restoreFromBundle(db, files);
+			expect(result.warnings).toEqual([]);
+			expect((await getAsset(db, 'N1'))?.authorId).toBe(people[0].id);
+		} finally {
+			rmSync(base, { recursive: true, force: true });
+		}
+	});
 });
