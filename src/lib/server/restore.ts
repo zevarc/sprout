@@ -1,15 +1,12 @@
 /**
- * Restores a database from an export bundle.
+ * Restores a database from an export bundle (docs/EXPORT-CONTRACT.md §4).
  *
- * Extracted from the HTTP endpoint so it is testable without Cloudflare —
- * see `tests/export-restore.test.js`, which round-trips through an in-memory
- * SQLite database.
+ * Order matters because of foreign keys: people → identities → assets → each
+ * kind's rows → tags → bindings → media → comments → reactions. Derived columns
+ * (`body_html`, the FTS tables) are recomputed here, never imported.
  *
- * Writes use UPSERT (never `INSERT OR REPLACE`): replacing a node row would
- * delete-and-reinsert it and, with foreign keys on, cascade away its children.
- *
- * Order matters because of foreign keys: nodes are inserted with a NULL cover,
- * media is inserted afterwards, and only then is `cover_media_id` pointed at it.
+ * An unknown kind file is skipped with a warning, so a bundle from a newer build
+ * does not crash an older one — that is what makes "add a kind later" safe.
  */
 
 import type { D1Database } from '$lib/server/db';
@@ -17,6 +14,8 @@ import { run } from '$lib/server/db';
 import { renderMarkdown } from '$lib/server/render';
 import { buildSearchText } from '$lib/server/search';
 import { EXPORT_SCHEMA_VERSION } from '$lib/server/export';
+import { fieldColumn, kindColumns, kindTable } from '$lib/server/repositories/assets';
+import { getContentType } from '$lib/content/registry';
 
 export interface ExportFile {
 	path: string;
@@ -27,9 +26,12 @@ export interface RestoreResult {
 	nodes: number;
 	events: number;
 	actors: number;
-	relations: number;
+	people: number;
+	comments: number;
+	reactions: number;
 	fields: number;
 	tags: number;
+	warnings: string[];
 }
 
 function parseJsonl(content: string | undefined): Record<string, unknown>[] {
@@ -40,6 +42,16 @@ function parseJsonl(content: string | undefined): Record<string, unknown>[] {
 		.map((line) => JSON.parse(line));
 }
 
+/** True when a table exists in this database. */
+async function tableExists(db: D1Database, name: string): Promise<boolean> {
+	try {
+		const rows = await db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").bind(name).all<{ name: string }>();
+		return (rows.results ?? []).length > 0;
+	} catch {
+		return false;
+	}
+}
+
 export async function restoreFromBundle(
 	db: D1Database,
 	files: ExportFile[]
@@ -48,8 +60,10 @@ export async function restoreFromBundle(
 	for (const file of files) map.set(file.path, file.content);
 
 	const schemaRaw = map.get('schema.json');
+	const schema = schemaRaw
+		? (JSON.parse(schemaRaw) as { version?: number; types?: string[] })
+		: {};
 	if (schemaRaw) {
-		const schema = JSON.parse(schemaRaw) as { version?: number };
 		const version = typeof schema.version === 'number' ? schema.version : 1;
 		if (version > EXPORT_SCHEMA_VERSION) {
 			throw new Error(
@@ -59,197 +73,204 @@ export async function restoreFromBundle(
 		if (version < EXPORT_SCHEMA_VERSION) {
 			throw new Error(
 				`export format v${version} is older than this build supports (v${EXPORT_SCHEMA_VERSION}); ` +
-					`run scripts/migrate-v2-to-v3.mjs on the bundle first`
+					`convert it first (see docs/DATA-MODEL.md §10)`
 			);
 		}
 	}
 
-	const nodes = parseJsonl(map.get('nodes.jsonl'));
-	const fieldRows = parseJsonl(map.get('node_fields.jsonl'));
-	const tagRows = parseJsonl(map.get('node_tags.jsonl'));
-	const relations = parseJsonl(map.get('relations.jsonl'));
+	const warnings: string[] = [];
+	const people = parseJsonl(map.get('people.jsonl'));
+	const identities = parseJsonl(map.get('identities.jsonl'));
+	const assets = parseJsonl(map.get('assets.jsonl'));
+	const comments = parseJsonl(map.get('comments.jsonl'));
+	const reactions = parseJsonl(map.get('reactions.jsonl'));
+	const tags = parseJsonl(map.get('tags.jsonl'));
+	const assetTags = parseJsonl(map.get('asset_tags.jsonl'));
 	const media = parseJsonl(map.get('media.jsonl'));
-	const events = parseJsonl(map.get('events.jsonl'));
-	const eventStatus = parseJsonl(map.get('event_status.jsonl'));
-	const actors = parseJsonl(map.get('actors.jsonl'));
-	const identities = parseJsonl(map.get('actor_identities.jsonl'));
+	const assetMedia = parseJsonl(map.get('asset_media.jsonl'));
 
-	for (const a of actors) {
+	// Which kind files are present: what the bundle says, or what its files imply.
+	const declared = Array.isArray(schema.types)
+		? schema.types.filter((t): t is string => typeof t === 'string')
+		: [];
+
+	for (const p of people) {
 		await run(
 			db,
-			`INSERT INTO actors (id, kind, handle, display_name, avatar_url, email_hash, created_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?)
+			`INSERT INTO people (id, role, handle, display_name, avatar_url, email_hash, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT(id) DO UPDATE SET
-				kind = excluded.kind, handle = excluded.handle, display_name = excluded.display_name,
+				role = excluded.role, handle = excluded.handle, display_name = excluded.display_name,
 				avatar_url = excluded.avatar_url, email_hash = excluded.email_hash,
-				created_at = excluded.created_at`,
-			[a.id, a.kind, a.handle, a.display_name, a.avatar_url, a.email_hash, a.created_at]
+				created_at = excluded.created_at, updated_at = excluded.updated_at`,
+			[p.id, p.role ?? null, p.handle, p.display_name, p.avatar_url, p.email_hash, p.created_at, p.updated_at]
 		);
 	}
 
 	for (const i of identities) {
-		const id = `${i.actor_id}:${i.provider}:${i.provider_uid}`;
 		await run(
 			db,
-			`INSERT INTO actor_identities (id, actor_id, provider, provider_uid, created_at)
-			 VALUES (?, ?, ?, ?, ?)
-			 ON CONFLICT(id) DO UPDATE SET
-				actor_id = excluded.actor_id, provider = excluded.provider,
-				provider_uid = excluded.provider_uid`,
-			[id, i.actor_id, i.provider, i.provider_uid, new Date().toISOString()]
+			`INSERT INTO identities (provider, provider_uid, person_id, created_at) VALUES (?, ?, ?, ?)
+			 ON CONFLICT(provider, provider_uid) DO UPDATE SET
+				person_id = excluded.person_id, created_at = excluded.created_at`,
+			[i.provider, i.provider_uid, i.person_id, i.created_at]
 		);
 	}
 
-	// Nodes first, with the cover left NULL — media does not exist yet.
-	for (const n of nodes) {
-		const bodyMd = String(n.body_md ?? '');
-		// `body_html` is derived, not exported — re-render so output is identical.
-		const html = await renderMarkdown(bodyMd);
+	for (const a of assets) {
 		await run(
 			db,
-			`INSERT INTO nodes
-				(id, type, slug, lang, group_id, title, summary, body_md, body_html, status,
-				 published_at, occurred_at, visibility, featured, cover_media_id, author_actor_id,
-				 created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
+			`INSERT INTO assets
+				(id, type, lang, group_id, status, visibility, published_at, occurred_at,
+				 author_id, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT(id) DO UPDATE SET
-				type = excluded.type, slug = excluded.slug, lang = excluded.lang,
-				group_id = excluded.group_id, title = excluded.title, summary = excluded.summary,
-				body_md = excluded.body_md, body_html = excluded.body_html, status = excluded.status,
+				type = excluded.type, lang = excluded.lang, group_id = excluded.group_id,
+				status = excluded.status, visibility = excluded.visibility,
 				published_at = excluded.published_at, occurred_at = excluded.occurred_at,
-				visibility = excluded.visibility, featured = excluded.featured,
-				author_actor_id = excluded.author_actor_id,
-				created_at = excluded.created_at, updated_at = excluded.updated_at`,
+				author_id = excluded.author_id, created_at = excluded.created_at,
+				updated_at = excluded.updated_at`,
 			[
-				n.id,
-				n.type,
-				n.slug,
-				n.lang,
-				n.group_id ?? n.id,
-				n.title ?? null,
-				n.summary ?? null,
-				bodyMd,
-				html,
-				n.status,
-				n.published_at ?? null,
-				n.occurred_at ?? null,
-				n.visibility ?? 'public',
-				n.featured ? 1 : 0,
-				n.author_actor_id ?? null,
-				n.created_at,
-				n.updated_at
+				a.id,
+				a.type,
+				a.lang,
+				a.group_id ?? a.id,
+				a.status,
+				a.visibility ?? 'public',
+				a.published_at ?? null,
+				a.occurred_at ?? null,
+				a.author_id,
+				a.created_at,
+				a.updated_at
 			]
 		);
-		await run(db, 'DELETE FROM nodes_fts WHERE id = ?', [n.id]);
-		await run(db, 'INSERT INTO nodes_fts (id, title, summary, body) VALUES (?, ?, ?, ?)', [
-			n.id,
-			buildSearchText([String(n.title ?? '')]),
-			buildSearchText([String(n.summary ?? '')]),
-			buildSearchText([bodyMd])
+	}
+
+	let fieldCount = 0;
+	let restored = 0;
+	for (const type of declared) {
+		const table = kindTable(type);
+		const rows = parseJsonl(map.get(`${table}.jsonl`));
+		if (rows.length === 0) continue;
+		if (!(await tableExists(db, table))) {
+			warnings.push(`unknown content kind "${type}" — skipped ${rows.length} row(s)`);
+			continue;
+		}
+		const columns = kindColumns(type).filter((c) => c !== 'body_html');
+		const declaredFields = (getContentType(type)?.fields ?? []).map((f) => fieldColumn(f.key));
+		for (const row of rows) {
+			const bodyMd = String(row.body_md ?? '');
+			const html = await renderMarkdown(bodyMd);
+			const values = columns.map((c) => {
+				if (c === 'body_html') return html;
+				if (c === 'body_md') return bodyMd;
+				const v = row[c];
+				return v === undefined ? null : v;
+			});
+			await run(
+				db,
+				`INSERT INTO ${table} (id, ${columns.join(', ')}, body_html)
+				 VALUES (?, ${columns.map(() => '?').join(', ')}, ?)
+				 ON CONFLICT(id) DO UPDATE SET ${[...columns, 'body_html']
+						.map((c) => `${c} = excluded.${c}`)
+						.join(', ')}`,
+				[row.id, ...values, html]
+			);
+			fieldCount += declaredFields.length;
+
+			const fts = `${table}_fts`;
+			await run(db, `DELETE FROM ${fts} WHERE id = ?`, [row.id]);
+			await run(db, `INSERT INTO ${fts} (id, lang, title, summary, body) VALUES (?, ?, ?, ?, ?)`, [
+				row.id,
+				row.lang,
+				buildSearchText([String(row.title ?? '')]),
+				buildSearchText([String(row.summary ?? '')]),
+				buildSearchText([bodyMd])
+			]);
+			restored++;
+		}
+	}
+
+	for (const t of tags) {
+		await run(db, 'INSERT INTO tags (id, name) VALUES (?, ?) ON CONFLICT(id) DO NOTHING', [
+			t.id,
+			t.name
 		]);
 	}
 
-	// Declared fields and tags: replace per node so restore is idempotent.
-	for (const row of fieldRows) {
-		const nodeId = String(row.node_id);
-		const field = String(row.field);
-		const value = row.value;
-		if (value === null || value === undefined) continue;
-		const kind = String(row.kind ?? 'text');
-		await run(db, 'DELETE FROM node_fields WHERE node_id = ? AND field = ?', [nodeId, field]);
+	for (const b of assetTags) {
 		await run(
 			db,
-			`INSERT INTO node_fields (node_id, field, value_text, value_number, value_bool, value_json)
-			 VALUES (?, ?, ?, ?, ?, ?)`,
-			[
-				nodeId,
-				field,
-				kind === 'text' ? String(value) : null,
-				kind === 'number' ? Number(value) : null,
-				kind === 'bool' ? (value ? 1 : 0) : null,
-				kind === 'json' ? JSON.stringify(value) : null
-			]
-		);
-	}
-
-	for (const row of tagRows) {
-		await run(
-			db,
-			'INSERT INTO node_tags (node_id, tag) VALUES (?, ?) ON CONFLICT DO NOTHING',
-			[String(row.node_id), String(row.tag)]
+			'INSERT INTO asset_tags (asset_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING',
+			[b.asset_id, b.tag_id]
 		);
 	}
 
 	for (const m of media) {
 		await run(
 			db,
-			`INSERT INTO media (id, node_id, r2_key, kind, width, height, alt, position, sha256)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`INSERT INTO media (id, r2_key, kind, sha256, created_at) VALUES (?, ?, ?, ?, ?)
 			 ON CONFLICT(id) DO UPDATE SET
-				node_id = excluded.node_id, r2_key = excluded.r2_key, kind = excluded.kind,
-				width = excluded.width, height = excluded.height, alt = excluded.alt,
-				position = excluded.position, sha256 = excluded.sha256`,
-			[m.id, m.node_id, m.r2_key, m.kind, m.width, m.height, m.alt, m.position, m.sha256]
+				r2_key = excluded.r2_key, kind = excluded.kind, sha256 = excluded.sha256,
+				created_at = excluded.created_at`,
+			[m.id, m.r2_key, m.kind, m.sha256 ?? null, m.created_at]
 		);
 	}
 
-	// Media exists now — point covers at it.
-	for (const n of nodes) {
-		if (!n.cover_media_id) continue;
-		await run(db, 'UPDATE nodes SET cover_media_id = ? WHERE id = ?', [
-			n.cover_media_id,
-			n.id
-		]);
-	}
-
-	for (const r of relations) {
+	for (const b of assetMedia) {
 		await run(
 			db,
-			`INSERT INTO relations (from_id, to_id, rel) VALUES (?, ?, ?)
-			 ON CONFLICT(from_id, to_id, rel) DO NOTHING`,
-			[r.from_id, r.to_id, r.rel]
+			`INSERT INTO asset_media (asset_id, media_id, position, alt, role) VALUES (?, ?, ?, ?, ?)
+			 ON CONFLICT(asset_id, media_id) DO UPDATE SET
+				position = excluded.position, alt = excluded.alt, role = excluded.role`,
+			[b.asset_id, b.media_id, b.position ?? 0, b.alt ?? null, b.role ?? 'body']
 		);
 	}
 
-	for (const e of events) {
+	for (const c of comments) {
 		await run(
 			db,
-			`INSERT INTO events
-				(id, kind, target_type, target_id, actor_id, parent_id, body_md, payload, created_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`INSERT INTO comments
+				(id, asset_id, parent_id, author_id, body_md, status, moderated_at, moderated_by, payload, created_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			 ON CONFLICT(id) DO UPDATE SET
-				kind = excluded.kind, target_type = excluded.target_type, target_id = excluded.target_id,
-				actor_id = excluded.actor_id, parent_id = excluded.parent_id, body_md = excluded.body_md,
-				payload = excluded.payload, created_at = excluded.created_at`,
+				asset_id = excluded.asset_id, parent_id = excluded.parent_id,
+				author_id = excluded.author_id, body_md = excluded.body_md,
+				status = excluded.status, moderated_at = excluded.moderated_at,
+				moderated_by = excluded.moderated_by, payload = excluded.payload,
+				created_at = excluded.created_at`,
 			[
-				e.id,
-				e.kind,
-				e.target_type,
-				e.target_id,
-				e.actor_id,
-				e.parent_id,
-				e.body_md,
-				typeof e.payload === 'string' ? e.payload : JSON.stringify(e.payload ?? null),
-				e.created_at
+				c.id,
+				c.asset_id,
+				c.parent_id,
+				c.author_id,
+				c.body_md,
+				c.status,
+				c.moderated_at,
+				c.moderated_by,
+				c.payload ? JSON.stringify(c.payload) : null,
+				c.created_at
 			]
 		);
 	}
 
-	for (const s of eventStatus) {
-		await run(db, 'INSERT INTO event_status (event_id, status, at, by) VALUES (?, ?, ?, ?)', [
-			s.event_id,
-			s.status,
-			s.at,
-			s.by
-		]);
+	for (const r of reactions) {
+		await run(
+			db,
+			'INSERT INTO reactions (asset_id, person_id, emoji, created_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING',
+			[r.asset_id, r.person_id, r.emoji, r.created_at]
+		);
 	}
 
 	return {
-		nodes: nodes.length,
-		events: events.length,
-		actors: actors.length,
-		relations: relations.length,
-		fields: fieldRows.length,
-		tags: tagRows.length
+		nodes: restored,
+		events: comments.length,
+		actors: people.length,
+		people: people.length,
+		comments: comments.length,
+		reactions: reactions.length,
+		fields: fieldCount,
+		tags: tags.length,
+		warnings
 	};
 }

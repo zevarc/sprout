@@ -4,32 +4,32 @@ import {
 	hashIp,
 	randomToken,
 	safeNextPath,
-	signActorToken,
-	verifyActorToken
+	signPersonToken,
+	verifyPersonToken
 } from '$lib/server/auth';
 
 const SECRET = 'test-secret';
 
 describe('actor token (signed cookie identity)', () => {
 	it('round-trips a token', async () => {
-		const token = await signActorToken('actor-1', SECRET);
-		expect(await verifyActorToken(token, SECRET)).toBe('actor-1');
+		const token = await signPersonToken('actor-1', SECRET);
+		expect(await verifyPersonToken(token, SECRET)).toBe('actor-1');
 	});
 
 	it('rejects a tampered token', async () => {
-		const token = await signActorToken('actor-1', SECRET);
+		const token = await signPersonToken('actor-1', SECRET);
 		const tampered = token.replace('actor-1', 'actor-2');
-		expect(await verifyActorToken(tampered, SECRET)).toBeNull();
+		expect(await verifyPersonToken(tampered, SECRET)).toBeNull();
 	});
 
 	it('rejects a token signed with another secret', async () => {
-		const token = await signActorToken('actor-1', SECRET);
-		expect(await verifyActorToken(token, 'other-secret')).toBeNull();
+		const token = await signPersonToken('actor-1', SECRET);
+		expect(await verifyPersonToken(token, 'other-secret')).toBeNull();
 	});
 
 	it('rejects an expired token', async () => {
-		const token = await signActorToken('actor-1', SECRET, -1);
-		expect(await verifyActorToken(token, SECRET)).toBeNull();
+		const token = await signPersonToken('actor-1', SECRET, -1);
+		expect(await verifyPersonToken(token, SECRET)).toBeNull();
 	});
 });
 

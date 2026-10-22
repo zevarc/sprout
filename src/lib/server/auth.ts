@@ -1,23 +1,28 @@
 /**
- * Authentication & identity helpers.
+ * Authentication & identity helpers (docs/DATA-MODEL.md §5).
  *
- * - Owner: exchanges `ADMIN_TOKEN` for a signed session cookie (`role=owner`).
- * - Visitor: anonymous actors get a signed `actor` cookie so they can edit or
- *   delete their own comment for a window, without an account.
- * - Optional GitHub OAuth links an external identity to a local actor.
+ * - Owner: exchanges `ADMIN_TOKEN` for a signed session cookie.
+ * - Members: invited people; their authority is `people.role`.
+ * - Anonymous: a signed cookie identifies a `people` row that has no role.
  *
- * All hashing uses Web Crypto (available on Workers and Node), so nothing here
- * depends on the host runtime.
+ * Sessions carry **no role**: the role is read from `people` on every request, so
+ * revoking a member takes effect immediately and there is one source of truth.
  */
 
 import type { D1Database } from '$lib/server/db';
 import type { RequestEvent } from '@sveltejs/kit';
-import { deleteSession, createSession, getSessionByTokenHash, ensureOwner } from './repositories/actors';
+import type { PersonRole } from '$lib/content/types';
+import {
+	createSession,
+	deleteSession,
+	ensureOwner,
+	getSessionByTokenHash
+} from './repositories/people';
 
 const encoder = new TextEncoder();
 
 export const SESSION_COOKIE = 'zc_session';
-export const ACTOR_COOKIE = 'zc_actor';
+export const PERSON_COOKIE = 'zc_person';
 
 const OWNER_TTL = 60 * 60 * 24 * 30; // 30 days
 const ANON_TTL = 60 * 60 * 24 * 180; // 180 days
@@ -68,38 +73,38 @@ export function safeNextPath(value: string | null | undefined): string | null {
 	return value;
 }
 
-// ---- Anonymous actor token (actorId.expiry.signature) ----
+// ---- anonymous person token (personId.expiry.signature) ----
 
-export async function signActorToken(
-	actorId: string,
+export async function signPersonToken(
+	personId: string,
 	secret: string,
 	ttl = ANON_TTL
 ): Promise<string> {
 	const expiry = Math.floor(Date.now() / 1000) + ttl;
-	const payload = `${actorId}.${expiry}`;
+	const payload = `${personId}.${expiry}`;
 	const sig = await hmac(secret, payload);
 	return `${payload}.${sig}`;
 }
 
-export async function verifyActorToken(
+export async function verifyPersonToken(
 	token: string,
 	secret: string
 ): Promise<string | null> {
 	const parts = token.split('.');
 	if (parts.length !== 3) return null;
-	const [actorId, expiryStr, sig] = parts;
+	const [personId, expiryStr, sig] = parts;
 	const expiry = Number(expiryStr);
 	if (!Number.isFinite(expiry) || expiry * 1000 < Date.now()) return null;
-	const expected = await hmac(secret, `${actorId}.${expiryStr}`);
+	const expected = await hmac(secret, `${personId}.${expiryStr}`);
 	if (expected !== sig) return null;
-	return actorId;
+	return personId;
 }
 
-// ---- Session handling ----
+// ---- sessions ----
 
 export interface Session {
-	actorId: string;
-	role: string;
+	personId: string;
+	role: PersonRole | null;
 }
 
 export async function getSession(event: RequestEvent, db: D1Database): Promise<Session | null> {
@@ -111,22 +116,20 @@ export async function getSession(event: RequestEvent, db: D1Database): Promise<S
 	return getSessionByTokenHash(db, hash);
 }
 
-/** Reads the anonymous actor from the signed cookie, if present. */
-export async function getActorFromCookie(
-	event: RequestEvent
-): Promise<string | null> {
+/** Reads the anonymous person from the signed cookie, if present. */
+export async function getPersonFromCookie(event: RequestEvent): Promise<string | null> {
 	const secret = event.platform?.env?.SESSION_SECRET;
 	if (!secret) return null;
-	const token = event.cookies.get(ACTOR_COOKIE);
+	const token = event.cookies.get(PERSON_COOKIE);
 	if (!token) return null;
-	return verifyActorToken(token, secret);
+	return verifyPersonToken(token, secret);
 }
 
-export async function issueActorCookie(event: RequestEvent, actorId: string): Promise<void> {
+export async function issuePersonCookie(event: RequestEvent, personId: string): Promise<void> {
 	const secret = event.platform?.env?.SESSION_SECRET;
 	if (!secret) return;
-	const token = await signActorToken(actorId, secret);
-	event.cookies.set(ACTOR_COOKIE, token, {
+	const token = await signPersonToken(personId, secret);
+	event.cookies.set(PERSON_COOKIE, token, {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
@@ -153,7 +156,7 @@ export async function loginOwner(event: RequestEvent, db: D1Database): Promise<b
 
 	const owner = await ensureOwner(db);
 	const token = randomToken();
-	await createSession(db, owner.id, await hmac(secret, token), 'owner', OWNER_TTL);
+	await createSession(db, owner.id, await hmac(secret, token), OWNER_TTL);
 	event.cookies.set(SESSION_COOKIE, token, {
 		path: '/',
 		httpOnly: true,
@@ -169,7 +172,7 @@ export async function logout(event: RequestEvent, db: D1Database): Promise<void>
 	const token = event.cookies.get(SESSION_COOKIE);
 	if (secret && token) await deleteSession(db, await hmac(secret, token));
 	event.cookies.delete(SESSION_COOKIE, { path: '/' });
-	event.cookies.delete(ACTOR_COOKIE, { path: '/' });
+	event.cookies.delete(PERSON_COOKIE, { path: '/' });
 }
 
 /**
@@ -181,20 +184,19 @@ export async function hashToken(secret: string, token: string): Promise<string> 
 }
 
 /**
- * Signs an existing actor in as a `member` (used by the invite flow).
- * Mirrors `loginOwner` but never checks a shared secret — the invite is the
- * credential.
+ * Signs an existing person in as a member (used by the invite flow). The session
+ * stores no role: `people.role` is the authority.
  */
 export async function issueMemberSession(
 	event: RequestEvent,
 	db: D1Database,
-	actorId: string
+	personId: string
 ): Promise<boolean> {
 	const secret = event.platform?.env?.SESSION_SECRET;
 	if (!secret) return false;
 
 	const token = randomToken();
-	await createSession(db, actorId, await hmac(secret, token), 'member', OWNER_TTL);
+	await createSession(db, personId, await hmac(secret, token), OWNER_TTL);
 	event.cookies.set(SESSION_COOKIE, token, {
 		path: '/',
 		httpOnly: true,
@@ -205,7 +207,7 @@ export async function issueMemberSession(
 	return true;
 }
 
-/** True for an owner session or a machine request carrying `Bearer ADMIN_TOKEN`. */
+/** True for an owner, or a machine request carrying `Bearer ADMIN_TOKEN`. */
 export async function isAdmin(event: RequestEvent, db: D1Database): Promise<boolean> {
 	const adminToken = event.platform?.env?.ADMIN_TOKEN;
 	const bearer = event.request.headers.get('authorization') ?? '';
@@ -215,11 +217,8 @@ export async function isAdmin(event: RequestEvent, db: D1Database): Promise<bool
 }
 
 /**
- * True for anyone allowed to read/write content — an owner or a `member`
- * session, or a machine request carrying `Bearer ADMIN_TOKEN`.
- *
- * On a single-author site only the owner exists, so this is equivalent to
- * `isAdmin`; on a multi-member site it is what lets family members record.
+ * True for anyone allowed to read/write content — an owner or member, or a
+ * machine request carrying `Bearer ADMIN_TOKEN`.
  */
 export async function isEditor(event: RequestEvent, db: D1Database): Promise<boolean> {
 	const adminToken = event.platform?.env?.ADMIN_TOKEN;

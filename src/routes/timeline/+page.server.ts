@@ -1,7 +1,7 @@
 import { getDb } from '$lib/server/db';
 import { getSession } from '$lib/server/auth';
-import { listNodes } from '$lib/server/repositories/nodes';
-import { listActorNames } from '$lib/server/repositories/actors';
+import { listAssets } from '$lib/server/repositories/assets';
+import { listPersonNames } from '$lib/server/repositories/people';
 import { nodeToView } from '$lib/content/view';
 import { listTypes } from '$lib/content/registry';
 import { content } from '$lib/engine/registry';
@@ -12,7 +12,7 @@ import { error } from '@sveltejs/kit';
 export const prerender = false;
 
 /**
- * The merged timeline: every type in one feed, ordered by when things happened
+ * The merged timeline: every kind in one list, ordered by when things happened
  * (or were published — see `sprout.config.js` `content.timelineOrder`).
  *
  * Public by default — visitors see public entries only; an owner/member session
@@ -27,7 +27,7 @@ export async function load(event) {
 	const session = await getSession(event, db);
 	const privileged = session?.role === 'owner' || session?.role === 'member';
 
-	const nodes = await listNodes(db, {
+	const nodes = await listAssets(db, {
 		types: listTypes().map((t) => t.type),
 		lang,
 		status: 'published',
@@ -37,7 +37,7 @@ export async function load(event) {
 	});
 
 	// Who recorded each entry, so the timeline can show the author's name.
-	const authors = await listActorNames(db);
+	const authors = await listPersonNames(db);
 
 	return { entries: nodes.map((n) => nodeToView(n)), authors, lang };
 }

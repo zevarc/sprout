@@ -1,13 +1,13 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
-import { issueActorCookie, safeNextPath } from '$lib/server/auth';
+import { issuePersonCookie, safeNextPath } from '$lib/server/auth';
 import { site } from '$lib/site';
 import {
-	createActor,
-	getActorByIdentity,
+	createPerson,
+	getPersonByIdentity,
 	linkIdentity
-} from '$lib/server/repositories/actors';
+} from '$lib/server/repositories/people';
 
 export const prerender = false;
 
@@ -18,7 +18,7 @@ interface GitHubUser {
 	avatar_url: string | null;
 }
 
-/** GET /api/auth/github/callback — links the GitHub identity to a local actor. */
+/** GET /api/auth/github/callback — links the GitHub identity to a local person. */
 export const GET: RequestHandler = async (event) => {
 	const clientId = event.platform?.env?.GITHUB_CLIENT_ID;
 	const clientSecret = event.platform?.env?.GITHUB_CLIENT_SECRET;
@@ -54,18 +54,17 @@ export const GET: RequestHandler = async (event) => {
 
 	const db = getDb(event.platform);
 	const providerUid = String(user.id);
-	let actor = await getActorByIdentity(db, 'github', providerUid);
-	if (!actor) {
-		actor = await createActor(db, {
-			kind: 'visitor',
+	let person = await getPersonByIdentity(db, 'github', providerUid);
+	if (!person) {
+		person = await createPerson(db, {
 			handle: user.login,
 			displayName: user.name || user.login,
 			avatarUrl: user.avatar_url
 		});
-		await linkIdentity(db, actor.id, 'github', providerUid);
+		await linkIdentity(db, person.id, 'github', providerUid);
 	}
 
-	await issueActorCookie(event, actor.id);
+	await issuePersonCookie(event, person.id);
 	// Send the visitor back to the page they started from (defaults to home).
 	const next = safeNextPath(event.cookies.get('zc_oauth_next')) ?? '/';
 	event.cookies.delete('zc_oauth_next', { path: '/' });

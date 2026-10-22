@@ -2,12 +2,12 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { isAdmin } from '$lib/server/auth';
-import { getNode, relatedIds, setGroup, ungroup } from '$lib/server/repositories/nodes';
+import { getAsset, relatedIds, setGroup, ungroup } from '$lib/server/repositories/assets';
 import { invalidateAll } from '$lib/server/cache';
 
 export const prerender = false;
 
-/** GET /api/admin/link?id=… — the other members of this node's group (translations/series). */
+/** GET /api/admin/link?id=… — the other members of this asset's group. */
 export const GET: RequestHandler = async (event) => {
 	const db = getDb(event.platform);
 	if (!(await isAdmin(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
@@ -15,13 +15,13 @@ export const GET: RequestHandler = async (event) => {
 	const id = event.url.searchParams.get('id');
 	if (!id) return json({ error: 'id required' }, { status: 400 });
 
-	const node = await getNode(db, id);
-	if (!node) return json({ ids: [] });
+	const asset = await getAsset(db, id);
+	if (!asset) return json({ ids: [] });
 	return json({ ids: await relatedIds(db, id) });
 };
 
 /**
- * POST /api/admin/link { id, otherId } — group two nodes together. Translations
+ * POST /api/admin/link { id, otherId } — group two assets together. Translations
  * and series both live in a `group_id`; this is the single source of truth for
  * pairing (there is no separate translation edge).
  */
@@ -40,7 +40,7 @@ export const POST: RequestHandler = async (event) => {
 	const otherId = String(body.otherId ?? '');
 	if (!id || !otherId || id === otherId) return json({ error: 'invalid ids' }, { status: 400 });
 
-	const [a, b] = await Promise.all([getNode(db, id), getNode(db, otherId)]);
+	const [a, b] = await Promise.all([getAsset(db, id), getAsset(db, otherId)]);
 	if (!a || !b) return json({ error: 'not found' }, { status: 404 });
 	if (a.type !== b.type) return json({ error: 'type mismatch' }, { status: 400 });
 

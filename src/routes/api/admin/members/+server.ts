@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { isAdmin } from '$lib/server/auth';
-import { listMembers } from '$lib/server/repositories/actors';
+import { listMembers } from '$lib/server/repositories/people';
 import { listInvites } from '$lib/server/repositories/invites';
 import { hasFeature } from '$lib/engine/features';
 

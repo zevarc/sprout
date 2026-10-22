@@ -1,35 +1,21 @@
 /**
  * Media read-access policy, kept in the domain layer so routes never issue SQL.
  *
- * Media keys are content-addressed, so the *same* object can be attached to
- * several nodes. Readability is therefore: **public if any owning node is
- * public**; unknown or unattached objects are private. Looking at a single row
- * would make the answer depend on row order.
+ * Keys are content-addressed, so one object can be bound to several assets. An
+ * object is public **only when every asset that binds it is public**; unknown or
+ * unbound objects are private (docs/DATA-MODEL.md §4.10).
  */
 
 import type { D1Database } from '$lib/server/db';
-import { first } from '$lib/server/db';
+import { mediaVisibility } from '$lib/server/repositories/media';
 
 export interface MediaAccess {
-	/** True when at least one owning node is public. */
-	public: boolean;
-	/** True when the object is attached to a node at all. */
+	/** True when at least one asset binds the object. */
 	attached: boolean;
+	/** True when every binding is public. */
+	public: boolean;
 }
 
 export async function mediaAccess(db: D1Database, r2Key: string): Promise<MediaAccess> {
-	const row = await first<{ any_public: number | null; attachments: number }>(
-		db,
-		`SELECT
-		   MAX(CASE WHEN n.visibility = 'public' THEN 1 ELSE 0 END) AS any_public,
-		   COUNT(*) AS attachments
-		 FROM media m
-		 LEFT JOIN nodes n ON n.id = m.node_id
-		 WHERE m.r2_key = ?`,
-		[r2Key]
-	);
-	return {
-		attached: Number(row?.attachments ?? 0) > 0,
-		public: Number(row?.any_public ?? 0) === 1
-	};
+	return mediaVisibility(db, r2Key);
 }

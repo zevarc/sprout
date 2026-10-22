@@ -2,42 +2,45 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { getSession, isAdmin } from '$lib/server/auth';
-import { listEvents, setEventStatus } from '$lib/server/repositories/events';
-import type { EventModeration } from '$lib/content/types';
+import { listComments, setCommentStatus } from '$lib/server/repositories/comments';
+import type { CommentStatus } from '$lib/content/types';
 
 export const prerender = false;
 
-const VALID: EventModeration[] = ['pending', 'approved', 'spam', 'deleted'];
+const VALID: CommentStatus[] = ['pending', 'approved', 'spam', 'deleted'];
 
-/** GET /api/admin/moderate?status=pending — moderation queue. */
+/** GET /api/admin/moderate?status=pending — the moderation queue. */
 export const GET: RequestHandler = async (event) => {
 	const db = getDb(event.platform);
 	if (!(await isAdmin(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
 
-	const status = (event.url.searchParams.get('status') as EventModeration) ?? 'pending';
-	const events = await listEvents(db, { kind: 'comment', includeUnapproved: true, limit: 200 });
-	return json({ events: events.filter((e) => (e.status ?? 'approved') === status) });
+	const status = (event.url.searchParams.get('status') as CommentStatus) ?? 'pending';
+	if (!VALID.includes(status)) return json({ error: 'invalid status' }, { status: 400 });
+
+	// Filtering happens in SQL: a page never loses comments because unapproved
+	// ones consumed the limit.
+	const comments = await listComments(db, { status, includeAll: true, limit: 200 });
+	return json({ events: comments, comments });
 };
 
-/** POST /api/admin/moderate { eventId, status } — append a moderation status. */
+/** POST /api/admin/moderate { id, status } — set a comment's moderation state. */
 export const POST: RequestHandler = async (event) => {
 	const db = getDb(event.platform);
 	if (!(await isAdmin(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
-	const session = await getSession(event, db);
 
-	let body: { eventId?: string; status?: string };
+	let body: Record<string, unknown>;
 	try {
 		body = await event.request.json();
 	} catch {
 		return json({ error: 'invalid json' }, { status: 400 });
 	}
 
-	const eventId = String(body.eventId ?? '');
-	const status = body.status as EventModeration;
-	if (!eventId || !VALID.includes(status)) {
-		return json({ error: 'invalid input' }, { status: 400 });
-	}
+	const id = String(body.id ?? body.eventId ?? '');
+	const status = String(body.status ?? '') as CommentStatus;
+	if (!id) return json({ error: 'id required' }, { status: 400 });
+	if (!VALID.includes(status)) return json({ error: 'invalid status' }, { status: 400 });
 
-	await setEventStatus(db, eventId, status, session?.actorId ?? null);
+	const session = await getSession(event, db);
+	await setCommentStatus(db, id, status, session?.personId ?? null);
 	return json({ ok: true });
 };

@@ -22,6 +22,24 @@ import {
 } from '$lib/server/repositories/media';
 
 /** The v4 schema's own invariants, exercised through the repositories. */
+describe('schema', () => {
+	it('is schema 4 and carries none of the v3 tables', () => {
+		const { sqlite } = createTestDb();
+		const version = /** @type {{ value: string }} */ (
+			sqlite.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get()
+		);
+		expect(version.value).toBe('4');
+
+		const names = /** @type {{ name: string }[]} */ (
+			sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all()
+		).map((r) => r.name);
+		for (const gone of ['nodes', 'node_fields', 'node_tags', 'events', 'event_status', 'actors', 'relations', 'stats_daily']) {
+			expect(names).not.toContain(gone);
+		}
+		expect(names).toEqual(expect.arrayContaining(['assets', 'people', 'comments', 'reactions', 'tags', 'media']));
+	});
+});
+
 describe('assets', () => {
 	it('splits the shared row from the kind row, and reads both back', async () => {
 		const { db } = createTestDb();
@@ -54,6 +72,7 @@ describe('assets', () => {
 	it('keeps a slug unique within (kind, lang), not across kinds', async () => {
 		const { db } = createTestDb();
 		const owner = await ensureOwner(db);
+		/** @type {Omit<import('$lib/content/types').NewAsset, 'type' | 'slug'>} */
 		const base = { lang: 'en', title: 't', bodyMd: 'x', status: 'published', authorId: owner.id };
 
 		await createAsset(db, { ...base, type: 'post', slug: 'dup' });
@@ -65,6 +84,7 @@ describe('assets', () => {
 	it('filters by visibility and status in SQL', async () => {
 		const { db } = createTestDb();
 		const owner = await ensureOwner(db);
+		/** @type {Omit<import('$lib/content/types').NewAsset, 'type' | 'slug'>} */
 		const base = { lang: 'en', title: 't', bodyMd: 'x', authorId: owner.id };
 
 		await createAsset(db, { ...base, type: 'post', slug: 'pub', status: 'published' });
@@ -91,6 +111,7 @@ describe('assets', () => {
 	it('lists several kinds in one ordered query', async () => {
 		const { db } = createTestDb();
 		const owner = await ensureOwner(db);
+		/** @type {Omit<import('$lib/content/types').NewAsset, 'type' | 'slug'>} */
 		const base = { lang: 'en', bodyMd: 'x', authorId: owner.id };
 
 		await createAsset(db, {

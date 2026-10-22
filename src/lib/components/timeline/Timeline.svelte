@@ -56,8 +56,8 @@
               <a class="entry-head" href={`/${entry.url}`}>
                 <span class="entry-date">{formatDate(entry.occurredAt ?? entry.date, lang)}</span>
                 <span class="badge type">{typeLabel(entry.type)}</span>
-                {#if entry.authorActorId && authors[entry.authorActorId]}
-                  <span class="badge author">{authors[entry.authorActorId]}</span>
+                {#if entry.authorId && authors[entry.authorId]}
+                  <span class="badge author">{authors[entry.authorId]}</span>
                 {/if}
                 {#if entry.visibility === 'private'}
                   <span class="badge private">private</span>

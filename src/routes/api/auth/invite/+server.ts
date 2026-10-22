@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { hashToken, issueMemberSession } from '$lib/server/auth';
-import { createActor } from '$lib/server/repositories/actors';
+import { createPerson } from '$lib/server/repositories/people';
 import { acceptInvite, getInviteByTokenHash, isInviteUsable } from '$lib/server/repositories/invites';
 import { hasFeature } from '$lib/engine/features';
 
@@ -47,15 +47,17 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'invalid or expired invite' }, { status: 400 });
 	}
 
-	const actor = await createActor(db, {
-		kind: 'member',
+	// Accepting an invite makes a member: the person row carries the role, and the
+	// session that follows carries none.
+	const person = await createPerson(db, {
+		role: 'member',
 		displayName: invite.label ?? 'Member',
 		handle: `member-${invite.id}`
 	});
-	await acceptInvite(db, invite.id, actor.id);
+	await acceptInvite(db, invite.id, person.id);
 
-	const ok = await issueMemberSession(event, db, actor.id);
+	const ok = await issueMemberSession(event, db, person.id);
 	if (!ok) return json({ error: 'server not configured' }, { status: 500 });
 
-	return json({ ok: true, role: 'member', name: actor.displayName });
+	return json({ ok: true, role: 'member', name: person.displayName });
 };

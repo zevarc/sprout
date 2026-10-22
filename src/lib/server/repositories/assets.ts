@@ -564,7 +564,7 @@ export async function searchAssets(
 	const where = ["a.status = 'published'"];
 	const params: unknown[] = [];
 	if (opts.lang) {
-		where.push('f.lang = ?');
+		where.push('a.lang = ?');
 		params.push(opts.lang);
 	}
 	if (opts.visibility) {

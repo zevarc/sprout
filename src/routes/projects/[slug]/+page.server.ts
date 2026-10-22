@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { getNodeBySlug, listGroupNodes } from '$lib/server/repositories/nodes';
+import { getAssetBySlug, listGroupNodes } from '$lib/server/repositories/assets';
 import { nodeToProjectView, nodeUrl, translationLinks } from '$lib/content/view';
 import { getContentType } from '$lib/content/registry';
 import { localeFromPath } from '$lib/i18n';
@@ -12,7 +12,7 @@ export async function load({ params, platform, url }) {
 
 	const db = getDb(platform);
 	const lang = localeFromPath(url.pathname);
-	const node = await getNodeBySlug(db, 'project', params.slug, lang);
+	const node = await getAssetBySlug(db, 'project', params.slug, lang);
 	if (!node || node.status !== 'published') throw error(404, 'Not found');
 	// A static override must honour visibility exactly like the generic detail route.
 	if (node.visibility === 'private') throw error(404, 'Not found');

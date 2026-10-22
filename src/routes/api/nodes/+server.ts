@@ -2,7 +2,8 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { getSession, isEditor } from '$lib/server/auth';
-import { createNode, getNodeBySlug, listNodes, uniqueSlug } from '$lib/server/repositories/nodes';
+import { createAsset, getAssetBySlug, listAssets, uniqueSlug } from '$lib/server/repositories/assets';
+import { ensureOwner } from '$lib/server/repositories/people';
 import { getContentType } from '$lib/content/registry';
 import { slugify } from '$lib/reading';
 import { nodeUrl } from '$lib/content/view';
@@ -10,7 +11,7 @@ import { invalidateNode } from '$lib/server/cache';
 import { site } from '$lib/site';
 import { content } from '$lib/engine/registry';
 import { normalizeTags, validateFields } from '$lib/engine/fields';
-import type { NodeStatus, NodeVisibility } from '$lib/content/types';
+import type { AssetStatus, Visibility } from '$lib/content/types';
 
 export const prerender = false;
 
@@ -19,16 +20,16 @@ export const GET: RequestHandler = async (event) => {
 	const db = getDb(event.platform);
 	if (!(await isEditor(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
 
-	const nodes = await listNodes(db, {
+	const nodes = await listAssets(db, {
 		type: event.url.searchParams.get('type') ?? undefined,
 		lang: event.url.searchParams.get('lang') ?? undefined,
-		status: (event.url.searchParams.get('status') as NodeStatus | 'all') ?? 'all',
+		status: (event.url.searchParams.get('status') as AssetStatus | 'all') ?? 'all',
 		limit: Number(event.url.searchParams.get('limit') ?? 100)
 	});
 	return json({ nodes });
 };
 
-/** POST /api/nodes — create a node (draft or published). */
+/** POST /api/nodes — create an asset (draft or published). */
 export const POST: RequestHandler = async (event) => {
 	const db = getDb(event.platform);
 	if (!(await isEditor(event, db))) return json({ error: 'unauthorized' }, { status: 401 });
@@ -49,7 +50,7 @@ export const POST: RequestHandler = async (event) => {
 
 	// A slug is optional. Filling in a URL identifier by hand is a typing tax,
 	// especially for micro-posts, so derive one: the title when there is one,
-	// otherwise the date. `uniqueSlug` appends -2, -3, … within (type, lang).
+	// otherwise the date. `uniqueSlug` appends -2, -3, … within (kind, lang).
 	let slug = String(body.slug ?? '').trim();
 	if (!slug) {
 		const title = body.title != null ? String(body.title).trim() : '';
@@ -59,28 +60,33 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const bodyMd = String(body.bodyMd ?? '');
-	const status = (body.status as NodeStatus) ?? 'draft';
-	if (!['draft', 'published', 'archived', 'scheduled'].includes(status)) {
+	const status = (body.status as AssetStatus) ?? 'draft';
+	if (!['draft', 'published', 'archived'].includes(status)) {
 		return json({ error: 'invalid status' }, { status: 400 });
 	}
 
-	// Declared fields are validated here — the single write boundary.
+	// Declared fields are validated here — the single write boundary. In v4 each
+	// declared field is a real column on the kind's table.
 	const fields = validateFields(definition.fields, body.fields ?? {});
 	if (!fields.ok) {
 		return json({ error: 'invalid fields', details: fields.errors }, { status: 400 });
 	}
 
-	// Slugs are unique per (type, lang) — a clear conflict beats a raw 500.
-	if (await getNodeBySlug(db, type, slug, lang)) {
+	// Slugs are unique per (kind, lang) — a clear conflict beats a raw 500.
+	if (await getAssetBySlug(db, type, slug, lang)) {
 		return json({ error: 'slug already exists' }, { status: 409 });
 	}
 
-	const visibility: NodeVisibility =
+	const visibility: Visibility =
 		body.visibility === 'public' || body.visibility === 'private'
 			? body.visibility
 			: (content?.defaultVisibility ?? 'public');
 
-	const node = await createNode(db, {
+	// Every asset has an author. A machine request (Bearer token) has no session,
+	// so it records as the site owner.
+	const authorId = session?.personId ?? (await ensureOwner(db)).id;
+
+	const node = await createAsset(db, {
 		type,
 		slug,
 		lang,
@@ -91,9 +97,7 @@ export const POST: RequestHandler = async (event) => {
 		publishedAt: body.publishedAt ? String(body.publishedAt) : null,
 		occurredAt: body.occurredAt ? String(body.occurredAt) : null,
 		visibility,
-		featured: body.featured === true,
-		coverMediaId: body.coverMediaId ? String(body.coverMediaId) : null,
-		authorActorId: session?.actorId ?? null,
+		authorId,
 		fields: fields.value,
 		tags: normalizeTags(body.tags)
 	});

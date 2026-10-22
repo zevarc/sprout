@@ -1,22 +1,19 @@
 /**
- * Canonical export — the portability contract.
+ * Canonical export — the portability contract (docs/EXPORT-CONTRACT.md).
  *
- * Everything in the platform must be reconstructible from this format alone.
- * Output is deterministic (stable key order, sorted rows, normalized
- * timestamps) so repeated exports produce clean diffs in the git mirror.
+ * One file per table, deterministic order, no rendered HTML. The kind files are
+ * listed in `schema.json.types` so a restore knows exactly what to expect.
  */
 
 import type { D1Database } from '$lib/server/db';
 import { first, query } from '$lib/server/db';
-import { exportFieldRows } from '$lib/server/repositories/fields';
-import { exportTagRows } from '$lib/server/repositories/tags';
+import { exportCommentRows } from '$lib/server/repositories/comments';
+import { exportIdentityRows, exportPersonRows } from '$lib/server/repositories/people';
+import { exportReactionRows } from '$lib/server/repositories/reactions';
+import { exportAssetTagRows, exportTagRows } from '$lib/server/repositories/tags';
+import { kindColumns, kindTable } from '$lib/server/repositories/assets';
 
-/**
- * v1 → v2: ids became opaque; derived HTML/relations left the export.
- * v2 → v3: `nodes.extra` became relational — `node_fields` rows, `node_tags`
- *          rows, and cross-type concepts as columns (featured, cover).
- */
-export const EXPORT_SCHEMA_VERSION = 3;
+export const EXPORT_SCHEMA_VERSION = 4;
 
 /** JSON.stringify with recursively sorted object keys. */
 function stableStringify(value: unknown): string {
@@ -58,48 +55,40 @@ export interface ExportBundle {
 	files: ExportFile[];
 	nodeCount: number;
 	eventCount: number;
+	/** The content kinds whose files are present. */
+	types: string[];
 }
 
 /** Builds the full text export from the database. */
 export async function buildExport(db: D1Database): Promise<ExportBundle> {
-	const nodes = await query<Record<string, unknown>>(
+	const people = await exportPersonRows(db);
+	const identities = await exportIdentityRows(db);
+	const assets = await query<Record<string, unknown>>(
 		db,
-		`SELECT id, type, slug, lang, group_id, title, summary, body_md, status,
-			published_at, occurred_at, visibility, featured, cover_media_id,
-			author_actor_id, created_at, updated_at
-		 FROM nodes ORDER BY id`
+		`SELECT id, type, lang, group_id, status, visibility, published_at, occurred_at,
+		        author_id, created_at, updated_at
+		   FROM assets ORDER BY id`
 	);
-	const fieldRows = await exportFieldRows(db);
-	const tagRows = await exportTagRows(db);
-	const relations = await query<Record<string, unknown>>(
-		db,
-		'SELECT from_id, to_id, rel FROM relations ORDER BY from_id, to_id, rel'
-	);
+	const comments = await exportCommentRows(db);
+	const reactions = await exportReactionRows(db);
+	const tags = await exportTagRows(db);
+	const assetTags = await exportAssetTagRows(db);
 	const media = await query<Record<string, unknown>>(
 		db,
-		'SELECT id, node_id, r2_key, kind, width, height, alt, position, sha256 FROM media ORDER BY id'
+		'SELECT id, r2_key, kind, sha256, created_at FROM media ORDER BY id'
 	);
-	const events = await query<Record<string, unknown>>(
+	const assetMedia = await query<Record<string, unknown>>(
 		db,
-		`SELECT id, kind, target_type, target_id, actor_id, parent_id, body_md, payload, created_at
-		 FROM events ORDER BY id`
+		'SELECT asset_id, media_id, position, alt, role FROM asset_media ORDER BY asset_id, media_id'
 	);
-	const eventStatus = await query<Record<string, unknown>>(
-		db,
-		'SELECT event_id, status, at, by FROM event_status ORDER BY event_id, at, rowid'
-	);
-	const actors = await query<Record<string, unknown>>(
-		db,
-		`SELECT id, kind, handle, display_name, avatar_url, email_hash, created_at
-		 FROM actors ORDER BY id`
-	);
-	const actorIdentities = await query<Record<string, unknown>>(
-		db,
-		'SELECT actor_id, provider, provider_uid FROM actor_identities ORDER BY actor_id, provider'
-	);
+
+	// Every kind that actually has assets, whatever the current config declares:
+	// a bundle must be complete for the data it came from.
+	const types = (
+		await query<{ type: string }>(db, 'SELECT DISTINCT type FROM assets ORDER BY type')
+	).map((r) => r.type);
 
 	const files: ExportFile[] = [];
-
 	const schemaRow = await first<{ value: string }>(
 		db,
 		"SELECT value FROM meta WHERE key = 'schema_version'"
@@ -109,86 +98,105 @@ export async function buildExport(db: D1Database): Promise<ExportBundle> {
 		path: 'schema.json',
 		content: stableStringify({
 			version: EXPORT_SCHEMA_VERSION,
-			db_schema: schemaRow?.value ?? '3',
+			db_schema: schemaRow?.value ?? '4',
 			generator: 'sprout-export',
 			tables: [
-				'nodes',
-				'node_fields',
-				'node_tags',
-				'relations',
+				'people',
+				'identities',
+				'assets',
+				...types.map(kindTable),
+				'comments',
+				'reactions',
+				'tags',
+				'asset_tags',
 				'media',
-				'events',
-				'event_status',
-				'actors',
-				'actor_identities'
-			]
+				'asset_media'
+			],
+			types
 		})
 	});
 
-	// Nodes carry no blobs; type-specific data lives in its own files.
-	files.push({ path: 'nodes.jsonl', content: toJsonl(nodes) });
-	files.push({ path: 'node_fields.jsonl', content: toJsonl(fieldRows) });
-	files.push({ path: 'node_tags.jsonl', content: toJsonl(tagRows) });
-	files.push({ path: 'relations.jsonl', content: toJsonl(relations) });
+	files.push({ path: 'people.jsonl', content: toJsonl(people) });
+	files.push({ path: 'identities.jsonl', content: toJsonl(identities) });
+	files.push({ path: 'assets.jsonl', content: toJsonl(assets) });
+	files.push({ path: 'comments.jsonl', content: toJsonl(comments) });
+	files.push({ path: 'reactions.jsonl', content: toJsonl(reactions) });
+	files.push({ path: 'tags.jsonl', content: toJsonl(tags) });
+	files.push({ path: 'asset_tags.jsonl', content: toJsonl(assetTags) });
 	files.push({ path: 'media.jsonl', content: toJsonl(media) });
-	files.push({
-		path: 'events.jsonl',
-		content: toJsonl(events.map((e) => ({ ...e, payload: parseJson(e.payload as string | null) })))
-	});
-	files.push({ path: 'event_status.jsonl', content: toJsonl(eventStatus) });
-	files.push({ path: 'actors.jsonl', content: toJsonl(actors) });
-	files.push({ path: 'actor_identities.jsonl', content: toJsonl(actorIdentities) });
+	files.push({ path: 'asset_media.jsonl', content: toJsonl(assetMedia) });
 
-	// Human-readable mirror, one file per node: fields render as frontmatter.
-	const fieldsByNode = new Map<string, Record<string, unknown>>();
-	for (const row of fieldRows) {
-		const bucket = fieldsByNode.get(String(row.node_id)) ?? {};
-		bucket[String(row.field)] = row.value;
-		fieldsByNode.set(String(row.node_id), bucket);
-	}
-	const tagsByNode = new Map<string, string[]>();
-	for (const row of tagRows) {
-		const bucket = tagsByNode.get(String(row.node_id)) ?? [];
-		bucket.push(String(row.tag));
-		tagsByNode.set(String(row.node_id), bucket);
+	// One file per kind: its declared columns, minus the derived HTML.
+	const tagsByAsset = new Map<string, string[]>();
+	{
+		const rows = await query<{ asset_id: string; name: string }>(
+			db,
+			`SELECT at.asset_id AS asset_id, t.name AS name
+			   FROM asset_tags at JOIN tags t ON t.id = at.tag_id
+			  ORDER BY at.asset_id, t.name`
+		);
+		for (const row of rows) {
+			const bucket = tagsByAsset.get(row.asset_id) ?? [];
+			bucket.push(row.name);
+			tagsByAsset.set(row.asset_id, bucket);
+		}
 	}
 
-	for (const n of nodes) {
-		const type = String(n.type);
-		const slug = String(n.slug);
-		const lang = String(n.lang);
-		const frontmatter = [
-			'---',
-			`id: ${n.id}`,
-			`type: ${type}`,
-			`slug: ${slug}`,
-			`lang: ${lang}`,
-			`group_id: ${n.group_id}`,
-			`title: ${JSON.stringify(n.title ?? '')}`,
-			`summary: ${JSON.stringify(n.summary ?? '')}`,
-			`status: ${n.status}`,
-			`published_at: ${n.published_at ?? ''}`,
-			`occurred_at: ${n.occurred_at ?? ''}`,
-			`visibility: ${n.visibility ?? 'public'}`,
-			`featured: ${n.featured === 1 ? 'true' : 'false'}`,
-			`cover_media_id: ${n.cover_media_id ?? ''}`,
-			`author_actor_id: ${n.author_actor_id ?? ''}`,
-			`created_at: ${n.created_at}`,
-			`updated_at: ${n.updated_at}`,
-			`tags: ${stableStringify(tagsByNode.get(String(n.id)) ?? [])}`,
-			`fields: ${stableStringify(fieldsByNode.get(String(n.id)) ?? {})}`,
-			'---',
-			''
-		].join('\n');
-		files.push({
-			path: `nodes/${type}/${slug}.${lang}.md`,
-			content: frontmatter + String(n.body_md ?? '')
-		});
+	const kindRows = new Map<string, Record<string, unknown>[]>();
+	for (const type of types) {
+		const columns = kindColumns(type).filter((c) => c !== 'body_html');
+		const rows = await query<Record<string, unknown>>(
+			db,
+			`SELECT id, ${columns.join(', ')} FROM ${kindTable(type)} ORDER BY id`
+		);
+		kindRows.set(type, rows);
+		files.push({ path: `${kindTable(type)}.jsonl`, content: toJsonl(rows) });
+	}
+
+	// Human-readable mirror, one file per asset.
+	const assetById = new Map(assets.map((a) => [String(a.id), a]));
+	for (const type of types) {
+		const rows = kindRows.get(type) ?? [];
+		for (const row of rows) {
+			const asset = assetById.get(String(row.id));
+			if (!asset) continue;
+			const fields: Record<string, unknown> = {};
+			for (const field of kindColumns(type)) {
+				if (['id', 'lang', 'slug', 'title', 'summary', 'body_md', 'body_html'].includes(field)) continue;
+				if (row[field] !== null && row[field] !== undefined) fields[field] = row[field];
+			}
+			const frontmatter = [
+				'---',
+				`id: ${asset.id}`,
+				`type: ${type}`,
+				`lang: ${asset.lang}`,
+				`slug: ${row.slug}`,
+				`group_id: ${asset.group_id}`,
+				`title: ${JSON.stringify(row.title ?? '')}`,
+				`summary: ${JSON.stringify(row.summary ?? '')}`,
+				`status: ${asset.status}`,
+				`published_at: ${asset.published_at ?? ''}`,
+				`occurred_at: ${asset.occurred_at ?? ''}`,
+				`visibility: ${asset.visibility ?? 'public'}`,
+				`author_id: ${asset.author_id}`,
+				`created_at: ${asset.created_at}`,
+				`updated_at: ${asset.updated_at}`,
+				`tags: ${stableStringify(tagsByAsset.get(String(asset.id)) ?? [])}`,
+				`fields: ${stableStringify(fields)}`,
+				'---',
+				''
+			].join('\n');
+			files.push({
+				path: `nodes/${type}/${row.slug}.${asset.lang}.md`,
+				content: frontmatter + String(row.body_md ?? '')
+			});
+		}
 	}
 
 	return {
 		files,
-		nodeCount: nodes.length,
-		eventCount: events.length
+		nodeCount: assets.length,
+		eventCount: comments.length,
+		types
 	};
 }

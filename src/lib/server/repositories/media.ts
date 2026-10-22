@@ -184,6 +184,11 @@ export async function mediaInUse(db: D1Database, mediaId: string): Promise<boole
 	return Number(row?.n ?? 0) > 0;
 }
 
+/** Drops the metadata row. Only call it after checking `mediaInUse`. */
+export async function deleteMediaObject(db: D1Database, mediaId: string): Promise<void> {
+	await run(db, 'DELETE FROM media WHERE id = ?', [mediaId]);
+}
+
 /**
  * Readability of an object: public only when **every** asset that binds it is
  * public (docs/DATA-MODEL.md §4.10). An object nothing binds is private.

@@ -3,25 +3,26 @@ import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { renderComment } from '$lib/server/render';
 import {
-	addEvent,
-	countEventsSince,
+	addComment,
+	countCommentsSince,
 	hasApprovedComment,
-	listEvents,
-	setEventStatus
-} from '$lib/server/repositories/events';
+	listComments,
+	setCommentStatus
+} from '$lib/server/repositories/comments';
+import { addReaction, listReactions } from '$lib/server/repositories/reactions';
 import {
-	createActor,
-	getActor,
-	getActorByEmailHash,
-	getActorByIdentity,
+	getPerson,
+	getPersonByEmailHash,
+	getPersonByIdentity,
+	createPerson,
 	linkIdentity
-} from '$lib/server/repositories/actors';
+} from '$lib/server/repositories/people';
 import {
-	getActorFromCookie,
+	getPersonFromCookie,
 	getSession,
 	hashEmail,
 	hashIp,
-	issueActorCookie
+	issuePersonCookie
 } from '$lib/server/auth';
 
 import { site } from '$lib/site';
@@ -40,40 +41,47 @@ interface CommentDTO {
 	author: { name: string; avatarUrl: string | null; isOwner: boolean };
 }
 
-/** GET /api/events?kind=comment&targetType=post&targetId=… */
+/**
+ * GET /api/events?kind=comment&targetId=… — approved comments on one asset.
+ * `kind=reaction` returns the reaction rows instead.
+ */
 export const GET: RequestHandler = async ({ url, platform }) => {
 	const db = getDb(platform);
 	const kind = url.searchParams.get('kind') ?? 'comment';
-	const targetType = url.searchParams.get('targetType') ?? undefined;
-	const targetId = url.searchParams.get('targetId') ?? undefined;
+	const targetId = url.searchParams.get('targetId') ?? '';
+	if (!targetId) return json({ comments: [], reactions: [] });
 
-	const events = await listEvents(db, { kind: kind as 'comment', targetType, targetId });
-	const actorIds = [...new Set(events.map((e) => e.actorId).filter(Boolean))] as string[];
-	const actors = await Promise.all(actorIds.map((id) => getActor(db, id)));
-	const actorMap = new Map(actors.filter(Boolean).map((a) => [a!.id, a!]));
+	if (kind === 'reaction') {
+		return json({ reactions: await listReactions(db, targetId) });
+	}
 
-	const comments: CommentDTO[] = await Promise.all(
-		events.map(async (e) => {
-			const actor = e.actorId ? actorMap.get(e.actorId) : undefined;
+	const comments = await listComments(db, { assetId: targetId, status: 'approved' });
+	const personIds = [...new Set(comments.map((c) => c.authorId))];
+	const people = await Promise.all(personIds.map((id) => getPerson(db, id)));
+	const byId = new Map(people.filter(Boolean).map((p) => [p!.id, p!]));
+
+	const out: CommentDTO[] = await Promise.all(
+		comments.map(async (c) => {
+			const person = byId.get(c.authorId);
 			return {
-				id: e.id,
-				parentId: e.parentId,
+				id: c.id,
+				parentId: c.parentId,
 				// Rendered HTML is derived, never stored.
-				bodyHtml: e.bodyMd ? await renderComment(e.bodyMd) : '',
-				createdAt: e.createdAt,
+				bodyHtml: c.bodyMd ? await renderComment(c.bodyMd) : '',
+				createdAt: c.createdAt,
 				author: {
-					name: actor?.displayName ?? 'Anonymous',
-					avatarUrl: actor?.avatarUrl ?? null,
-					isOwner: actor?.kind === 'owner'
+					name: person?.displayName ?? 'Anonymous',
+					avatarUrl: person?.avatarUrl ?? null,
+					isOwner: person?.role === 'owner'
 				}
 			};
 		})
 	);
 
-	return json({ comments });
+	return json({ comments: out });
 };
 
-/** POST /api/events — create a comment (or reaction). */
+/** POST /api/events — create a comment or a reaction. */
 export const POST: RequestHandler = async (event) => {
 	const db = getDb(event.platform);
 	const env = event.platform?.env;
@@ -95,70 +103,56 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'unsupported kind' }, { status: 400 });
 	}
 
-	const targetType = String(body.targetType ?? '');
 	const targetId = String(body.targetId ?? '');
-	if (!targetType || !targetId) return json({ error: 'missing target' }, { status: 400 });
+	if (!targetId) return json({ error: 'missing target' }, { status: 400 });
 
-	// Resolve identity: owner session > signed anon cookie > new anonymous actor.
+	// Resolve identity: owner session > signed cookie > external account > new
+	// anonymous person. A person with no role is simply not a member.
 	const session = await getSession(event, db);
-	let actorId: string | null = null;
-	let isNewActor = false;
+	let personId: string | null = null;
 
-	if (session?.role === 'owner') {
-		actorId = session.actorId;
+	if (session?.role === 'owner' || session?.role === 'member') {
+		personId = session.personId;
 	} else if (body.provider && body.providerUid) {
 		const provider = String(body.provider);
 		const providerUid = String(body.providerUid);
-		const linked = await getActorByIdentity(db, provider, providerUid);
+		const linked = await getPersonByIdentity(db, provider, providerUid);
 		if (linked) {
-			actorId = linked.id;
+			personId = linked.id;
 		} else {
-			const created = await createActor(db, {
-				kind: 'visitor',
+			const created = await createPerson(db, {
 				displayName: String(body.name ?? 'Visitor'),
 				avatarUrl: body.avatarUrl ? String(body.avatarUrl) : null
 			});
 			await linkIdentity(db, created.id, provider, providerUid);
-			actorId = created.id;
+			personId = created.id;
 		}
 	} else {
-		const cookieActor = await getActorFromCookie(event);
-		if (cookieActor) actorId = cookieActor;
+		const cookiePerson = await getPersonFromCookie(event);
+		if (cookiePerson) personId = cookiePerson;
 	}
 
 	const name = String(body.name ?? '').trim();
-	if (!actorId) {
+	if (!personId) {
 		if (!name) return json({ error: 'name required' }, { status: 400 });
 		if (RESERVED_NAMES.has(name.toLowerCase()))
 			return json({ error: 'reserved name' }, { status: 400 });
 
 		const email = String(body.email ?? '').trim();
 		const emailHash = email && env?.IP_HASH_SALT ? await hashEmail(email, env.IP_HASH_SALT) : null;
-		const existing = emailHash ? await getActorByEmailHash(db, emailHash) : null;
+		const existing = emailHash ? await getPersonByEmailHash(db, emailHash) : null;
 		if (existing) {
-			actorId = existing.id;
+			personId = existing.id;
 		} else {
-			const created = await createActor(db, {
-				kind: 'anonymous',
-				displayName: name,
-				emailHash
-			});
-			actorId = created.id;
-			isNewActor = true;
+			const created = await createPerson(db, { displayName: name, emailHash });
+			personId = created.id;
 		}
-		await issueActorCookie(event, actorId);
+		await issuePersonCookie(event, personId);
 	}
 
 	if (kind === 'reaction') {
-		const created = await addEvent(db, {
-			kind: 'reaction',
-			targetType,
-			targetId,
-			actorId,
-			payload: { emoji: String(body.emoji ?? '👍') }
-		});
-		await setEventStatus(db, created.id, 'approved', actorId);
-		return json({ ok: true, id: created.id });
+		await addReaction(db, targetId, personId, String(body.emoji ?? '👍'));
+		return json({ ok: true });
 	}
 
 	// Comment: text required.
@@ -166,9 +160,9 @@ export const POST: RequestHandler = async (event) => {
 	if (!text) return json({ error: 'empty comment' }, { status: 400 });
 	if (text.length > 4000) return json({ error: 'too long' }, { status: 400 });
 
-	// Rate limiting (per actor, sliding window).
+	// Rate limiting (per person, sliding window).
 	const since = new Date(Date.now() - RATE_WINDOW_MS).toISOString();
-	const recent = await countEventsSince(db, { actorId, kind: 'comment', since });
+	const recent = await countCommentsSince(db, { authorId: personId, since });
 	if (recent >= RATE_MAX) return json({ error: 'rate limited' }, { status: 429 });
 
 	// Spam signals.
@@ -182,26 +176,24 @@ export const POST: RequestHandler = async (event) => {
 		/* address unavailable */
 	}
 
-	const created = await addEvent(db, {
-		kind: 'comment',
-		targetType,
-		targetId,
-		actorId,
+	const created = await addComment(db, {
+		assetId: targetId,
 		parentId: body.parentId ? String(body.parentId) : null,
+		authorId: personId,
 		bodyMd: text,
 		// Structured metadata only — rendered HTML is derived on read.
 		payload: ipHash ? { ipHash } : null
 	});
 
-	// Owner auto-approves; a previously-approved commenter is trusted;
+	// Owner and members auto-approve; a previously-approved commenter is trusted;
 	// otherwise the comment waits in the moderation queue.
 	let status: 'approved' | 'pending' = 'pending';
-	if (session?.role === 'owner') {
+	if (session?.role === 'owner' || session?.role === 'member') {
 		status = 'approved';
-	} else if (actorId && (await hasApprovedComment(db, actorId))) {
+	} else if (await hasApprovedComment(db, personId)) {
 		status = 'approved';
 	}
-	await setEventStatus(db, created.id, status, actorId);
+	await setCommentStatus(db, created.id, status, personId);
 
 	return json({ ok: true, id: created.id, status });
 };

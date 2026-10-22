@@ -36,7 +36,7 @@ export const POST: RequestHandler = async (event) => {
 	const invite = await createInvite(db, {
 		tokenHash: await hashToken(secret, token),
 		label,
-		createdBy: session?.actorId ?? null,
+		createdBy: session?.personId ?? null,
 		ttlSeconds
 	});
 

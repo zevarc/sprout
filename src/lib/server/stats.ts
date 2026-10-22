@@ -1,9 +1,12 @@
 /**
  * Self-hosted, cookie-free analytics. Aggregated on write; never exported.
+ * Daily rows are pruned after 400 days (docs/DATA-MODEL.md §4.11).
  */
 
 import type { D1Database } from '$lib/server/db';
 import { query, run } from '$lib/server/db';
+
+const RETENTION_DAYS = 400;
 
 /** Adds one view to the (day, path, referrer) counter. */
 export async function recordPageview(
@@ -14,10 +17,20 @@ export async function recordPageview(
 	const day = new Date().toISOString().slice(0, 10);
 	await run(
 		db,
-		`INSERT INTO stats_daily (day, path, referrer, views) VALUES (?, ?, ?, 1)
+		`INSERT INTO page_views (day, path, referrer, views) VALUES (?, ?, ?, 1)
 		 ON CONFLICT (day, path, referrer) DO UPDATE SET views = views + 1`,
 		[day, path, referrer]
 	);
+}
+
+/** Drops daily rows beyond the retention window. */
+export async function prunePageviews(db: D1Database): Promise<number> {
+	const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000)
+		.toISOString()
+		.slice(0, 10);
+	const result = await run(db, 'DELETE FROM page_views WHERE day < ?', [cutoff]);
+	const meta = result.meta as { changes?: number } | undefined;
+	return meta?.changes ?? 0;
 }
 
 function daysAgo(days: number): string {
@@ -39,22 +52,22 @@ export async function pageviewStats(db: D1Database, days: number): Promise<Pagev
 
 	const totals = await query<{ views: number; paths: number }>(
 		db,
-		'SELECT COALESCE(SUM(views),0) AS views, COUNT(DISTINCT path) AS paths FROM stats_daily WHERE day >= ?',
+		'SELECT COALESCE(SUM(views),0) AS views, COUNT(DISTINCT path) AS paths FROM page_views WHERE day >= ?',
 		[since]
 	);
 	const byDay = await query<{ day: string; views: number }>(
 		db,
-		'SELECT day, SUM(views) AS views FROM stats_daily WHERE day >= ? GROUP BY day ORDER BY day DESC',
+		'SELECT day, SUM(views) AS views FROM page_views WHERE day >= ? GROUP BY day ORDER BY day DESC',
 		[since]
 	);
 	const topPaths = await query<{ path: string; views: number }>(
 		db,
-		'SELECT path, SUM(views) AS views FROM stats_daily WHERE day >= ? GROUP BY path ORDER BY views DESC LIMIT 15',
+		'SELECT path, SUM(views) AS views FROM page_views WHERE day >= ? GROUP BY path ORDER BY views DESC LIMIT 15',
 		[since]
 	);
 	const referrers = await query<{ referrer: string; views: number }>(
 		db,
-		"SELECT referrer, SUM(views) AS views FROM stats_daily WHERE day >= ? AND referrer != '' GROUP BY referrer ORDER BY views DESC LIMIT 10",
+		"SELECT referrer, SUM(views) AS views FROM page_views WHERE day >= ? AND referrer != '' GROUP BY referrer ORDER BY views DESC LIMIT 10",
 		[since]
 	);
 

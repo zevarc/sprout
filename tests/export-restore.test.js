@@ -1,120 +1,108 @@
 import { describe, it, expect } from 'vitest';
 import { createTestDb } from './helpers/d1-memory.js';
-import { createNode, getNode } from '$lib/server/repositories/nodes';
-import { addEvent, setEventStatus } from '$lib/server/repositories/events';
-import { createActor } from '$lib/server/repositories/actors';
+import { createAsset, getAsset } from '$lib/server/repositories/assets';
+import { addComment, setCommentStatus } from '$lib/server/repositories/comments';
+import { addReaction } from '$lib/server/repositories/reactions';
+import { createPerson, ensureOwner } from '$lib/server/repositories/people';
+import { bindMedia, recordMediaObject } from '$lib/server/repositories/media';
 import { buildExport } from '$lib/server/export';
 import { restoreFromBundle } from '$lib/server/restore';
-import { run } from '$lib/server/db';
 
-describe('export → restore round trip', () => {
-	it('rebuilds an identical dataset (this is the migration guarantee)', async () => {
+describe('export → restore round trip (v4)', () => {
+	it('rebuilds an identical dataset — the migration guarantee', async () => {
 		const source = createTestDb();
+		const owner = await ensureOwner(source.db);
+		const reader = await createPerson(source.db, { displayName: 'Reader', emailHash: 'h' });
 
-		const author = await createActor(source.db, { kind: 'owner', displayName: 'Owner' });
-		const commenter = await createActor(source.db, {
-			kind: 'anonymous',
-			displayName: 'Alice',
-			emailHash: 'hashed'
-		});
-
-		const node = await createNode(source.db, {
-			type: 'toy',
-			slug: 'blocks',
-			lang: 'zh',
-			title: '积木',
-			summary: '很耐玩',
-			bodyMd: '## 小节\n\n```cpp\nint main(){}\n```\n',
+		const asset = await createAsset(source.db, {
+			type: 'project',
+			slug: 'sprout',
+			lang: 'en',
+			title: 'Sprout',
+			summary: 'portable',
+			bodyMd: '## hi\n\n```js\n1\n```\n',
 			status: 'published',
 			occurredAt: '2025-01-02T00:00:00.000Z',
 			visibility: 'private',
-			featured: true,
-			authorActorId: author.id,
-			fields: { rating: '5', price: 128, pros: '耐摔', sturdy: true },
-			tags: ['益智', '积木']
+			authorId: owner.id,
+			fields: { year: '2026', stage: 'active', order_index: 2 },
+			tags: ['platform', 'svelte']
 		});
 
-		// Attach media and point the cover at it.
-		await run(
-			source.db,
-			`INSERT INTO media (id, node_id, r2_key, kind, position) VALUES ('m1', ?, 'abc.png', 'image', 0)`,
-			[node.id]
-		);
-		await run(source.db, 'UPDATE nodes SET cover_media_id = ? WHERE id = ?', ['m1', node.id]);
+		const mediaId = await recordMediaObject(source.db, { r2Key: 'abc.png', sha256: 'abc' });
+		await bindMedia(source.db, asset.id, mediaId, { role: 'cover', alt: 'cover' });
 
-		const event = await addEvent(source.db, {
-			kind: 'comment',
-			targetType: 'toy',
-			targetId: node.id,
-			actorId: commenter.id,
-			bodyMd: 'hi',
-			payload: { ipHash: 'x' }
+		const comment = await addComment(source.db, {
+			assetId: asset.id,
+			authorId: reader.id,
+			bodyMd: 'nice'
 		});
-		await setEventStatus(source.db, event.id, 'approved', null);
+		await setCommentStatus(source.db, comment.id, 'approved', owner.id);
+		await addReaction(source.db, asset.id, reader.id, '👍');
 
 		const bundle = await buildExport(source.db);
-		expect(bundle.nodeCount).toBe(1);
-		expect(bundle.eventCount).toBe(1);
-		expect(bundle.files.some((f) => f.path === 'node_fields.jsonl')).toBe(true);
-		expect(bundle.files.some((f) => f.path === 'node_tags.jsonl')).toBe(true);
+		expect(bundle.types).toEqual(['project']);
+		expect(bundle.files.map((f) => f.path)).toEqual(
+			expect.arrayContaining([
+				'schema.json',
+				'people.jsonl',
+				'identities.jsonl',
+				'assets.jsonl',
+				'projects.jsonl',
+				'comments.jsonl',
+				'reactions.jsonl',
+				'tags.jsonl',
+				'asset_tags.jsonl',
+				'media.jsonl',
+				'asset_media.jsonl'
+			])
+		);
 
 		const target = createTestDb();
 		const result = await restoreFromBundle(target.db, bundle.files);
+		expect(result.nodes).toBe(1);
+		expect(result.comments).toBe(1);
+		expect(result.reactions).toBe(1);
+		expect(result.warnings).toEqual([]);
 
-		expect(result).toEqual({
-			nodes: 1,
-			events: 1,
-			actors: 2,
-			relations: 0,
-			fields: 4,
-			tags: 2
-		});
-
-		const restored = await getNode(target.db, node.id);
-		if (!restored) throw new Error('node was not restored');
-		expect(restored.title).toBe('积木');
-		expect(restored.fields).toEqual({ rating: '5', price: 128, pros: '耐摔', sturdy: true });
-		expect(restored.tags).toEqual(['益智', '积木']);
-		expect(restored.featured).toBe(true);
-		expect(restored.coverMediaId).toBe('m1');
-		expect(restored.media.map((m) => m.r2Key)).toEqual(['abc.png']);
-		// Visibility / occurred time / authorship / grouping must survive.
+		const restored = await getAsset(target.db, asset.id);
+		if (!restored) throw new Error('asset was not restored');
+		expect(restored.title).toBe('Sprout');
+		expect(restored.fields).toEqual({ year: '2026', stage: 'active', order_index: 2 });
+		expect(restored.tags).toEqual(['platform', 'svelte']);
+		expect(restored.coverMediaId).toBe(mediaId);
 		expect(restored.visibility).toBe('private');
-		expect(restored.occurredAt).toBe('2025-01-02T00:00:00.000Z');
-		expect(restored.authorActorId).toBe(author.id);
-		expect(restored.groupId).toBe(node.groupId);
+		expect(restored.groupId).toBe(asset.groupId);
 		// `body_html` is derived, so restoring must re-render it identically.
-		expect(restored.bodyHtml).toBe(node.bodyHtml);
-
-		/** @param {string} sql */
-		const count = (sql) => {
-			const row = /** @type {{ n: number }} */ (target.sqlite.prepare(sql).get());
-			return Number(row.n);
-		};
-		expect(count('SELECT COUNT(*) AS n FROM nodes_fts')).toBe(1);
-		expect(count('SELECT COUNT(*) AS n FROM media')).toBe(1);
-		expect(count('SELECT COUNT(*) AS n FROM node_fields')).toBe(4);
-		expect(count('SELECT COUNT(*) AS n FROM node_tags')).toBe(2);
-		expect(count('SELECT COUNT(*) AS n FROM event_status')).toBe(1);
-		expect(count('SELECT COUNT(*) AS n FROM relations')).toBe(0);
+		expect(restored.bodyHtml).toBe(asset.bodyHtml);
 
 		// Determinism: exporting the restored database yields byte-identical files.
 		const again = await buildExport(target.db);
 		expect(again.files).toEqual(bundle.files);
 	});
 
-	it('refuses a bundle from a different export version', async () => {
+	it('skips a kind it does not know, with a warning', async () => {
+		const { db } = createTestDb();
+		const result = await restoreFromBundle(db, [
+			{
+				path: 'schema.json',
+				content: JSON.stringify({ version: 4, types: ['toy'] })
+			},
+			{
+				path: 'toys.jsonl',
+				content: JSON.stringify({ id: 'x', lang: 'en', slug: 's', body_md: 'b' }) + '\n'
+			}
+		]);
+		expect(result.warnings.join(' ')).toContain('toy');
+	});
+
+	it('refuses another export version', async () => {
 		const { db } = createTestDb();
 		await expect(
-			restoreFromBundle(db, [
-				{ path: 'schema.json', content: JSON.stringify({ version: 4 }) }
-			])
+			restoreFromBundle(db, [{ path: 'schema.json', content: JSON.stringify({ version: 5 }) }])
 		).rejects.toThrow(/newer/);
-
 		await expect(
-			restoreFromBundle(db, [
-				{ path: 'schema.json', content: JSON.stringify({ version: 2 }) }
-			])
+			restoreFromBundle(db, [{ path: 'schema.json', content: JSON.stringify({ version: 3 }) }])
 		).rejects.toThrow(/older/);
 	});
 });
