@@ -8,7 +8,7 @@ Existing data moves through the export contract, not through `migrations apply`:
 
 ```bash
 pnpm content:export ./v3
-node scripts/migrate-v3-to-v4.mjs ./v3 ./v4
+pnpm content:migrate-v3-to-v4 ./v3 ./v4
 # fresh schema, then:
 pnpm content:restore ./v4
 ```

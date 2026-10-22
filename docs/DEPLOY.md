@@ -201,7 +201,7 @@ and merges identity into `people`. An older database cannot simply run
 ADMIN_TOKEN=… API_URL=https://old-domain pnpm content:export ./v3
 
 # 2) convert the bundle to format v4
-node scripts/migrate-v3-to-v4.mjs ./v3 ./v4
+pnpm content:migrate-v3-to-v4 ./v3 ./v4
 
 # 3) drop everything (including migration tracking) on the target DB
 cat > /tmp/sprout-reset.sql <<'SQL'

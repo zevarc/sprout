@@ -47,7 +47,8 @@
 		"content:export": "node scripts/export.mjs",
 		"content:restore": "node scripts/restore.mjs",
 		"content:verify": "node scripts/verify-mirror.mjs",
-		"content:migrate-v2-to-v3": "node scripts/migrate-v2-to-v3.mjs"
+		"content:migrate-v2-to-v3": "node scripts/migrate-v2-to-v3.mjs",
+		"content:migrate-v3-to-v4": "node scripts/migrate-v3-to-v4.mjs"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-cloudflare": "^7.2.9",
