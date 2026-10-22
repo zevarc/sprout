@@ -80,8 +80,8 @@ export const contentTypes = {
 		fields: [
 			{ key: 'year', label: { en: 'Year', zh: '年份' }, type: 'text' },
 			{
-				key: 'status',
-				label: { en: 'Status', zh: '状态' },
+				key: 'stage',
+				label: { en: 'Stage', zh: '阶段' },
 				type: 'select',
 				options: [
 					{ value: 'active', label: { en: 'Active', zh: '活跃' } },
@@ -89,9 +89,9 @@ export const contentTypes = {
 					{ value: 'archived', label: { en: 'Archived', zh: '已归档' } }
 				]
 			},
-			{ key: 'image', label: { en: 'Image', zh: '配图' }, type: 'url' },
 			{ key: 'website', label: { en: 'Website', zh: '网站' }, type: 'url' },
-			{ key: 'github', label: { en: 'GitHub', zh: 'GitHub' }, type: 'url' }
+			{ key: 'repo_url', label: { en: 'Repository', zh: '仓库' }, type: 'url' },
+			{ key: 'order_index', label: { en: 'Order', zh: '排序' }, type: 'number' }
 		]
 	}
 };
@@ -113,7 +113,8 @@ export const features = ['comments', 'analytics', 'timeline', 'members'];
  *   more: string,
  *   morePath: string,
  *   limit: number,
- *   fields?: string[]
+ *   fields?: string[],
+ *   sort?: { field: string, numeric?: boolean, direction?: 'asc' | 'desc' }
  * }> }}
  */
 export const home = {
@@ -133,7 +134,8 @@ export const home = {
 			more: 'home.allProjects',
 			morePath: 'projects',
 			limit: 4,
-			fields: ['year', 'status', 'website', 'github']
+			fields: ['year', 'stage', 'website', 'repo_url'],
+			sort: { field: 'order_index', numeric: true, direction: 'asc' }
 		}
 	]
 };

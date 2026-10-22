@@ -1,193 +1,239 @@
--- sprout 内容平台 · 规范 schema（format v3）
+-- sprout content platform · canonical schema (schema_version = 4, export format 4)
 --
--- 设计公理：
---   · 节点（授权内容）与事件（他人交互）对称泛化；状态只追加。
---   · 主键是不透明 ULID，永不派生于内容（改 slug / 修正语言都不会断引用）。
---   · group_id 是「同组」（译文 / 系列）的唯一真相源；译文关系由它派生，不落库。
---   · **需要被 SQL 表达的概念有形状**：跨类型、要查询/排序/聚合的字段进真实列
---     或关联表（featured / cover / tags / visibility / occurred_at …）；
---     只有「类型专属、只随节点读写」的属性才进 node_fields 的键值行。
---   · 封闭枚举写 CHECK；开放词汇（type / events.kind / relations.rel / actors.kind）不写 CHECK。
---   · 渲染产物（body_html）是派生缓存，永不导出，可重建。
---   · 外键用于声明引用完整性（宿主支持时生效；应用层亦显式删除，行为一致）。
+-- Design and rationale: docs/DATA-MODEL.md. This file is the schema itself; the
+-- document describes it and no longer carries a second copy of the DDL.
+--
+-- Axioms:
+--   · Shared columns live on `assets`: what code must filter or sort by without
+--     knowing the content kind (visibility, status, language, times, author).
+--     Authorisation therefore never needs to know what kind of content it guards.
+--   · Content lives on one table per kind; a new kind is a new table. Title, body,
+--     slug and the kind's own attributes are real columns with real constraints.
+--   · Comments, tags, media and reactions reference `assets.id` only, so adding a
+--     kind never touches them.
+--   · Authority lives in exactly one place: people.role. Sessions carry no role.
+--   · Closed enums get CHECK; open vocabularies (kind names, media.kind,
+--     identities.provider, stage) get none.
+--   · Derived columns (body_html, *_fts) are never exported and can be rebuilt.
+--   · Deleting a person or an object that is still referenced is refused by the
+--     database, so erasure is always an explicit operation.
 
--- ============ 元信息 ============
+-- ============ meta ============
 CREATE TABLE meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
-INSERT INTO meta (key, value) VALUES ('schema_version', '3');
+INSERT INTO meta (key, value) VALUES ('schema_version', '4');
 
--- ============ 身份 ============
-CREATE TABLE actors (
-  id           TEXT PRIMARY KEY,
-  kind         TEXT NOT NULL,                 -- 开放：owner | member | visitor | anonymous | external | …
+-- ============ people: every human ============
+-- The owner, invited members and everyone who ever commented. "Not a member" is
+-- an empty `role`, not an enum value.
+CREATE TABLE people (
+  id           TEXT PRIMARY KEY,                          -- opaque ULID
+  role         TEXT CHECK (role IN ('owner', 'member')),  -- NULL = not a member
   handle       TEXT,
   display_name TEXT,
   avatar_url   TEXT,
-  email_hash   TEXT,
-  email_enc    TEXT,                          -- 仅在需要回复通知时存储
-  created_at   TEXT NOT NULL
-);
-CREATE INDEX idx_actors_handle ON actors (handle);
-
-CREATE TABLE actor_identities (
-  id           TEXT PRIMARY KEY,
-  actor_id     TEXT NOT NULL REFERENCES actors(id) ON DELETE CASCADE,
-  provider     TEXT NOT NULL,                 -- 开放：github | email | webmention | …
-  provider_uid TEXT NOT NULL,
+  email_hash   TEXT,                                      -- salted hash, dedupe only
   created_at   TEXT NOT NULL,
-  UNIQUE (provider, provider_uid)
+  updated_at   TEXT NOT NULL
 );
-CREATE INDEX idx_actor_identities_actor ON actor_identities (actor_id);
+CREATE INDEX idx_people_handle     ON people (handle);
+CREATE INDEX idx_people_email_hash ON people (email_hash);
+-- At most one owner, enforced by the database.
+CREATE UNIQUE INDEX idx_people_one_owner ON people (role) WHERE role = 'owner';
 
+CREATE TABLE identities (
+  provider     TEXT NOT NULL,                             -- open: github | email | …
+  provider_uid TEXT NOT NULL,
+  person_id    TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+  created_at   TEXT NOT NULL,
+  PRIMARY KEY (provider, provider_uid)
+);
+CREATE INDEX idx_identities_person ON identities (person_id);
+
+-- Sign-in credential. The hash is the key; no role (authority lives on people).
 CREATE TABLE sessions (
-  id         TEXT PRIMARY KEY,
-  actor_id   TEXT NOT NULL REFERENCES actors(id) ON DELETE CASCADE,
-  token_hash TEXT NOT NULL,
-  role       TEXT NOT NULL DEFAULT 'visitor'
-               CHECK (role IN ('owner', 'member', 'visitor')),
+  token_hash TEXT PRIMARY KEY,                            -- HMAC of the cookie
+  person_id  TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
   expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
-CREATE INDEX idx_sessions_token ON sessions (token_hash);
+CREATE INDEX idx_sessions_person  ON sessions (person_id);
+CREATE INDEX idx_sessions_expires ON sessions (expires_at);
 
+-- One-shot invite. The only table that is updated: a credential, not history.
 CREATE TABLE invites (
-  id          TEXT PRIMARY KEY,
-  token_hash  TEXT NOT NULL,                  -- 只存 HMAC，不存明文 token
+  id          TEXT PRIMARY KEY,                           -- safe handle for the admin
+  token_hash  TEXT NOT NULL UNIQUE,
   label       TEXT,
-  role        TEXT NOT NULL DEFAULT 'member'
-                CHECK (role IN ('member', 'owner')),
-  created_by  TEXT REFERENCES actors(id) ON DELETE SET NULL,
+  role        TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'owner')),
+  created_by  TEXT REFERENCES people(id) ON DELETE SET NULL,
   created_at  TEXT NOT NULL,
   expires_at  TEXT NOT NULL,
-  accepted_at TEXT,                           -- 单次有效
-  accepted_by TEXT REFERENCES actors(id) ON DELETE SET NULL
+  accepted_at TEXT,
+  accepted_by TEXT REFERENCES people(id) ON DELETE SET NULL
 );
-CREATE INDEX idx_invites_token   ON invites (token_hash);
 CREATE INDEX idx_invites_created ON invites (created_at DESC);
 
--- ============ 内容节点（授权资产） ============
-CREATE TABLE nodes (
-  id              TEXT PRIMARY KEY,           -- 不透明 ULID
-  type            TEXT NOT NULL,              -- 开放词汇：post | moment | toy | …
-  slug            TEXT NOT NULL,
-  lang            TEXT NOT NULL,
-  group_id        TEXT NOT NULL,              -- 不透明 ULID；同组=译文/系列；默认=自身 id
-  title           TEXT,
-  summary         TEXT,                       -- 摘要的唯一来源（类型专属的 description 已废弃）
-  body_md         TEXT NOT NULL,              -- 源
-  body_html       TEXT,                       -- 派生缓存（不导出，可重建）
-  status          TEXT NOT NULL DEFAULT 'draft'
-                    CHECK (status IN ('draft', 'scheduled', 'published', 'archived')),
-  published_at    TEXT,                       -- 发布时刻（feed 排序）
-  occurred_at     TEXT,                       -- 事情发生时刻（时间线排序）
-  visibility      TEXT NOT NULL DEFAULT 'public'
-                    CHECK (visibility IN ('public', 'private')),
-  featured        INTEGER NOT NULL DEFAULT 0
-                    CHECK (featured IN (0, 1)), -- 跨类型：首页精选
-  cover_media_id  TEXT REFERENCES media(id) ON DELETE SET NULL, -- 跨类型：封面是媒体引用，不是 URL
-  author_actor_id TEXT REFERENCES actors(id) ON DELETE SET NULL,
-  created_at      TEXT NOT NULL,
-  updated_at      TEXT NOT NULL
+-- ============ assets: the shared part of every piece of content ============
+CREATE TABLE assets (
+  id           TEXT PRIMARY KEY,                          -- opaque ULID; the target
+  type         TEXT NOT NULL,                             -- open vocabulary
+  lang         TEXT NOT NULL,
+  group_id     TEXT NOT NULL,                             -- translations / series
+  status       TEXT NOT NULL DEFAULT 'draft'
+                 CHECK (status IN ('draft', 'published', 'archived')),
+  visibility   TEXT NOT NULL DEFAULT 'public'
+                 CHECK (visibility IN ('public', 'private')),
+  published_at TEXT,                                      -- feed ordering
+  occurred_at  TEXT,                                      -- timeline ordering
+  author_id    TEXT NOT NULL REFERENCES people(id) ON DELETE RESTRICT,
+  created_at   TEXT NOT NULL,
+  updated_at   TEXT NOT NULL
 );
-CREATE UNIQUE INDEX idx_nodes_type_slug_lang ON nodes (type, slug, lang);
-CREATE INDEX idx_nodes_feed     ON nodes (type, status, published_at DESC);
-CREATE INDEX idx_nodes_timeline ON nodes (visibility, status, occurred_at DESC);
-CREATE INDEX idx_nodes_featured ON nodes (featured, published_at DESC);
-CREATE INDEX idx_nodes_group    ON nodes (group_id);
+CREATE INDEX idx_assets_kind     ON assets (type, status, published_at DESC);
+CREATE INDEX idx_assets_timeline ON assets (visibility, status, occurred_at DESC);
+CREATE INDEX idx_assets_group    ON assets (group_id);
+CREATE INDEX idx_assets_author   ON assets (author_id, created_at DESC);
 
--- ============ 类型专属字段（稀疏、异构） ============
--- 一行一个字段；四个值列恰好有一个非空。加字段/类型不需要 DDL；
--- 字段一旦成为跨类型概念，应升级为真实列（见 nodes.featured / cover_media_id）。
-CREATE TABLE node_fields (
-  node_id      TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
-  field        TEXT NOT NULL,
-  value_text   TEXT,
-  value_number REAL,
-  value_bool   INTEGER CHECK (value_bool IN (0, 1)),
-  value_json   TEXT,                          -- 数组 / 对象（多值字段）
-  CHECK (
-    (value_text IS NOT NULL) + (value_number IS NOT NULL)
-    + (value_bool IS NOT NULL) + (value_json IS NOT NULL) = 1
-  ),
-  PRIMARY KEY (node_id, field)
+-- ============ content: one table per kind ============
+-- Each kind table uses the asset id as its primary key and owns its constraints.
+-- `lang` is repeated here (see docs/DATA-MODEL.md §6.1) because a SQLite index
+-- cannot span a join, and slug uniqueness is per language.
+
+CREATE TABLE posts (
+  id        TEXT PRIMARY KEY REFERENCES assets(id) ON DELETE CASCADE,
+  lang      TEXT NOT NULL,
+  slug      TEXT NOT NULL,
+  title     TEXT NOT NULL,
+  summary   TEXT,
+  body_md   TEXT NOT NULL,
+  body_html TEXT                                          -- derived, never exported
 );
-CREATE INDEX idx_node_fields_number ON node_fields (field, value_number);
-CREATE INDEX idx_node_fields_text   ON node_fields (field, value_text);
+CREATE UNIQUE INDEX idx_posts_lang_slug ON posts (lang, slug);
 
--- ============ 标签（多对多、可聚合） ============
-CREATE TABLE node_tags (
-  node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
-  tag     TEXT NOT NULL,
-  PRIMARY KEY (node_id, tag)
+-- Short notes: the same spine, no required title (a note is often one paragraph).
+CREATE TABLE notes (
+  id        TEXT PRIMARY KEY REFERENCES assets(id) ON DELETE CASCADE,
+  lang      TEXT NOT NULL,
+  slug      TEXT NOT NULL,
+  title     TEXT,
+  summary   TEXT,
+  body_md   TEXT NOT NULL,
+  body_html TEXT
 );
-CREATE INDEX idx_node_tags_tag ON node_tags (tag);
+CREATE UNIQUE INDEX idx_notes_lang_slug ON notes (lang, slug);
 
--- ============ 关系（仅临时边；译文由 group_id 派生） ============
-CREATE TABLE relations (
-  from_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
-  to_id   TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
-  rel     TEXT NOT NULL,                      -- 开放：related | reply-to | mention | …
-  PRIMARY KEY (from_id, to_id, rel)
+CREATE TABLE moments (
+  id        TEXT PRIMARY KEY REFERENCES assets(id) ON DELETE CASCADE,
+  lang      TEXT NOT NULL,
+  slug      TEXT NOT NULL,
+  title     TEXT,
+  summary   TEXT,
+  body_md   TEXT NOT NULL,
+  body_html TEXT
 );
-CREATE INDEX idx_relations_to ON relations (to_id, rel);
+CREATE UNIQUE INDEX idx_moments_lang_slug ON moments (lang, slug);
 
--- ============ 媒体（二进制在 R2，此处存元数据；可读性随所属节点） ============
+CREATE TABLE projects (
+  id          TEXT PRIMARY KEY REFERENCES assets(id) ON DELETE CASCADE,
+  lang        TEXT NOT NULL,
+  slug        TEXT NOT NULL,
+  title       TEXT NOT NULL,
+  summary     TEXT,
+  body_md     TEXT NOT NULL,
+  body_html   TEXT,
+  year        TEXT,
+  stage       TEXT,                                       -- open: active | maintained | archived
+  website     TEXT,
+  repo_url    TEXT,
+  order_index INTEGER
+);
+CREATE UNIQUE INDEX idx_projects_lang_slug ON projects (lang, slug);
+CREATE INDEX idx_projects_order ON projects (order_index);
+
+-- ============ conversation ============
+CREATE TABLE comments (
+  id           TEXT PRIMARY KEY,
+  asset_id     TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+  parent_id    TEXT REFERENCES comments(id) ON DELETE CASCADE,
+  author_id    TEXT NOT NULL REFERENCES people(id) ON DELETE RESTRICT,
+  body_md      TEXT NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'pending'
+                 CHECK (status IN ('pending', 'approved', 'spam', 'deleted')),
+  moderated_at TEXT,
+  moderated_by TEXT REFERENCES people(id) ON DELETE SET NULL,
+  payload      TEXT,                                      -- never queried
+  created_at   TEXT NOT NULL
+);
+CREATE INDEX idx_comments_asset  ON comments (asset_id, status, created_at);
+CREATE INDEX idx_comments_author ON comments (author_id, created_at DESC);
+
+CREATE TABLE reactions (
+  asset_id   TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+  person_id  TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+  emoji      TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (asset_id, person_id, emoji)
+);
+
+-- ============ classification ============
+CREATE TABLE tags (
+  id   TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE asset_tags (
+  asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+  tag_id   TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (asset_id, tag_id)
+);
+CREATE INDEX idx_asset_tags_tag ON asset_tags (tag_id);
+
+-- ============ media: R2 metadata ============
+-- One row per stored object, shared by every asset that uses it. Deleting is
+-- "unbind, then collect": `asset_media` refuses to let an in-use object go.
 CREATE TABLE media (
-  id       TEXT PRIMARY KEY,
-  node_id  TEXT REFERENCES nodes(id) ON DELETE CASCADE,  -- 可空：未挂载素材
-  r2_key   TEXT NOT NULL,                     -- 相对 key，不存绝对 URL
-  kind     TEXT NOT NULL DEFAULT 'image',     -- 开放：image | video | file | …
-  width    INTEGER,
-  height   INTEGER,
-  alt      TEXT,
+  id         TEXT PRIMARY KEY,
+  r2_key     TEXT NOT NULL UNIQUE,
+  kind       TEXT NOT NULL DEFAULT 'image',               -- open vocabulary
+  sha256     TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE asset_media (
+  asset_id TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+  media_id TEXT NOT NULL REFERENCES media(id) ON DELETE RESTRICT,
   position INTEGER NOT NULL DEFAULT 0,
-  sha256   TEXT
+  alt      TEXT,
+  role     TEXT NOT NULL DEFAULT 'body' CHECK (role IN ('body', 'cover')),
+  PRIMARY KEY (asset_id, media_id)
 );
-CREATE INDEX idx_media_node ON media (node_id, position);
-CREATE INDEX idx_media_key  ON media (r2_key);
+CREATE INDEX idx_asset_media_media ON asset_media (media_id);
+-- At most one cover per asset.
+CREATE UNIQUE INDEX idx_asset_media_cover ON asset_media (asset_id) WHERE role = 'cover';
 
--- ============ 事件（他人交互，只追加） ============
-CREATE TABLE events (
-  id          TEXT PRIMARY KEY,
-  kind        TEXT NOT NULL,                  -- 开放：comment | reaction | subscribe | mention | pageview | …
-  target_type TEXT,                           -- 对内容类型零感知
-  target_id   TEXT,
-  actor_id    TEXT REFERENCES actors(id) ON DELETE SET NULL,
-  parent_id   TEXT REFERENCES events(id) ON DELETE SET NULL,  -- 评论嵌套
-  body_md     TEXT,                           -- 源；渲染 HTML 一律派生，不落库
-  payload     TEXT,                           -- 仅结构化元数据（ipHash、emoji…），不含渲染产物
-  created_at  TEXT NOT NULL
-);
-CREATE INDEX idx_events_target    ON events (target_type, target_id, created_at DESC);
-CREATE INDEX idx_events_kind_time ON events (kind, created_at DESC);
-CREATE INDEX idx_events_actor     ON events (actor_id, created_at DESC);
-
--- 审核 / 编辑 / 删除也是追加，永不 update
-CREATE TABLE event_status (
-  event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-  status   TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'spam', 'deleted')),
-  at       TEXT NOT NULL,
-  by       TEXT REFERENCES actors(id) ON DELETE SET NULL
-);
-CREATE INDEX idx_event_status_event ON event_status (event_id, at);
-
--- ============ 分析（自建，隐私优先；运行产物，不导出） ============
-CREATE TABLE stats_daily (
-  day      TEXT NOT NULL,                     -- YYYY-MM-DD (UTC)
+-- ============ analytics (not exported; daily rows pruned after 400 days) ============
+CREATE TABLE page_views (
+  day      TEXT NOT NULL,                                 -- YYYY-MM-DD (UTC)
   path     TEXT NOT NULL,
-  referrer TEXT NOT NULL DEFAULT '',          -- 仅来源域
+  referrer TEXT NOT NULL DEFAULT '',                      -- referrer host only
   views    INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (day, path, referrer)
 );
 
--- ============ 统一搜索（派生 FTS5，可重建） ============
--- 写入时对文本做 bigram 预处理（见 src/lib/server/search.ts），列内为空格分隔的 token。
-CREATE VIRTUAL TABLE nodes_fts USING fts5 (
-  id UNINDEXED,
-  title,
-  summary,
-  body,
-  tokenize = 'unicode61'
+-- ============ search: one derived FTS5 index per kind ============
+-- Text is bigram-tokenized before writing (see src/lib/server/search.ts).
+CREATE VIRTUAL TABLE posts_fts USING fts5 (
+  id UNINDEXED, lang UNINDEXED, title, summary, body, tokenize = 'unicode61'
+);
+CREATE VIRTUAL TABLE moments_fts USING fts5 (
+  id UNINDEXED, lang UNINDEXED, title, summary, body, tokenize = 'unicode61'
+);
+CREATE VIRTUAL TABLE notes_fts USING fts5 (
+  id UNINDEXED, lang UNINDEXED, title, summary, body, tokenize = 'unicode61'
+);
+CREATE VIRTUAL TABLE projects_fts USING fts5 (
+  id UNINDEXED, lang UNINDEXED, title, summary, body, tokenize = 'unicode61'
 );

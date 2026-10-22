@@ -204,9 +204,10 @@ owns its own constraints:
 | `body_html` | derived cache, never exported |
 | … | this kind's own columns, with real `NOT NULL` / `CHECK` |
 
-The site ships three:
+The site ships four:
 
 - `posts` — `title NOT NULL`, `summary`, `body_md`, `body_html`
+- `notes` — the same spine with a nullable title (a note is often one paragraph)
 - `moments` — `body_md`, `body_html`, `title`/`summary` nullable (a moment is
   usually text plus media)
 - `projects` — `title NOT NULL`, `summary`, `body_md`, `body_html`, `year`,
@@ -214,7 +215,7 @@ The site ships three:
   avoid confusion with the asset's publication status), `website`, `repo_url`,
   `order_index`
 
-Adding a fourth kind later is: one `CREATE TABLE` + its FTS table + a line in the
+Adding a fifth kind later is: one `CREATE TABLE` + its FTS table + a line in the
 exporter. No existing table is touched.
 
 ### 4.7 `comments`
@@ -335,7 +336,8 @@ longer history is added only if a real need appears.
 
 ```
 posts_fts    (id UNINDEXED, lang UNINDEXED, title, summary, body)   fts5, tokenize = unicode61
-moments_fts  (id UNINDEXED, lang UNINDEXED, title, body)
+notes_fts    (id UNINDEXED, lang UNINDEXED, title, summary, body)
+moments_fts  (id UNINDEXED, lang UNINDEXED, title, summary, body)
 projects_fts (id UNINDEXED, lang UNINDEXED, title, summary, body)
 ```
 
