@@ -184,7 +184,11 @@ export async function listAssets(
 		params.push(opts.visibility);
 	}
 	if (opts.tag) {
-		where.push('EXISTS (SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id WHERE at.asset_id = assets.id AND t.name = ?)');
+		// The outer query is the alias `matched` (the UNION wraps one kind's SELECT,
+		// where `assets` itself is aliased `a`): filtering by tag must use the wrapper.
+		where.push(
+			'EXISTS (SELECT 1 FROM asset_tags at JOIN tags t ON t.id = at.tag_id WHERE at.asset_id = matched.id AND t.name = ?)'
+		);
 		params.push(opts.tag);
 	}
 
@@ -232,7 +236,7 @@ export async function listAssets(
 	const union = types.map((t) => selectKind(t, columns)).join('\nUNION ALL\n');
 	const sql = `SELECT * FROM (
 		${union}
-	) WHERE ${where.join(' AND ')}
+	) AS matched WHERE ${where.join(' AND ')}
 	${order}
 	LIMIT ? OFFSET ?`;
 

@@ -58,6 +58,9 @@ pnpm content:restore ./v4
   and field inputs edit the kind's real columns.
 
 **Fixes found by migrating a real site (zevarc.com) to this model**
+- Filtering a list by tag works again: the tag predicate used the inner table's
+  alias from outside the UNION wrapper, so every `/tags/<tag>` page failed with
+  `no such column: assets.id` (schema 4 only).
 - An untitled asset no longer stores its slug as the title: kinds whose `title` is
   optional store `NULL`, and `nodeToView` shows the summary (then the slug) — feed
   items, headings and structured data are never empty.

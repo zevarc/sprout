@@ -111,6 +111,28 @@ describe('assets', () => {
 		expect(post.title).toBe('hello');
 	});
 
+	it('filters by tag across one or several kinds', async () => {
+		const { db } = createTestDb();
+		const owner = await ensureOwner(db);
+		/** @type {Omit<import('$lib/content/types').NewAsset, 'type' | 'slug'>} */
+		const base = { lang: 'en', title: 't', bodyMd: 'x', status: 'published', authorId: owner.id };
+
+		await createAsset(db, { ...base, type: 'post', slug: 'tagged', tags: ['android', 'kotlin'] });
+		await createAsset(db, { ...base, type: 'note', slug: 'tagged-note', tags: ['android'] });
+		await createAsset(db, { ...base, type: 'post', slug: 'plain' });
+
+		const posts = await listAssets(db, { types: ['post'], tag: 'android' });
+		expect(posts.map((n) => n.slug)).toEqual(['tagged']);
+
+		const both = await listAssets(db, { types: ['post', 'note'], tag: 'android' });
+		expect(both.map((n) => n.slug).sort()).toEqual(['tagged', 'tagged-note']);
+
+		const second = await listAssets(db, { types: ['post', 'note'], tag: 'kotlin' });
+		expect(second.map((n) => n.slug)).toEqual(['tagged']);
+
+		expect(await listAssets(db, { types: ['post', 'note'], tag: 'nothing' })).toEqual([]);
+	});
+
 	it('filters by visibility and status in SQL', async () => {
 		const { db } = createTestDb();
 		const owner = await ensureOwner(db);
