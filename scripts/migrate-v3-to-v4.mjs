@@ -20,6 +20,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { contentTypes } from '../src/sprout.config.js';
+import { site } from '../src/site.config.js';
 
 const [INPUT, OUTPUT] = process.argv.slice(2);
 if (!INPUT || !OUTPUT) {
@@ -92,6 +93,29 @@ const people = actors.map((a) => ({
 	created_at: a.created_at,
 	updated_at: a.created_at
 }));
+
+/**
+ * v4 requires every asset to have an author. A single-author site that was filled
+ * through the API (Bearer) may have no actor row at all, so synthesize the owner
+ * exactly as `ensureOwner()` would.
+ */
+const peopleById = new Map(people.map((p) => [p.id, p]));
+let owner = people.find((p) => p.role === 'owner');
+if (!owner) {
+	owner = {
+		id: idFor('P', 'owner'),
+		role: 'owner',
+		handle: site.name,
+		display_name: site.author,
+		avatar_url: null,
+		email_hash: null,
+		created_at: new Date(0).toISOString(),
+		updated_at: new Date(0).toISOString()
+	};
+	people.push(owner);
+	peopleById.set(owner.id, owner);
+	warnings.push('no owner in actors.jsonl — synthesized one from site.config');
+}
 
 // ---- kinds ----
 const declared = new Map(Object.entries(contentTypes).map(([type, def]) => [type, def]));
@@ -188,6 +212,12 @@ for (const node of nodes) {
 	const status = node.status === 'scheduled' ? 'draft' : node.status;
 	if (node.status === 'scheduled') warnings.push(`asset ${node.id}: scheduled → draft (no scheduler exists)`);
 
+	let authorId = owner.id;
+	if (node.author_actor_id) {
+		if (peopleById.has(node.author_actor_id)) authorId = node.author_actor_id;
+		else warnings.push(`asset ${node.id}: author ${node.author_actor_id} is not in actors — assigned the owner`);
+	}
+
 	assets.push({
 		id: node.id,
 		type,
@@ -197,7 +227,7 @@ for (const node of nodes) {
 		visibility: node.visibility ?? 'public',
 		published_at: node.published_at ?? null,
 		occurred_at: node.occurred_at ?? null,
-		author_id: node.author_actor_id ?? people.find((p) => p.role === 'owner')?.id,
+		author_id: authorId,
 		created_at: node.created_at,
 		updated_at: node.updated_at
 	});
@@ -235,7 +265,7 @@ for (const node of nodes) {
 			`published_at: ${node.published_at ?? ''}`,
 			`occurred_at: ${node.occurred_at ?? ''}`,
 			`visibility: ${node.visibility ?? 'public'}`,
-			`author_id: ${node.author_actor_id ?? ''}`,
+			`author_id: ${authorId}`,
 			`created_at: ${node.created_at}`,
 			`updated_at: ${node.updated_at}`,
 			`tags: ${JSON.stringify(stable(nodeTags))}`,

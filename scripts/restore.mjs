@@ -48,9 +48,14 @@ if (!res.ok) {
 const result = await res.json();
 console.log(`Restored from ${DIR}/ → ${API}`);
 console.log(`  nodes: ${result.nodes}`);
-console.log(`  events: ${result.events}`);
-console.log(`  actors: ${result.actors}`);
-console.log(`  relations: ${result.relations}`);
+console.log(`  people: ${result.people ?? result.actors}`);
+console.log(`  comments: ${result.comments ?? result.events}`);
+console.log(`  reactions: ${result.reactions ?? 0}`);
+console.log(`  tags: ${result.tags ?? 0}`);
+if (Array.isArray(result.warnings) && result.warnings.length > 0) {
+	console.log(`  warnings (${result.warnings.length}):`);
+	for (const warning of result.warnings) console.log(`    · ${warning}`);
+}
 
 // Re-upload media binaries (metadata already restored from media.jsonl).
 const MIME = {
