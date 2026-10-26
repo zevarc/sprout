@@ -41,10 +41,17 @@ function entry(pathsByLocale: Record<string, string>, lastmod?: string): string 
 					.join('') +
 				`\n        <xhtml:link rel="alternate" hreflang="x-default" href="${url(primary, pathsByLocale[primary])}"/>`
 			: '';
-	return `
+	// Every locale gets its own `<url>` entry, each carrying the same alternate
+	// set: sitemap.org asks for one entry per URL, and an entry per group would
+	// leave the non-default locales reachable only through the alternates.
+	return locales
+		.map(
+			(locale) => `
     <url>
-        <loc>${url(primary, pathsByLocale[primary])}</loc>${lastmodTag}${alts}
-    </url>`;
+        <loc>${url(locale, pathsByLocale[locale])}</loc>${lastmodTag}${alts}
+    </url>`
+		)
+		.join('');
 }
 
 /** A path that exists in every locale (`/`, `/about`, `/tags`, one per kind). */
