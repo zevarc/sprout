@@ -5,6 +5,7 @@
   import { isCommentablePage } from '$lib/content/pages';
   import PageLogo from '$lib/components/PageLogo.svelte';
   import { getDictionary, getLink, homePath } from '$lib/i18n/index.js';
+  import { getContentType, publicListTypes } from '$lib/content/registry';
   import { site } from '$lib/site';
   import { pageTitle } from '$lib/seo';
 
@@ -16,6 +17,15 @@
 
   const t = $derived(getDictionary(lang));
   const home = $derived(homePath(lang));
+
+  /**
+   * The "see more" link points at a real page: the `project` type when the site
+   * has one, else its first public type. A site with neither gets no link.
+   */
+  const moreType = $derived(getContentType('project') ?? publicListTypes()[0]);
+  const moreHref = $derived(
+    moreType ? `/${getLink(moreType.route.replace(/^\//, ''), lang)}` : null
+  );
 
   /** @param {string} text */
   const fill = (text) => text.replace(/\{name\}/g, site.name);
@@ -50,7 +60,9 @@
     {#each t.about.who.paragraphs as paragraph}
       <p>{paragraph}</p>
     {/each}
-    <p class="more"><a href={`/${getLink('projects', lang)}`}>{t.about.who.projectsLink} →</a></p>
+    {#if moreHref}
+      <p class="more"><a href={moreHref}>{t.about.who.projectsLink} →</a></p>
+    {/if}
   </section>
 
   <section class="block">

@@ -4,11 +4,26 @@
  * scripts. Works against SSR pages (no build directory needed).
  *
  *   BASE_URL=http://localhost:5173 LIMIT=200 node scripts/check-links.mjs
+ *
+ * The seeds are the pages a site must have, taken from its own config: the home
+ * page, its public type routes, and the built-in public pages. A site that has
+ * no `project` type is therefore never asked for `/projects`.
  */
+import { contentTypes, features } from '../src/sprout.config.js';
+
 const BASE = (process.env.BASE_URL ?? 'http://localhost:5173').replace(/\/$/, '');
 const LIMIT = Number(process.env.LIMIT ?? 200);
 
-const SEEDS = ['/', '/zh', '/posts', '/zh/posts', '/moments', '/projects', '/zh/projects', '/search'];
+const SEEDS = [
+	'/',
+	'/about',
+	'/search',
+	'/tags',
+	...(features ?? []).includes('timeline') ? ['/timeline'] : [],
+	...Object.values(contentTypes)
+		.filter((t) => t.public)
+		.map((t) => t.route)
+];
 
 const seen = new Set();
 const queue = [...SEEDS];

@@ -1,7 +1,7 @@
 <script>
   import HomeSection from './HomeSection.svelte';
   import { getDictionary, getLink, homePath as localeHome } from '$lib/i18n/index.js';
-  import { getContentType } from '$lib/content/registry';
+  import { getContentType, labelText, publicListTypes } from '$lib/content/registry';
   import { hasFeature } from '$lib/engine/features';
   import { site } from '$lib/site';
 
@@ -9,12 +9,29 @@
 
   let t = $derived(getDictionary(lang));
   const brand = $derived(site.brand[lang] ?? site.brand[site.defaultLocale]);
-  const postsPath = $derived(getLink('posts', lang));
-  const notesPath = $derived(getLink('notes', lang));
-  const projectsPath = $derived(getLink('projects', lang));
+  /**
+   * The footer links the site's own public types, in registry order — a site
+   * without a `project` type must not offer a `/projects` that 404s.
+   */
+  const navTypes = $derived(
+    publicListTypes().map((type) => ({
+      type: type.type,
+      // `/toys` → `toys`, so the locale prefix (if any) is applied by `getLink`.
+      path: getLink(type.route.replace(/^\//, ''), lang),
+      label: labelText(type.label, lang, type.type)
+    }))
+  );
   const tagsPath = $derived(getLink('tags', lang));
   const aboutPath = $derived(getLink('about', lang));
   const searchPath = $derived(getLink('search', lang));
+  /**
+   * The quick link to the site's moments, if it declares any *public* ones: a
+   * public page must not advertise a route that only answers to a session.
+   */
+  const momentType = $derived(publicListTypes().find((t) => t.type === 'moment'));
+  const momentPath = $derived(
+    momentType ? getLink(momentType.route.replace(/^\//, ''), lang) : null
+  );
   const home = $derived(localeHome(lang));
   const switchLocale = $derived(site.locales.find((l) => l.code !== lang));
   const switchPath = $derived(switchLocale ? localeHome(switchLocale.code) : undefined);
@@ -123,15 +140,15 @@
   {/each}
 
   <div class="float-actions" class:show={showFloat}>
-    {#if getContentType('moment')}
-      <a class="float-btn" href={`/${getLink('moments', lang)}`} title={t.moments.title} aria-label={t.moments.title}>
+    {#if momentPath}
+      <a class="float-btn" href={`/${momentPath}`} title={t.moments.title} aria-label={t.moments.title}>
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <circle cx="12" cy="12" r="9" />
           <path d="M12 8v4l3 2" />
         </svg>
       </a>
     {/if}
-    <a class="float-btn" href={searchPath} title={t.search.title} aria-label={t.search.title}>
+    <a class="float-btn" href={`/${searchPath}`} title={t.search.title} aria-label={t.search.title}>
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <circle cx="11" cy="11" r="7" />
         <path d="M21 21l-4.3-4.3" />
@@ -148,9 +165,9 @@
   </div>
 
   <footer class="site-footer">
-    <a href={`/${postsPath}`}>{t.nav.posts}</a>
-    <a href={`/${notesPath}`}>{t.nav.notes}</a>
-    <a href={`/${projectsPath}`}>{t.nav.projects}</a>
+    {#each navTypes as nav (nav.type)}
+      <a href={`/${nav.path}`}>{nav.label}</a>
+    {/each}
     {#if hasFeature('timeline')}
       <a href={`/${getLink('timeline', lang)}`}>{t.nav.timeline}</a>
     {/if}

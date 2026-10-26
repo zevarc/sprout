@@ -40,6 +40,18 @@ export function privateTypes(): ContentTypeDef[] {
 }
 
 /**
+ * Public types that the generic `[type]` list page serves — i.e. single-segment
+ * routes. Nav and footer links iterate this instead of naming kinds, so a site
+ * that has no `project` type never links to a `/projects` that does not exist.
+ */
+export function publicListTypes(): ContentTypeDef[] {
+	return publicTypes().filter((t) => {
+		const segment = t.route.replace(/^\//, '');
+		return segment !== '' && !segment.includes('/');
+	});
+}
+
+/**
  * Public type routes that resolve to a generic list page — i.e. single-segment
  * routes. Multi-segment routes (e.g. `/lab/notes`) are served by their own static
  * routes and must not be advertised as list pages.

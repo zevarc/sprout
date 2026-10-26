@@ -6,6 +6,7 @@ import {
 	feedTypes,
 	labelText,
 	listRouteSegments,
+	publicListTypes,
 	listTypes
 } from '$lib/content/registry';
 
@@ -73,5 +74,21 @@ describe('content registry', () => {
 		expect(labelText({ en: 'A', zh: 'B' }, 'zh')).toBe('B');
 		expect(labelText({ zh: 'B' }, 'en')).toBe('B');
 		expect(labelText(undefined, 'en', 'X')).toBe('X');
+	});
+
+	it('offers exactly the declared public single-segment types as nav links', () => {
+		const nav = publicListTypes();
+		for (const type of nav) {
+			expect(type.public).toBe(true);
+			expect(segmentOf(type.route).includes('/')).toBe(false);
+		}
+		// Nothing private, and nothing that only exists as a nested route.
+		for (const type of types) {
+			if (type.public && !segmentOf(type.route).includes('/')) {
+				expect(nav.map((t) => t.type)).toContain(type.type);
+			} else {
+				expect(nav.map((t) => t.type)).not.toContain(type.type);
+			}
+		}
 	});
 });
