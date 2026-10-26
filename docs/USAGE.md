@@ -24,6 +24,7 @@ Deployment: [DEPLOY](./DEPLOY.md). Data lifecycle:
 | `author` | string | yes | Structured-data author |
 | `contact.email` | string | yes | About page / footer |
 | `contact.github` | string | yes | About page / footer / `sameAs` |
+| `ogImage` | string | no | Share card; defaults to `/og-image.png` (must be PNG/JPEG — platforms ignore SVG) |
 | `locales` | `{ code, label, intl?, dateFormat?, dir? }[]` | yes | Order is display order; `defaultLocale` (default: the first entry) owns the unprefixed URLs |
 | `defaultLocale` | string | no | Must be one of `locales` |
 | `brand` | `Record<locale, Brand>` | yes | Homepage/share copy |

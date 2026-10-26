@@ -40,6 +40,8 @@ export interface PostView {
 	visibility: Visibility;
 	updated: string;
 	tags: string[];
+	/** Translation group: assets in one group are the same thing in another language. */
+	groupId: string;
 	/** Cover URL resolved from the cover binding, or null. */
 	cover: string | null;
 	/** Attached media, ordered by `position` (the gallery). */
@@ -68,6 +70,22 @@ function mediaView(item: ContentNode['media'][number]): MediaView {
 		position: item.position,
 		role: item.role
 	};
+}
+
+/**
+ * schema.org type per kind. A site can override it per type (`schemaType` in
+ * `sprout.config.js`); the defaults describe what each kind actually is, so a
+ * short moment is not published as a technical article.
+ */
+const DEFAULT_SCHEMA_TYPES: Record<string, string> = {
+	post: 'BlogPosting',
+	note: 'Article',
+	moment: 'SocialMediaPosting',
+	project: 'SoftwareSourceCode'
+};
+
+export function structuredDataType(type: string): string {
+	return getContentType(type)?.schemaType ?? DEFAULT_SCHEMA_TYPES[type] ?? 'CreativeWork';
 }
 
 export function nodeUrl(node: ContentNode): string {
@@ -111,6 +129,7 @@ export function nodeToView(node: ContentNode, hasAlt = false): PostView {
 	// reach a heading, a feed item or structured data, so fall back to what the
 	// author did write (the summary), then to the slug — never to an empty string.
 	const title = (node.title ?? '').trim() || (node.summary ?? '').trim() || node.slug;
+	const tags = node.tags ?? [];
 
 	return {
 		id: node.id,
@@ -125,7 +144,8 @@ export function nodeToView(node: ContentNode, hasAlt = false): PostView {
 		authorId: node.authorId,
 		visibility: node.visibility,
 		updated,
-		tags: node.tags ?? [],
+		tags,
+		groupId: node.groupId,
 		cover: coverItem ? `/media/${coverItem.r2Key}` : null,
 		media,
 		bodyHtml: node.bodyHtml ?? '',
@@ -135,11 +155,17 @@ export function nodeToView(node: ContentNode, hasAlt = false): PostView {
 		hasAlt,
 		jsonLd: {
 			'@context': 'https://schema.org',
-			'@type': 'TechArticle',
+			'@type': structuredDataType(node.type),
 			headline: title,
+			description: node.summary ?? '',
+			inLanguage: node.lang,
 			datePublished: node.publishedAt ?? node.createdAt,
 			dateModified: updated,
-			author: { '@type': 'Person', name: site.author }
+			author: { '@type': 'Person', name: site.author, url: site.url },
+			publisher: { '@type': 'Person', name: site.author, url: site.url },
+			mainEntityOfPage: `${site.url}/${nodeUrl(node)}`,
+			...(tags.length ? { keywords: tags.join(', ') } : {}),
+			...(coverItem ? { image: `${site.url}/media/${coverItem.r2Key}` } : {})
 		},
 		fields
 	};

@@ -10,7 +10,9 @@
     lang = site.defaultLocale,
     /** @type {string | null} */ tag = null,
     /** @type {Array<{ tag: string, count: number }>} */ tags = [],
-    /** @type {Array<any>} */ posts = []
+    /** @type {Array<any>} */ posts = [],
+    /** Locales that actually carry this tag — a hreflang must not point at a 404. */
+    /** @type {string[] | null} */ tagLocales = null
   } = $props();
 
   const t = $derived(getDictionary(lang));
@@ -20,6 +22,9 @@
   /** @param {string} name */
   const hrefFor = (name) => `${basePath}/${encodeURIComponent(name)}`;
   const canonical = $derived(tag ? `${site.url}${hrefFor(tag)}` : `${site.url}${basePath}`);
+
+  /** Index pages exist in every locale; a tag page only exists where it has items. */
+  const altLocales = $derived(tag ? (tagLocales ?? site.locales.map((l) => l.code)) : site.locales.map((l) => l.code));
 
   const jsonLd = $derived({
     '@context': 'https://schema.org',
@@ -35,6 +40,22 @@
   <title>{pageTitle(tag ?? t.tags.title)}</title>
   <meta name="description" content={tag ? `${tag} — ${t.tags.subtitle}` : t.tags.subtitle} />
   <link rel="canonical" href={canonical} />
+  {#if site.locales.length > 1 && altLocales.length > 0}
+    {#each altLocales as code}
+      <link
+        rel="alternate"
+        hreflang={code}
+        href={tag ? `${site.url}/${getLink('tags', code)}/${encodeURIComponent(tag)}` : `${site.url}/${getLink('tags', code)}`}
+      />
+    {/each}
+    {#if altLocales.includes(site.defaultLocale)}
+      <link
+        rel="alternate"
+        hreflang="x-default"
+        href={tag ? `${site.url}/${getLink('tags', site.defaultLocale)}/${encodeURIComponent(tag)}` : `${site.url}/${getLink('tags', site.defaultLocale)}`}
+      />
+    {/if}
+  {/if}
   {@html `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`}
 </svelte:head>
 

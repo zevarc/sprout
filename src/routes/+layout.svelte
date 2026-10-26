@@ -10,11 +10,14 @@
   import { hasFeature } from '$lib/engine/features';
   import { dirFor, getLink, localeFromPath } from '$lib/i18n/index.js';
   import { publicTypes } from '$lib/content/registry';
+  import { shareImage } from '$lib/seo';
 
   const {children}=$props()
 
   const htmlLang = $derived(localeFromPath($page.url.pathname));
   const brandCopy = $derived(site.brand[htmlLang] ?? site.brand[site.defaultLocale]);
+  // 分享卡：社交平台不吃 SVG，用站点的 PNG（site.config 的 ogImage）。
+  const share = shareImage(site.name);
   // Any `<type>/<slug>` detail page renders its own social card.
   const isPostPage = $derived.by(() => {
     const nonDefault = site.locales.map((l) => l.code).filter((c) => c !== site.defaultLocale);
@@ -99,14 +102,19 @@
 <svelte:head>
 		<link rel="icon" href={favicon} type="image/svg+xml" />
 		<link rel="alternate" type="application/rss+xml" title={`${site.name} RSS`} href={`/${getLink('feed.xml', htmlLang)}`} />
+		<meta property="og:site_name" content={site.name} />
 		{#if !isPostPage}
-			<meta property="og:image" content={`${site.url}/og-image.svg`} />
+			<meta property="og:image" content={share.url} />
+			<meta property="og:image:width" content={String(share.width)} />
+			<meta property="og:image:height" content={String(share.height)} />
+			<meta property="og:image:alt" content={share.alt} />
 		{/if}
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content={site.name} />
 		<meta name="twitter:description" content={brandCopy.seoDescription} />
 		{#if !isPostPage}
-			<meta name="twitter:image" content={`${site.url}/og-image.svg`} />
+			<meta name="twitter:image" content={share.url} />
+			<meta name="twitter:image:alt" content={share.alt} />
 		{/if}
 </svelte:head>
 

@@ -1,4 +1,3 @@
-import { hasFeature } from '$lib/engine/features';
 import { getDb } from '$lib/server/db';
 import { listTags } from '$lib/server/repositories/tags';
 import { listViews, type PostView } from '$lib/content/view';
@@ -14,32 +13,43 @@ function lastmodOf(view: PostView): string {
 	return new Date(view.updated).toISOString().slice(0, 10);
 }
 
-function href(path: string, locale: string): string {
+function url(locale: string, path: string): string {
 	const prefix = locale === site.defaultLocale ? '' : `/${locale}`;
-	const suffix = path ? `/${path}` : '/';
-	return `${SITE_URL}${prefix}${suffix}`;
+	return `${SITE_URL}${prefix}${path ? `/${path}` : '/'}`;
 }
 
 /**
- * A URL entry. `locales` are the locales that actually have this path; when
- * more than one, hreflang alternates are emitted. Only public routes are ever
- * passed here — private types have no public URL at all.
+ * One URL entry. `pathsByLocale` holds the path of the *same* thing in each
+ * locale — translations may use different slugs, so the paths may differ. When
+ * more than one locale has it, hreflang alternates are emitted: one entry per
+ * translation group is what tells a crawler these pages are alternates of each
+ * other rather than unrelated pages. Only public routes are ever passed here.
  */
-function entry(path: string, locales: string[], lastmod?: string): string {
+function entry(pathsByLocale: Record<string, string>, lastmod?: string): string {
+	const locales = LOCALES.filter((l) => pathsByLocale[l]);
+	if (locales.length === 0) return '';
 	// The default locale owns the unprefixed URL, whatever order `site.locales` is in.
 	const primary = locales.includes(site.defaultLocale) ? site.defaultLocale : locales[0];
 	const lastmodTag = lastmod ? `\n        <lastmod>${lastmod}</lastmod>` : '';
 	const alts =
 		locales.length > 1
 			? locales
-					.map((l) => `\n        <xhtml:link rel="alternate" hreflang="${l}" href="${href(path, l)}"/>`)
+					.map(
+						(l) =>
+							`\n        <xhtml:link rel="alternate" hreflang="${l}" href="${url(l, pathsByLocale[l])}"/>`
+					)
 					.join('') +
-				`\n        <xhtml:link rel="alternate" hreflang="x-default" href="${href(path, primary)}"/>`
+				`\n        <xhtml:link rel="alternate" hreflang="x-default" href="${url(primary, pathsByLocale[primary])}"/>`
 			: '';
 	return `
     <url>
-        <loc>${href(path, primary)}</loc>${lastmodTag}${alts}
+        <loc>${url(primary, pathsByLocale[primary])}</loc>${lastmodTag}${alts}
     </url>`;
+}
+
+/** A path that exists in every locale (`/`, `/about`, `/tags`, one per kind). */
+function everywhere(path: string): Record<string, string> {
+	return Object.fromEntries(LOCALES.map((l) => [l, path]));
 }
 
 export async function GET({ platform }) {
@@ -49,30 +59,42 @@ export async function GET({ platform }) {
 	// Only single-segment type routes have a generic list page (multi-segment
 	// routes are served by their own static routes); listing the others would
 	// publish a dead URL.
-	const fixed = [
-		'',
-		'about',
-		'search',
-		'tags',
-		...(hasFeature('timeline') ? ['timeline'] : []),
-		...listRouteSegments()
-	];
-	for (const path of fixed) urls.push(entry(path, LOCALES));
+	//
+	// `/search` and `/timeline` are absent on purpose: both render `noindex`, and
+	// a sitemap that advertises them contradicts the pages themselves.
+	const fixed = ['', 'about', 'tags', ...listRouteSegments()];
+	for (const path of fixed) urls.push(entry(everywhere(path)));
 
-	for (const locale of LOCALES) {
-		for (const type of publicTypes()) {
-			const base = type.route.replace(/^\//, '');
+	for (const type of publicTypes()) {
+		const base = type.route.replace(/^\//, '');
+		// Group by translation id: one entry per group, carrying each locale's own
+		// slug.
+		const byGroup = new Map<string, { paths: Record<string, string>; lastmod: string }>();
+		for (const locale of LOCALES) {
 			const views = await listViews(db, { types: [type.type], lang: locale, limit: 200 });
 			for (const view of views) {
-				urls.push(entry(`${base}/${view.slug}`, [locale], lastmodOf(view)));
+				const group = byGroup.get(view.groupId) ?? { paths: {}, lastmod: '' };
+				group.paths[locale] = `${base}/${view.slug}`;
+				const stamp = lastmodOf(view);
+				if (stamp > group.lastmod) group.lastmod = stamp;
+				byGroup.set(view.groupId, group);
 			}
 		}
+		for (const group of byGroup.values()) urls.push(entry(group.paths, group.lastmod));
+	}
 
+	// A tag exists only in the locales that actually carry it, so a tag page is
+	// never advertised where it would 404.
+	const byTag = new Map<string, Record<string, string>>();
+	for (const locale of LOCALES) {
 		const tags = await listTags(db, { lang: locale, types: publicTypes().map((t) => t.type) });
 		for (const tag of tags) {
-			urls.push(entry(`tags/${encodeURIComponent(tag.tag)}`, [locale]));
+			const paths = byTag.get(tag.tag) ?? {};
+			paths[locale] = `tags/${encodeURIComponent(tag.tag)}`;
+			byTag.set(tag.tag, paths);
 		}
 	}
+	for (const paths of byTag.values()) urls.push(entry(paths));
 
 	const xml = `<?xml version="1.0" encoding="UTF-8" ?>
 <urlset

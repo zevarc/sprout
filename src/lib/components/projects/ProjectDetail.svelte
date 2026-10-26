@@ -3,7 +3,8 @@
   import PageLogo from '$lib/components/PageLogo.svelte';
   import { getDictionary, getLink, homePath } from '$lib/i18n/index.js';
   import { site } from '$lib/site';
-  import { pageTitle } from '$lib/seo';
+  import { breadcrumbJsonLd, pageTitle, shareImage } from '$lib/seo';
+  import { structuredDataType } from '$lib/content/view';
 
   let { project, bodyHtml = '', lang = site.defaultLocale, translations = [] } = $props();
 
@@ -18,16 +19,27 @@
   const statusLabel = $derived(
     project.stage ? (statusLabels[project.stage] ?? project.stage) : ''
   );
-  const ogImage = $derived(`${site.url}/${getLink(`og/${project.slug}.svg`, lang)}`);
+  const share = $derived(shareImage(project.title));
+  const crumbJson = $derived(
+    JSON.stringify(
+      breadcrumbJsonLd([
+        { name: site.name, url: `${site.url}${homePath(lang)}` },
+        { name: t.nav.projects ?? 'Projects', url: `${site.url}/${getLink('projects', lang)}` },
+        { name: project.title, url: `${site.url}/${project.url}` }
+      ])
+    ).replace(/</g, '\\u003c')
+  );
   const jsonLd = $derived(
     JSON.stringify({
       '@context': 'https://schema.org',
-      '@type': 'CreativeWork',
+      '@type': structuredDataType('project'),
       name: project.title,
       description: project.description,
       url: `${site.url}/${project.url}`,
       author: { '@type': 'Person', name: site.author },
+      inLanguage: lang,
       dateCreated: project.year || undefined,
+      codeRepository: project.repoUrl || undefined,
       keywords: project.tags.length ? project.tags.join(', ') : undefined
     }).replace(/</g, '\\u003c')
   );
@@ -37,7 +49,7 @@
   <title>{pageTitle(project.title)}</title>
   <meta name="description" content={project.description} />
   <link rel="canonical" href={`${site.url}/${project.url}`} />
-  {#if translations.length > 1}
+  {#if site.locales.length > 1 && translations.length > 0}
     {#each translations as alt}
       <link rel="alternate" hreflang={alt.lang} href={`${site.url}/${alt.url}`} />
     {/each}
@@ -46,9 +58,14 @@
     {/if}
   {/if}
   <meta property="og:type" content="article" />
-  <meta property="og:image" content={ogImage} />
-  <meta name="twitter:image" content={ogImage} />
+  <meta property="og:image" content={share.url} />
+  <meta property="og:image:width" content={String(share.width)} />
+  <meta property="og:image:height" content={String(share.height)} />
+  <meta property="og:image:alt" content={share.alt} />
+  <meta name="twitter:image" content={share.url} />
+  <meta name="twitter:image:alt" content={share.alt} />
   {@html `<script type="application/ld+json">${jsonLd}</script>`}
+  {@html `<script type="application/ld+json">${crumbJson}</script>`}
 </svelte:head>
 
 <LanguageSwitcher links={switcherLinks} />

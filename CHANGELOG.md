@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.9.2 — SEO pass
+
+Found by auditing a real site's head tags and sitemap.
+
+- **Article and project pages had no `hreflang` alternates.** The loaders resolved
+  translations, but the two detail routes never passed them to the renderer, so a
+  bilingual site told crawlers its translations were unrelated pages. List pages,
+  tag pages and the About page now emit alternates too.
+- **Share cards are raster now.** `og:image` points at `site.ogImage` — a
+  1200×630 PNG (`static/og-image.png` in the template) — because Facebook, X,
+  LinkedIn and WeChat all reject SVG, so the per-article SVG card rendered
+  nothing. Dimensions, `og:image:alt` and `og:site_name` travel with it.
+- `/search` is `noindex, follow` with a canonical: result pages are reachable only
+  by query string.
+- **Structured data describes the kind** instead of calling everything a
+  `TechArticle`: `BlogPosting` / `Article` / `SocialMediaPosting` /
+  `SoftwareSourceCode`, overridable per type with `schemaType`. Nodes carry
+  `inLanguage`, `keywords`, `image` and `mainEntityOfPage`; detail pages add a
+  `BreadcrumbList`; the About page carries the detailed `Person`.
+- **The sitemap no longer contradicts the pages.** `/search` and `/timeline` are
+  `noindex`, so they are no longer listed; content is grouped by translation, one
+  entry per group with `hreflang` alternates and each locale's real slug, instead
+  of one unpaired entry per locale. Tag entries are grouped the same way.
+
 ## 0.9.1 — comments on static pages
 
 Hand-written pages can take comments without becoming content.

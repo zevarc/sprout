@@ -42,6 +42,11 @@ export interface ContentTypeDef {
 	listRenderer?: 'list' | 'cards' | 'feed';
 	/** Built-in detail renderer key. Default `article`. */
 	detailRenderer?: 'article' | 'compact';
+	/**
+	 * schema.org type for structured data (`BlogPosting`, `SocialMediaPosting`,
+	 * `SoftwareSourceCode`, …). Defaults per kind in `content/view.ts`.
+	 */
+	schemaType?: string;
 	fields: FieldDef[];
 }
 

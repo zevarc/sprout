@@ -2,7 +2,7 @@
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
   import PageLogo from '$lib/components/PageLogo.svelte';
   import { onMount } from 'svelte';
-  import { getDictionary, homePath } from '$lib/i18n/index.js';
+  import { getDictionary, getLink, homePath } from '$lib/i18n/index.js';
   import { labelText, publicTypes } from '$lib/content/registry';
   import { site } from '$lib/site';
   import { pageTitle } from '$lib/seo';
@@ -72,6 +72,10 @@
 
 <svelte:head>
   <title>{pageTitle(t.search.title)}</title>
+  <!-- Result pages are reached by query string only: keep the shell out of the
+       index (and out of the sitemap) so nothing thin gets crawled. -->
+  <meta name="robots" content="noindex, follow" />
+  <link rel="canonical" href={`${site.url}/${getLink('search', lang)}`} />
 </svelte:head>
 
 <LanguageSwitcher />

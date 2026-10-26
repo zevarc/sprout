@@ -29,6 +29,30 @@
 
   /** @param {string} text */
   const fill = (text) => text.replace(/\{name\}/g, site.name);
+  /**
+   * The About page is where the person behind the site is described, so it —
+   * not the home page — carries the detailed `Person` node.
+   */
+  const aboutJsonLd = $derived(
+    JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'AboutPage',
+      url: `${site.url}/${getLink('about', lang)}`,
+      inLanguage: lang,
+      name: t.about.title,
+      description: fill(t.seo.about.description),
+      mainEntity: {
+        '@type': 'Person',
+        '@id': `${site.url}/#person`,
+        name: site.name,
+        url: site.url,
+        email: `mailto:${site.contact.email}`,
+        sameAs: [site.contact.github],
+        description: t.about.who.paragraphs[0]
+      }
+    }).replace(/</g, '\\u003c')
+  );
+
 </script>
 
 <svelte:head>
@@ -39,6 +63,7 @@
     <link rel="alternate" hreflang={loc.code} href={`${site.url}/${getLink('about', loc.code)}`} />
   {/each}
   {#if site.locales.length > 1}<link rel="alternate" hreflang="x-default" href={`${site.url}/${getLink('about', site.defaultLocale)}`} />{/if}
+  {@html `<script type="application/ld+json">${aboutJsonLd}</script>`}
 </svelte:head>
 
 <LanguageSwitcher />

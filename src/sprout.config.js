@@ -32,6 +32,7 @@
  *   comments?: boolean,
  *   listRenderer?: 'list' | 'cards' | 'feed',
  *   detailRenderer?: 'article' | 'compact',
+ *   schemaType?: string,
  *   fields: FieldDef[]
  * }} ContentTypeDef
  */
@@ -46,6 +47,7 @@ export const contentTypes = {
 		feed: true,
 		comments: true,
 		// 摘要用 assets.summary；标签与封面是关联表（不是字段），所以文章本身没有类型专属字段。
+		schemaType: 'BlogPosting',
 		fields: []
 	},
 	// 单段路由：通用 `[type]` 列表页与详情页直接可用，sitemap 也会自动收录。
@@ -56,6 +58,7 @@ export const contentTypes = {
 		public: true,
 		feed: true,
 		comments: true,
+		schemaType: 'Article',
 		fields: []
 	},
 	moment: {
@@ -67,6 +70,7 @@ export const contentTypes = {
 		comments: true,
 		listRenderer: 'feed',
 		detailRenderer: 'compact',
+		schemaType: 'SocialMediaPosting',
 		fields: []
 	},
 	project: {
@@ -76,6 +80,7 @@ export const contentTypes = {
 		public: true,
 		feed: false,
 		comments: false,
+		schemaType: 'SoftwareSourceCode',
 		fields: [
 			{ key: 'year', label: { en: 'Year', zh: '年份' }, type: 'text' },
 			{

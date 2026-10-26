@@ -7,7 +7,8 @@
     import { formatDate, getDictionary, getLink, homePath as localeHome } from '$lib/i18n/index.js';
     import { site } from '$lib/site';
     import { hasFeature } from '$lib/engine/features';
-    import { pageTitle } from '$lib/seo';
+    import { getContentType } from '$lib/content/registry';
+    import { breadcrumbJsonLd, pageTitle, shareImage } from '$lib/seo';
 
     const { post, related = [], comments = true, translations = [] } = $props();
 
@@ -18,7 +19,9 @@
     const t = $derived(getDictionary(lang));
     const tocLabel = $derived(t.posts.toc);
     const relatedLabel = $derived(t.posts.related);
-    const ogImage = $derived(`${site.url}/${getLink(`og/${post.slug}.svg`, lang)}`);
+    // Social cards must be raster: platforms ignore SVG, so the share image is
+    // the site's PNG (`site.ogImage`) rather than a per-article SVG.
+    const share = $derived(shareImage(post.title));
     /** @type {import('$lib/reading').TocItem[]} */
     const headings = $derived((post.headings ?? []).filter((/** @type {import('$lib/reading').TocItem} */ h) => h.level <= 4));
 
@@ -82,11 +85,24 @@
       Object.fromEntries(translations.map((t) => [t.lang, `/${t.url}`]))
     );
 
-    const json = $derived(
+    const articleJson = $derived(
         JSON.stringify(post.jsonLd)
             .replace(/&/g, '\\u0026')
             .replace(/</g, '\\u003c')
             .replace(/>/g, '\\u003e')
+    );
+
+    const crumbJson = $derived(
+        JSON.stringify(
+            breadcrumbJsonLd([
+                { name: site.name, url: `${site.url}${localeHome(lang)}` },
+                {
+                    name: getContentType(post.type)?.label?.[lang] ?? post.type,
+                    url: `${site.url}/${getLink(getContentType(post.type)?.route?.replace(/^\//, '') ?? post.type, lang)}`
+                },
+                { name: post.title, url: `${site.url}/${post.url}` }
+            ])
+        ).replace(/</g, '\\u003c')
     );
 </script>
 
@@ -96,11 +112,15 @@
     <meta property="og:title" content={post.title} />
     <meta property="og:description" content={post.description} />
     <meta property="og:type" content="article" />
-    <meta property="og:image" content={ogImage} />
-    <meta name="twitter:image" content={ogImage} />
+    <meta property="og:image" content={share.url} />
+    <meta property="og:image:width" content={String(share.width)} />
+    <meta property="og:image:height" content={String(share.height)} />
+    <meta property="og:image:alt" content={share.alt} />
+    <meta name="twitter:image" content={share.url} />
+    <meta name="twitter:image:alt" content={share.alt} />
     <meta property="og:url" content={`${site.url}/${post.url}`} />
     <link rel="canonical" href={`${site.url}/${post.url}`} />
-    {#if translations.length > 1}
+    {#if site.locales.length > 1 && translations.length > 0}
         {#each translations as alt}
             <link rel="alternate" hreflang={alt.lang} href={`${site.url}/${alt.url}`} />
         {/each}
@@ -108,7 +128,8 @@
             <link rel="alternate" hreflang="x-default" href={`${site.url}/${defaultAlt.url}`} />
         {/if}
     {/if}
-    {@html `<script type="application/ld+json">${json}</script>`}
+    {@html `<script type="application/ld+json">${articleJson}</script>`}
+    {@html `<script type="application/ld+json">${crumbJson}</script>`}
 </svelte:head>
 
 <svelte:window onscroll={handleScroll} />

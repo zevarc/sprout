@@ -2,10 +2,11 @@
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
   import PageLogo from '$lib/components/PageLogo.svelte';
   import CommentSection from '$lib/components/comments/CommentSection.svelte';
-  import { formatDate, getDictionary, homePath } from '$lib/i18n/index.js';
+  import { formatDate, getDictionary, getLink, homePath } from '$lib/i18n/index.js';
   import { site } from '$lib/site';
   import { hasFeature } from '$lib/engine/features';
-  import { pageTitle } from '$lib/seo';
+  import { breadcrumbJsonLd, pageTitle, shareImage } from '$lib/seo';
+  import { getContentType } from '$lib/content/registry';
 
   /**
    * Compact detail renderer for short-form content (notes, moments, photos…):
@@ -20,6 +21,20 @@
   let { post, lang = site.defaultLocale, comments = true, translations = [] } = $props();
 
   const t = $derived(getDictionary(lang));
+  const share = $derived(shareImage(post.title));
+  const kindLabel = $derived(getContentType(post.type)?.label?.[lang] ?? post.type);
+  const crumbJson = $derived(
+    JSON.stringify(
+      breadcrumbJsonLd([
+        { name: site.name, url: `${site.url}${homePath(lang)}` },
+        {
+          name: kindLabel,
+          url: `${site.url}/${getLink(getContentType(post.type)?.route?.replace(/^\//, '') ?? post.type, lang)}`
+        },
+        { name: post.title, url: `${site.url}/${post.url}` }
+      ])
+    ).replace(/</g, '\\u003c')
+  );
   const defaultAlt = $derived(translations.find((a) => a.lang === site.defaultLocale));
   const switcherLinks = $derived(
     Object.fromEntries(translations.map((a) => [a.lang, `/${a.url}`]))
@@ -34,8 +49,14 @@
   <meta property="og:description" content={post.description} />
   <meta property="og:type" content="article" />
   <meta property="og:url" content={`${site.url}/${post.url}`} />
-  <meta property="og:image" content={`${site.url}${lang === site.defaultLocale ? '/' : `/${lang}/`}og/${post.slug}.svg`} />
-  {#if translations.length > 1}
+  {@html `<script type="application/ld+json">${crumbJson}</script>`}
+  <meta property="og:image" content={share.url} />
+  <meta property="og:image:width" content={String(share.width)} />
+  <meta property="og:image:height" content={String(share.height)} />
+  <meta property="og:image:alt" content={share.alt} />
+  <meta name="twitter:image" content={share.url} />
+  <meta name="twitter:image:alt" content={share.alt} />
+  {#if site.locales.length > 1 && translations.length > 0}
     {#each translations as alt}
       <link rel="alternate" hreflang={alt.lang} href={`${site.url}/${alt.url}`} />
     {/each}

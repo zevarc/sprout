@@ -31,6 +31,7 @@
  *   author: string,
  *   locales: Locale[],
  *   defaultLocale: string,
+ *   ogImage?: string,
  *   contact: { email: string, github: string },
  *   brand: Record<string, Brand>
  * }} SiteConfig
@@ -55,6 +56,9 @@ export const site = {
 		{ code: 'en', label: 'English', intl: 'en-US' },
 		{ code: 'zh', label: '中文', intl: 'zh-CN' }
 	],
+
+	/** 社交分享卡（1200×630 PNG）。Facebook / X / LinkedIn / 微信都不吃 SVG，必须是位图。 */
+	ogImage: '/og-image.png',
 
 	defaultLocale: 'en',
 
