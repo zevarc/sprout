@@ -94,8 +94,8 @@
     </p>
   </section>
   {#if showComments}
-    <section class="block comments">
-      <h2>{t.comments.title}</h2>
+    <!-- CommentSection renders its own heading and count. -->
+    <section class="block comments" aria-label={t.comments.title}>
       <CommentSection targetType="page" targetId={pagePath} {lang} />
     </section>
   {/if}
