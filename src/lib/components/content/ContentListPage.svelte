@@ -31,6 +31,22 @@
 <svelte:head>
   <title>{pageTitle(heading)}</title>
   <link rel="canonical" href={`${site.url}${basePath}`} />
+  <!-- A list page exists in every locale: without this a crawler treats the
+       copies as unrelated pages instead of translations. -->
+  {#if site.locales.length > 1}
+    {#each site.locales as loc}
+      <link
+        rel="alternate"
+        hreflang={loc.code}
+        href={`${site.url}/${getLink(type.route.replace(/^\//, ''), loc.code)}`}
+      />
+    {/each}
+    <link
+      rel="alternate"
+      hreflang="x-default"
+      href={`${site.url}/${getLink(type.route.replace(/^\//, ''), site.defaultLocale)}`}
+    />
+  {/if}
 </svelte:head>
 
 <PageLogo href={home} />
