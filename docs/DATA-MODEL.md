@@ -81,13 +81,14 @@ assets ─1:1─ posts | moments | projects     exactly one type row per asset
 | `invites` | one-shot invite link | no |
 | `assets` | the part of content that is shared by all kinds | yes |
 | `posts` `moments` `projects` (…) | the content itself, one table per kind | yes |
+| `pages` | comment anchors for hand-written pages (`/about`); not content — never listed, searched or fed | yes |
 | `comments` | comments (any kind of asset) | yes |
 | `reactions` | one row per person × emoji × asset | yes |
 | `tags`, `asset_tags` | vocabulary and its usage | yes |
 | `media`, `asset_media` | R2 object metadata and where it is used | yes |
 | `page_views` | analytics, aggregated | no |
 | `meta` | schema revision | no |
-| `posts_fts` `moments_fts` `projects_fts` | derived search index, one per kind | no |
+| `posts_fts` `moments_fts` `projects_fts` `pages_fts` | derived search index, one per kind | no |
 | `asset_revisions` | *optional* — see §4.14 | yes, if used |
 
 ---

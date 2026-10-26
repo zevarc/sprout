@@ -317,6 +317,24 @@ heading level skips, duplicate slug), slug-change confirmation, media panel (alt
   raw HTML is escaped.
 - Deletion is a status row; the comment text stays in the log.
 
+### Comments on static pages
+
+A hand-written page (`/about`) can take comments without becoming content: declare
+it in `commentablePages` and the engine renders the same comment section the note
+and post pages use.
+
+```js
+export const commentablePages = [{ path: '/about', title: { en: 'About', zh: '关于' } }];
+```
+
+The page's copy stays in the dictionaries. The database gains one anchor asset per
+locale, created when the first comment arrives — id `page:about:zh`, kind `page`.
+Pages are invisible to lists, feeds, the sitemap, tags and search; they exist so a
+comment has an `assets.id` to reference like everything else conversational. They
+travel in the export like any other kind (`pages.jsonl`).
+
+---
+
 ## 11. Search
 
 - `/search` and `/search?q=…` (linkable).

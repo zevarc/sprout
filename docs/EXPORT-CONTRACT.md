@@ -22,6 +22,7 @@ export/
   posts.jsonl                    # one file per declared content kind
   moments.jsonl
   projects.jsonl
+  pages.jsonl                  # comment anchors for hand-written pages (kind: page)
   comments.jsonl                 # comments on any asset
   reactions.jsonl                # person × emoji × asset
   tags.jsonl                     # the tag vocabulary

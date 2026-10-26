@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createTestDb } from './helpers/d1-memory.js';
+import { kindTable, kindWithFields, roundTripFields, sampleFields } from './helpers/kinds.js';
 import { createAsset, getAsset } from '$lib/server/repositories/assets';
 import { addComment, setCommentStatus } from '$lib/server/repositories/comments';
 import { addReaction } from '$lib/server/repositories/reactions';
@@ -14,8 +15,11 @@ describe('export → restore round trip (v4)', () => {
 		const owner = await ensureOwner(source.db);
 		const reader = await createPerson(source.db, { displayName: 'Reader', emailHash: 'h' });
 
+		const kind = kindWithFields();
+		const fields = sampleFields(roundTripFields(kind, 2));
+
 		const asset = await createAsset(source.db, {
-			type: 'project',
+			type: kind.type,
 			slug: 'sprout',
 			lang: 'en',
 			title: 'Sprout',
@@ -25,7 +29,7 @@ describe('export → restore round trip (v4)', () => {
 			occurredAt: '2025-01-02T00:00:00.000Z',
 			visibility: 'private',
 			authorId: owner.id,
-			fields: { year: '2026', stage: 'active', order_index: 2 },
+			fields,
 			tags: ['platform', 'svelte']
 		});
 
@@ -41,14 +45,14 @@ describe('export → restore round trip (v4)', () => {
 		await addReaction(source.db, asset.id, reader.id, '👍');
 
 		const bundle = await buildExport(source.db);
-		expect(bundle.types).toEqual(['project']);
+		expect(bundle.types).toEqual([kind.type]);
 		expect(bundle.files.map((f) => f.path)).toEqual(
 			expect.arrayContaining([
 				'schema.json',
 				'people.jsonl',
 				'identities.jsonl',
 				'assets.jsonl',
-				'projects.jsonl',
+				`${kindTable(kind.type)}.jsonl`,
 				'comments.jsonl',
 				'reactions.jsonl',
 				'tags.jsonl',
@@ -68,7 +72,7 @@ describe('export → restore round trip (v4)', () => {
 		const restored = await getAsset(target.db, asset.id);
 		if (!restored) throw new Error('asset was not restored');
 		expect(restored.title).toBe('Sprout');
-		expect(restored.fields).toEqual({ year: '2026', stage: 'active', order_index: 2 });
+		expect(restored.fields).toEqual(fields);
 		expect(restored.tags).toEqual(['platform', 'svelte']);
 		expect(restored.coverMediaId).toBe(mediaId);
 		expect(restored.visibility).toBe('private');
@@ -86,14 +90,14 @@ describe('export → restore round trip (v4)', () => {
 		const result = await restoreFromBundle(db, [
 			{
 				path: 'schema.json',
-				content: JSON.stringify({ version: 4, types: ['toy'] })
+				content: JSON.stringify({ version: 4, types: ['ghost'] })
 			},
 			{
-				path: 'toys.jsonl',
+				path: 'ghosts.jsonl',
 				content: JSON.stringify({ id: 'x', lang: 'en', slug: 's', body_md: 'b' }) + '\n'
 			}
 		]);
-		expect(result.warnings.join(' ')).toContain('toy');
+		expect(result.warnings.join(' ')).toContain('ghost');
 	});
 
 	it('refuses another export version', async () => {

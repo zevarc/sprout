@@ -11,7 +11,8 @@ import {
 	theme as baseTheme,
 	mods as declaredMods,
 	privateRoutes as basePrivateRoutes,
-	content as baseContent
+	content as baseContent,
+	commentablePages as baseCommentablePages
 } from '$lib/sprout';
 import { mergeAssembly } from '$lib/engine/assembly';
 import type { ContentTypeDef, Mod } from '$lib/content/schema';
@@ -38,5 +39,9 @@ export const i18nFragments = assembly.i18n;
 export const privateRoutes = basePrivateRoutes;
 /** Content defaults (visibility, timeline ordering). */
 export const content = baseContent;
+
+/** Static pages that accept comments (see `src/lib/content/pages.ts`). */
+export const commentablePages: import('$lib/content/pages').CommentablePage[] =
+	baseCommentablePages ?? [];
 
 export default assembly;

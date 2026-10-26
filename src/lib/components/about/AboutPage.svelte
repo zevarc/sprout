@@ -1,11 +1,18 @@
 <script>
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
+  import CommentSection from '$lib/components/comments/CommentSection.svelte';
+  import { hasFeature } from '$lib/engine/features';
+  import { isCommentablePage } from '$lib/content/pages';
   import PageLogo from '$lib/components/PageLogo.svelte';
   import { getDictionary, getLink, homePath } from '$lib/i18n/index.js';
   import { site } from '$lib/site';
   import { pageTitle } from '$lib/seo';
 
-  let { lang = site.defaultLocale } = $props();
+  let { lang = site.defaultLocale, pagePath = '/about' } = $props();
+
+  // A hand-written page takes comments only when the site says so; the anchor
+  // asset is created when the first comment arrives.
+  const showComments = $derived(isCommentablePage(pagePath) && hasFeature('comments'));
 
   const t = $derived(getDictionary(lang));
   const home = $derived(homePath(lang));
@@ -86,6 +93,12 @@
       <a href={`/${getLink('feed.xml', lang)}`}>{t.about.contact.rssLabel}</a>
     </p>
   </section>
+  {#if showComments}
+    <section class="block comments">
+      <h2>{t.comments.title}</h2>
+      <CommentSection targetType="page" targetId={pagePath} {lang} />
+    </section>
+  {/if}
 </main>
 
 <style>
@@ -190,6 +203,18 @@
 
   .names-note {
     color: var(--color-ink-soft);
+  }
+
+  .block.comments {
+    padding-bottom: 0;
+  }
+
+  /* CommentSection brings its own type scale; the prose rules above must not
+     reach into it (this is the same class of leak that broke avatars before). */
+  .block.comments :global(.comment-body p),
+  .block.comments :global(.comment-body) {
+    font-size: 0.97rem;
+    line-height: 1.75;
   }
 
   .block .contact-body {

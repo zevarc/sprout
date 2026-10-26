@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.1 — comments on static pages
+
+Hand-written pages can take comments without becoming content.
+
+- New engine kind `page` (`migrations/0002_pages.sql`) and `commentablePages` in
+  `sprout.config.js`: declare `/about` and the About page renders the same comment
+  section as posts and notes.
+- The anchor asset is created on the first comment, with a deterministic id
+  (`page:about:zh`), so export/restore carry it like any other kind.
+- Pages never appear in lists, feeds, the sitemap, tags, search or the admin
+  editor: the anchor exists only so comments have an `assets.id` to reference.
+- Also fixed in this release: the tag filter referenced an alias from outside the
+  UNION wrapper, which broke every `/tags/<tag>` page.
+
 ## 0.9.0 — BREAKING (data model v4)
 
 The single `nodes` table becomes a shared `assets` row plus one table per content

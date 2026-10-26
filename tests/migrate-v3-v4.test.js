@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createTestDb } from './helpers/d1-memory.js';
+import { kindTable, kindWithFields, roundTripFields } from './helpers/kinds.js';
 import { getAsset } from '$lib/server/repositories/assets';
 import { restoreFromBundle } from '$lib/server/restore';
 import { listComments } from '$lib/server/repositories/comments';
@@ -44,6 +45,13 @@ describe('v3 → v4 export conversion', () => {
 		const output = join(base, 'v4');
 		const now = '2025-01-01T00:00:00.000Z';
 
+		// A kind the site declares with real columns, so `node_fields` has somewhere
+		// to land — that mapping is what this test is about.
+		const kind = kindWithFields();
+		const [first, second] = roundTripFields(kind, 2);
+		/** @param {import('$lib/content/schema').FieldDef} field */
+		const converted = (field) => (field.type === 'number' ? 3 : 'carried-over');
+
 		const post = {
 			id: 'N1',
 			type: 'post',
@@ -63,12 +71,12 @@ describe('v3 → v4 export conversion', () => {
 			created_at: now,
 			updated_at: now
 		};
-		const project = {
+		const other = {
 			...post,
 			id: 'N2',
-			type: 'project',
-			slug: 'p1',
-			title: 'P1',
+			type: kind.type,
+			slug: 'k1',
+			title: 'K1',
 			group_id: 'N2',
 			status: 'scheduled',
 			cover_media_id: null
@@ -76,12 +84,12 @@ describe('v3 → v4 export conversion', () => {
 
 		writeBundle(input, {
 			'schema.json': JSON.stringify({ version: 3, db_schema: '3', generator: 'sprout-export' }),
-			'nodes.jsonl': jsonl([post, project]),
-			// `year` is declared for a project but not for a post.
+			'nodes.jsonl': jsonl([post, other]),
+			// `first` is declared for the kind, but not for a post.
 			'node_fields.jsonl': jsonl([
-				{ node_id: 'N1', field: 'year', kind: 'text', value: '2026' },
-				{ node_id: 'N2', field: 'year', kind: 'text', value: '2026' },
-				{ node_id: 'N2', field: 'order_index', kind: 'number', value: 3 }
+				{ node_id: 'N1', field: first.key, kind: 'text', value: 'not-declared-here' },
+				{ node_id: 'N2', field: first.key, kind: 'text', value: converted(first) },
+				{ node_id: 'N2', field: second.key, kind: 'number', value: converted(second) }
 			]),
 			'node_tags.jsonl': jsonl([
 				{ node_id: 'N1', tag: 'one' },
@@ -132,16 +140,18 @@ describe('v3 → v4 export conversion', () => {
 
 			const schema = JSON.parse(readFileSync(join(output, 'schema.json'), 'utf8'));
 			expect(schema.version).toBe(4);
-			expect(schema.types).toEqual(['post', 'project']);
+			expect(schema.types).toEqual(['post', kind.type].sort());
 
 			const [asset] = readJsonl(output, 'assets.jsonl');
 			expect(asset.author_id).toBe('A1');
 			// `featured` has no column in v4, and is not invented as a field.
 			expect(asset).not.toHaveProperty('featured');
 
-			const [projectRow] = readJsonl(output, 'projects.jsonl').filter((r) => r.id === 'N2');
-			expect(projectRow.year).toBe('2026');
-			expect(projectRow.order_index).toBe(3);
+			const kindRow = readJsonl(output, `${kindTable(kind.type)}.jsonl`).find(
+				(r) => r.id === 'N2'
+			);
+			expect(kindRow[first.key]).toBe(converted(first));
+			expect(kindRow[second.key]).toBe(converted(second));
 			// Nothing can schedule, so a scheduled node becomes a draft.
 			expect(readJsonl(output, 'assets.jsonl').find((a) => a.id === 'N2').status).toBe('draft');
 
@@ -179,7 +189,7 @@ describe('v3 → v4 export conversion', () => {
 				'identities.jsonl',
 				'assets.jsonl',
 				'posts.jsonl',
-				'projects.jsonl',
+				`${kindTable(kind.type)}.jsonl`,
 				'comments.jsonl',
 				'reactions.jsonl',
 				'tags.jsonl',

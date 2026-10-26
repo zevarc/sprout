@@ -163,6 +163,14 @@ export const mods = [];
  */
 export const privateRoutes = [];
 
+/**
+ * 接受评论的静态页面（`path` + 各语言的锚点标题）。页面不是内容：不进列表、搜索、
+ * feed、sitemap；数据库里只多一条锚点资产，评论依旧挂在 `assets.id` 上。
+ * 锚点在第一条评论出现时才创建，id 由路由与语言决定（`page:about:zh`）。
+ * @type {import('./lib/content/pages').CommentablePage[]}
+ */
+export const commentablePages = [{ path: '/about', title: { en: 'About', zh: '关于' } }];
+
 /** 内容默认值。 @type {{ defaultVisibility: 'public' | 'private', timelineOrder: 'published' | 'occurred' }} */
 export const content = {
 	/** 新记录的默认可见性：'private' 表示默认只给登录成员看 */
@@ -171,4 +179,13 @@ export const content = {
 	timelineOrder: 'published'
 };
 
-export default { contentTypes, features, home, theme, mods, privateRoutes, content };
+export default {
+	contentTypes,
+	features,
+	home,
+	theme,
+	mods,
+	privateRoutes,
+	content,
+	commentablePages
+};

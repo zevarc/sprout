@@ -9,6 +9,7 @@ export {
 	theme,
 	mods,
 	privateRoutes,
-	content
+	content,
+	commentablePages
 } from '../sprout.config.js';
 export { default as sprout } from '../sprout.config.js';

@@ -5,7 +5,7 @@
  * runtime. Called from `hooks.server.js`; also covered by a unit test.
  */
 
-import { contentTypes, features, mods } from '$lib/engine/registry';
+import { commentablePages, contentTypes, features, mods } from '$lib/engine/registry';
 import { site } from '$lib/site';
 import { isKnownFeature } from '$lib/engine/features';
 
@@ -63,6 +63,13 @@ export function validateConfig(): string[] {
 		if (collide) {
 			errors.push(`locale "${code}" collides with content type route "${collide.route}"`);
 		}
+	}
+
+	for (const page of commentablePages ?? []) {
+		if (!page?.path || !page.path.startsWith('/'))
+			errors.push(`commentablePages entry needs a path starting with "/" (got "${page?.path}")`);
+		else if (!page.title || Object.keys(page.title).length === 0)
+			errors.push(`commentablePage "${page.path}" needs a title (per locale)`);
 	}
 
 	for (const f of features ?? []) {

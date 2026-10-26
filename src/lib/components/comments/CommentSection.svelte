@@ -24,8 +24,10 @@
   let submitting = $state(false);
   let notice = $state('');
 
+  // `lang` travels with the request: a page target resolves to a per-language
+  // anchor, and the server refuses to guess the language from the client's word.
   const endpoint = $derived(
-    `/api/events?kind=comment&targetType=${encodeURIComponent(targetType)}&targetId=${encodeURIComponent(targetId)}`
+    `/api/events?kind=comment&targetType=${encodeURIComponent(targetType)}&targetId=${encodeURIComponent(targetId)}&lang=${encodeURIComponent(lang)}`
   );
 
   const loginHref = $derived(
@@ -94,6 +96,7 @@
           kind: 'comment',
           targetType,
           targetId,
+          lang,
           name,
           email,
           body,

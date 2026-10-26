@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createTestDb } from './helpers/d1-memory.js';
+import { kindWithFields, roundTripFields, sampleFields, sampleValue } from './helpers/kinds.js';
 import {
 	createAsset,
 	getAsset,
@@ -190,25 +191,29 @@ describe('assets', () => {
 	it('stores kind-specific attributes as real columns', async () => {
 		const { db } = createTestDb();
 		const owner = await ensureOwner(db);
-		const project = await createAsset(db, {
-			type: 'project',
-			slug: 'p1',
+		const kind = kindWithFields();
+		const [first, second] = roundTripFields(kind, 2);
+		const fields = sampleFields([first, second]);
+
+		const asset = await createAsset(db, {
+			type: kind.type,
+			slug: 'attrs',
 			lang: 'en',
-			title: 'P1',
+			title: 'Attrs',
 			bodyMd: 'x',
 			status: 'published',
 			authorId: owner.id,
-			fields: { year: '2026', stage: 'active', order_index: 2 }
+			fields
 		});
-		expect(project.fields).toEqual({ year: '2026', stage: 'active', order_index: 2 });
+		expect(asset.fields).toEqual(fields);
 
-		const updated = await updateAsset(db, project.id, { fields: { stage: 'archived' } });
-		expect(updated?.fields.stage).toBe('archived');
 		// A key that is absent is left alone…
-		expect(updated?.fields.year).toBe('2026');
+		const updated = await updateAsset(db, asset.id, { fields: { [second.key]: sampleValue(second) } });
+		expect(updated?.fields[second.key]).toEqual(fields[second.key]);
+		expect(updated?.fields[first.key]).toEqual(fields[first.key]);
 		// …and an explicitly cleared key becomes NULL.
-		const cleared = await updateAsset(db, project.id, { fields: { year: null } });
-		expect(cleared?.fields.year).toBeUndefined();
+		const cleared = await updateAsset(db, asset.id, { fields: { [first.key]: null } });
+		expect(cleared?.fields[first.key]).toBeUndefined();
 	});
 
 	it('groups translations by group id, not by slug', async () => {

@@ -26,8 +26,29 @@ import {
 } from '$lib/server/auth';
 
 import { site } from '$lib/site';
+import { isCommentablePage, pageAssetId } from '$lib/content/pages';
+import { ensurePageAsset } from '$lib/server/repositories/pages';
 
 export const prerender = false;
+
+/**
+ * Turns a request target into the asset id comments hang on.
+ *
+ * Content targets are asset ids already. A static page is declared by route
+ * (`/about`) and maps to a deterministic anchor — the same id both when reading
+ * and when writing, so the two never disagree.
+ */
+function resolveTarget(targetType: string, rawId: string, lang: string): string | null {
+	if (targetType !== 'page') return rawId;
+	return isCommentablePage(rawId) ? pageAssetId(rawId, lang) : null;
+}
+
+/** Only locales the site declares — never a client-supplied label. */
+function resolveLang(value: unknown): string {
+	const code = String(value ?? '');
+	return site.locales.some((l) => l.code === code) ? code : site.defaultLocale;
+}
+
 
 const RESERVED_NAMES = new Set([site.name.toLowerCase(), 'owner', 'admin', 'administrator']);
 const RATE_WINDOW_MS = 10 * 60 * 1000;
@@ -48,7 +69,12 @@ interface CommentDTO {
 export const GET: RequestHandler = async ({ url, platform }) => {
 	const db = getDb(platform);
 	const kind = url.searchParams.get('kind') ?? 'comment';
-	const targetId = url.searchParams.get('targetId') ?? '';
+	const lang = resolveLang(url.searchParams.get('lang'));
+	const targetId = resolveTarget(
+		url.searchParams.get('targetType') ?? '',
+		url.searchParams.get('targetId') ?? '',
+		lang
+	);
 	if (!targetId) return json({ comments: [], reactions: [] });
 
 	if (kind === 'reaction') {
@@ -103,8 +129,13 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'unsupported kind' }, { status: 400 });
 	}
 
-	const targetId = String(body.targetId ?? '');
+	const lang = resolveLang(body.lang);
+	const targetType = String(body.targetType ?? '');
+	let targetId = resolveTarget(targetType, String(body.targetId ?? ''), lang);
 	if (!targetId) return json({ error: 'missing target' }, { status: 400 });
+	// A page anchor appears with its first comment; until then the page simply has
+	// no comments, and reads never write.
+	if (targetType === 'page') targetId = await ensurePageAsset(db, { path: String(body.targetId), lang });
 
 	// Resolve identity: owner session > signed cookie > external account > new
 	// anonymous person. A person with no role is simply not a member.
