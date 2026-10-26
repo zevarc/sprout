@@ -7,6 +7,7 @@
  */
 
 import type { ContentNode, Visibility } from '$lib/content/types';
+import { structuredDataType } from './jsonld';
 import { getContentType } from '$lib/content/registry';
 import { calcReadTime, extractExcerpt, extractHeadings, type TocItem } from '$lib/reading';
 import { getLink } from '$lib/i18n';
@@ -72,21 +73,7 @@ function mediaView(item: ContentNode['media'][number]): MediaView {
 	};
 }
 
-/**
- * schema.org type per kind. A site can override it per type (`schemaType` in
- * `sprout.config.js`); the defaults describe what each kind actually is, so a
- * short moment is not published as a technical article.
- */
-const DEFAULT_SCHEMA_TYPES: Record<string, string> = {
-	post: 'BlogPosting',
-	note: 'Article',
-	moment: 'SocialMediaPosting',
-	project: 'SoftwareSourceCode'
-};
-
-export function structuredDataType(type: string): string {
-	return getContentType(type)?.schemaType ?? DEFAULT_SCHEMA_TYPES[type] ?? 'CreativeWork';
-}
+export { structuredDataType } from './jsonld';
 
 export function nodeUrl(node: ContentNode): string {
 	const def = getContentType(node.type);

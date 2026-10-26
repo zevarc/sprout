@@ -4,7 +4,7 @@
   import { getDictionary, getLink, homePath } from '$lib/i18n/index.js';
   import { site } from '$lib/site';
   import { breadcrumbJsonLd, pageTitle, shareImage } from '$lib/seo';
-  import { structuredDataType } from '$lib/content/view';
+  import { structuredDataType } from '$lib/content/jsonld';
 
   let { project, bodyHtml = '', lang = site.defaultLocale, translations = [] } = $props();
 

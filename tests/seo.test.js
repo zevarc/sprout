@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createTestDb } from './helpers/d1-memory.js';
 import { absoluteUrl, breadcrumbJsonLd, pageTitle, shareImage } from '$lib/seo';
-import { nodeToView, structuredDataType } from '$lib/content/view';
+import { nodeToView } from '$lib/content/view';
+import { structuredDataType } from '$lib/content/jsonld';
 import { createAsset } from '$lib/server/repositories/assets';
 import { ensureOwner } from '$lib/server/repositories/people';
 import { site } from '$lib/site';

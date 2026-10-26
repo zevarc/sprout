@@ -79,3 +79,4 @@ export interface Mod {
 	theme?: { tokens?: Record<string, string> };
 	i18n?: Record<string, Record<string, unknown>>;
 }
+
