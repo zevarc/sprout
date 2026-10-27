@@ -14,9 +14,11 @@ describe('the site owner as structured data', () => {
 	it('carries the declared logo and topics when the site has them', () => {
 		const person = personJsonLd(site.defaultLocale);
 		if (site.logo) {
-			expect(person.image.url).toBe(`${site.url}${site.logo}`);
-			expect(person.logo.url).toBe(`${site.url}${site.logo}`);
-			expect(person.logo.width).toBe(512);
+			const image = /** @type {{ url: string, width: number }} */ (person.image);
+			const logo = /** @type {{ url: string, width: number }} */ (person.logo);
+			expect(image.url).toBe(`${site.url}${site.logo}`);
+			expect(logo.url).toBe(`${site.url}${site.logo}`);
+			expect(logo.width).toBe(512);
 		}
 		if (site.topics?.length) expect(person.knowsAbout).toEqual(site.topics);
 	});
