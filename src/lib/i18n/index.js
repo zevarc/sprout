@@ -68,6 +68,17 @@ export function getLink(path, lang = site.defaultLocale) {
 }
 
 /**
+ * Compact label for a locale: the `short` declared in `site.locales`, else the
+ * uppercased code. Used where the full name would crowd the control (a button
+ * shows `EN` / `中`, while the accessible name keeps the full label).
+ * @param {string} code
+ */
+export function localeShort(code) {
+  const locale = site.locales.find((l) => l.code === code);
+  return locale?.short ?? code.toUpperCase();
+}
+
+/**
  * The home path for a locale: `/` for the default locale, `/<code>` otherwise.
  * @param {string} [lang]
  */

@@ -3,6 +3,7 @@
 export const en = {
   language: '中文',
   common: {
+    switchLanguage: 'Switch to {name}',
     empty: 'Nothing here yet.',
   },
   feed: {

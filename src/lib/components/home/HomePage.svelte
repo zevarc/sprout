@@ -1,6 +1,6 @@
 <script>
   import HomeSection from './HomeSection.svelte';
-  import { getDictionary, getLink, homePath as localeHome } from '$lib/i18n/index.js';
+  import { getDictionary, getLink, homePath as localeHome, localeShort } from '$lib/i18n/index.js';
   import { getContentType, labelText, publicListTypes } from '$lib/content/registry';
   import { hasFeature } from '$lib/engine/features';
   import { site } from '$lib/site';
@@ -151,7 +151,21 @@
       </svg>
     </a>
     {#if switchLocale}
-      <a class="float-btn lang" href={switchPath} title={switchLocale.label}>{switchLocale.label}</a>
+      <!-- A 44px circle cannot hold a full language name: show the compact code
+           and keep the full name as the accessible name. -->
+      <a
+        class="float-btn lang"
+        href={switchPath}
+        hreflang={switchLocale.code}
+        aria-label={(t.common?.switchLanguage ?? 'Switch to {name}').replace('{name}', switchLocale.label)}
+        title={(t.common?.switchLanguage ?? 'Switch to {name}').replace('{name}', switchLocale.label)}
+      >
+        <svg class="lang-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
+        </svg>
+        <span class="lang-code" translate="no">{localeShort(switchLocale.code)}</span>
+      </a>
     {/if}
     <button class="float-btn" onclick={scrollToTop} aria-label="top">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -371,8 +385,30 @@
   }
 
   .float-btn.lang {
+    flex-direction: column;
+    gap: 1px;
     font-family: var(--font-mono);
-    font-size: 0.8rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .float-btn.lang .lang-icon {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+  }
+
+  .float-btn.lang .lang-code {
+    line-height: 1;
+  }
+
+  .float-btn:focus-visible {
+    outline: 2px solid var(--color-bud);
+    outline-offset: 2px;
   }
 
   /* ---------- Footer ---------- */

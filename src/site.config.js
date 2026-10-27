@@ -12,6 +12,7 @@
  * @typedef {{
  *   code: string,
  *   label: string,
+ *   short?: string,
  *   intl?: string,
  *   dateFormat?: Intl.DateTimeFormatOptions,
  *   dir?: 'ltr' | 'rtl'
@@ -53,11 +54,11 @@ export const site = {
 
 	/**
 	 * 支持的语言，任意数量：非默认语言前缀由 `src/hooks.js` 的 reroute 剥离，全部共用同一套路由文件。至少一个，且必须包含 defaultLocale。
-	 * 每个语言可再声明：`intl`（BCP-47 标签，给 Intl 用）、`dateFormat`（Intl.DateTimeFormatOptions，覆盖默认的 YYYY.MM.DD）、`dir: 'rtl'`。
+	 * 每个语言可再声明：`short`（切换控件上的短码，如 `EN`/`中`）、`intl`（BCP-47 标签，给 Intl 用）、`dateFormat`（Intl.DateTimeFormatOptions，覆盖默认的 YYYY.MM.DD）、`dir: 'rtl'`。
 	 */
 	locales: [
-		{ code: 'en', label: 'English', intl: 'en-US' },
-		{ code: 'zh', label: '中文', intl: 'zh-CN' }
+		{ code: 'en', label: 'English', short: 'EN', intl: 'en-US' },
+		{ code: 'zh', label: '中文', short: '中', intl: 'zh-CN' }
 	],
 
 	/** 社交分享卡（1200×630 PNG）。Facebook / X / LinkedIn / 微信都不吃 SVG，必须是位图。 */

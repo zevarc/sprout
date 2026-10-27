@@ -3,6 +3,7 @@
 export const zh = {
   language: 'English',
   common: {
+    switchLanguage: '切换到 {name}',
     empty: '还没有内容。',
   },
   feed: {

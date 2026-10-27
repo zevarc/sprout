@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.4 — a language switch that fits
+
+- The switcher showed the full locale name. On the home page that name was drawn
+  inside a 44px circle, so "English" was squeezed out of shape; elsewhere the pill
+  grew to 84px and jostled whatever sat beside it.
+- Both renderings now show a globe and a compact code (`EN`, `中`) from the new
+  `short` field in `site.locales` (falling back to the uppercased code). The full
+  language name stays as the accessible name (`common.switchLanguage`, e.g.
+  "Switch to English"), the link carries `hreflang`, and the pill gained a
+  `:focus-visible` ring plus a 44px hit area that does not change its size.
+- The switcher is a flex group now: hardcoded `right: 96px` offsets meant a third
+  language would have landed on top of the second.
+
 ## 0.9.3 — one person entity
 
 - `personJsonLd()` (`content/person.ts`) builds the site owner once; the home
