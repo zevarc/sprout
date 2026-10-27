@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.3 — one person entity
+
+- `personJsonLd()` (`content/person.ts`) builds the site owner once; the home
+  page's `WebSite` gets `author` **and** `publisher`, and the About page's
+  `AboutPage` reuses the same `@id` — previously each page described the author
+  differently.
+- Optional `logo` (512×512 PNG) and `topics` in `site.config.js`, plus
+  `brand.<locale>.role`, feed the person's `image`/`logo`, `knowsAbout` and
+  `jobTitle`; `logo` is also linked as the apple-touch-icon.
+
 ## 0.9.2 — SEO pass
 
 Found by auditing a real site's head tags and sitemap.

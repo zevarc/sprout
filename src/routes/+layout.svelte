@@ -101,6 +101,9 @@
 
 <svelte:head>
 		<link rel="icon" href={favicon} type="image/svg+xml" />
+		{#if site.logo}
+			<link rel="apple-touch-icon" href={site.logo} />
+		{/if}
 		<link rel="alternate" type="application/rss+xml" title={`${site.name} RSS`} href={`/${getLink('feed.xml', htmlLang)}`} />
 		<meta property="og:site_name" content={site.name} />
 		{#if !isPostPage}

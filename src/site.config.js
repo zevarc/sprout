@@ -23,7 +23,8 @@
  *   ogTagline: string,
  *   seoTitle: string,
  *   seoDescription: string,
- *   feedDescription: string
+ *   feedDescription: string,
+ *   role?: string
  * }} Brand
  * @typedef {{
  *   name: string,
@@ -32,6 +33,8 @@
  *   locales: Locale[],
  *   defaultLocale: string,
  *   ogImage?: string,
+ *   logo?: string,
+ *   topics?: string[],
  *   contact: { email: string, github: string },
  *   brand: Record<string, Brand>
  * }} SiteConfig
@@ -59,6 +62,13 @@ export const site = {
 
 	/** 社交分享卡（1200×630 PNG）。Facebook / X / LinkedIn / 微信都不吃 SVG，必须是位图。 */
 	ogImage: '/og-image.png',
+
+	/** 品牌图形：结构化数据的 image/logo，也用作 apple-touch-icon（512×512 PNG） */
+	logo: '/logo.png',
+
+	/** 结构化数据里的 knowsAbout */
+	topics: ['Web', 'Content platform'],
+
 
 	defaultLocale: 'en',
 

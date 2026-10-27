@@ -4,6 +4,7 @@
   import { getContentType, labelText, publicListTypes } from '$lib/content/registry';
   import { hasFeature } from '$lib/engine/features';
   import { site } from '$lib/site';
+  import { personJsonLd } from '$lib/content/person';
 
   const { lang = site.defaultLocale, sections = [] } = $props();
 
@@ -47,6 +48,7 @@
         name: site.name,
         description: brand.seoDescription,
         inLanguage: lang,
+        author: { '@id': `${site.url}/#person` },
         publisher: { '@id': `${site.url}/#person` },
         potentialAction: {
           '@type': 'SearchAction',
@@ -57,13 +59,7 @@
           'query-input': 'required name=search_term_string'
         }
       },
-      {
-        '@type': 'Person',
-        '@id': `${site.url}/#person`,
-        name: site.author,
-        url: site.url,
-        sameAs: [site.contact.github]
-      }
+      personJsonLd(lang, { jobTitle: brand.role })
     ]
   });
 

@@ -3,6 +3,7 @@
   import CommentSection from '$lib/components/comments/CommentSection.svelte';
   import { hasFeature } from '$lib/engine/features';
   import { isCommentablePage } from '$lib/content/pages';
+  import { personJsonLd } from '$lib/content/person';
   import PageLogo from '$lib/components/PageLogo.svelte';
   import { getDictionary, getLink, homePath } from '$lib/i18n/index.js';
   import { getContentType, publicListTypes } from '$lib/content/registry';
@@ -41,15 +42,10 @@
       inLanguage: lang,
       name: t.about.title,
       description: fill(t.seo.about.description),
-      mainEntity: {
-        '@type': 'Person',
-        '@id': `${site.url}/#person`,
-        name: site.name,
-        url: site.url,
-        email: `mailto:${site.contact.email}`,
-        sameAs: [site.contact.github],
+      mainEntity: personJsonLd(lang, {
+        jobTitle: site.brand[lang]?.role ?? site.brand[site.defaultLocale]?.role,
         description: t.about.who.paragraphs[0]
-      }
+      })
     }).replace(/</g, '\\u003c')
   );
 
