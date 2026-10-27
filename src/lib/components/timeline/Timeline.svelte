@@ -147,6 +147,7 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
+    min-height: 24px;
     border: none;
   }
 
@@ -181,6 +182,7 @@
 
   .entry-title {
     display: block;
+    min-height: 24px;
     margin-top: 8px;
     font-family: var(--font-serif);
     font-size: 1.05rem;
@@ -222,5 +224,11 @@
     object-fit: cover;
     border-radius: 10px;
     border: 1px solid var(--border-color);
+  }
+  @media (max-width: 820px) {
+    /* 10.5px badges are legible on a monitor, not in a hand. */
+    .badge {
+      font-size: 0.75rem;
+    }
   }
 </style>

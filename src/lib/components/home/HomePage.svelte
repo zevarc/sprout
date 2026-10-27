@@ -344,8 +344,8 @@
   /* ---------- 浮动按钮 ---------- */
   .float-actions {
     position: fixed;
-    right: 24px;
-    bottom: 24px;
+    right: max(24px, env(safe-area-inset-right));
+    bottom: max(24px, env(safe-area-inset-bottom));
     z-index: 900;
     display: flex;
     flex-direction: column;
@@ -388,7 +388,7 @@
     flex-direction: column;
     gap: 1px;
     font-family: var(--font-mono);
-    font-size: 0.62rem;
+    font-size: 0.7rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
@@ -412,6 +412,12 @@
   }
 
   /* ---------- Footer ---------- */
+  .site-footer a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+  }
+
   .site-footer {
     display: flex;
     justify-content: center;
@@ -446,8 +452,14 @@
     }
 
     .float-actions {
-      right: 16px;
-      bottom: 16px;
+      right: max(16px, env(safe-area-inset-right));
+      bottom: max(16px, env(safe-area-inset-bottom));
+    }
+
+    /* Meta copy below 12px is hard to read on a phone. */
+    .claim-source,
+    .scroll-label {
+      font-size: 0.75rem;
     }
   }
 
@@ -464,4 +476,9 @@
       transition: none;
     }
   }
+@media (max-width: 820px) {
+  .site-footer {
+    font-size: 0.75rem;
+  }
+}
 </style>

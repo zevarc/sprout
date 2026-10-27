@@ -245,4 +245,9 @@
     padding: 0 2px;
     border-radius: 3px;
   }
+@media (max-width: 1024px), (pointer: coarse) {
+  .search-type {
+    font-size: 1rem;
+  }
+}
 </style>

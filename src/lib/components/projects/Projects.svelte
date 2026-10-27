@@ -153,6 +153,9 @@
   }
 
   .project-title a {
+    display: inline-block;
+    min-height: 24px;
+    line-height: 1.4;
     color: inherit;
     border: none;
   }
@@ -225,6 +228,11 @@
   }
 
   @media (max-width: 767px) {
+    .project-status,
+    .tech-tag {
+      font-size: 0.75rem;
+    }
+
     .projects-list {
       grid-template-columns: 1fr;
     }

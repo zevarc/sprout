@@ -300,6 +300,9 @@
   }
 
   .github-login {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
     font-family: var(--font-mono);
     font-size: 0.8rem;
     color: var(--color-bud-deep);
@@ -317,6 +320,9 @@
   }
 
   .linkish {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
     padding: 0;
     border: none;
     background: none;
@@ -422,4 +428,28 @@
       grid-template-columns: 1fr;
     }
   }
+  /* iOS Safari zooms the viewport whenever a control below 16px gets focus;
+     on a phone that reads as the page suddenly breaking. */
+  /* Touch devices zoom on focus below 16px — in landscape too, so this is
+     keyed to the input mode as well as the width. */
+  @media (max-width: 1024px), (pointer: coarse) {
+    input,
+    textarea {
+      font-size: 1rem;
+    }
+
+    .label,
+    .badge,
+    .section-count {
+      font-size: 0.75rem;
+    }
+  }
+@media (max-width: 1024px), (pointer: coarse) {
+  .date,
+  .section-count,
+  .label,
+  .badge {
+    font-size: 0.75rem;
+  }
+}
 </style>

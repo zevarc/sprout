@@ -37,6 +37,8 @@ body {
     linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 36px 36px;
   overflow-x: hidden;
+  /* Landscape notches: keep text out from under the cutout. */
+  padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
 }
 
 /* 4. Typography */
@@ -298,5 +300,12 @@ textarea {
   }
   to {
     opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Meta pills (tags, kinds, statuses) read better at 12px in a hand. */
+  .pill {
+    font-size: 0.75rem;
   }
 }

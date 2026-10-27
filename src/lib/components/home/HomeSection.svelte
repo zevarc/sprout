@@ -153,6 +153,10 @@
   }
 
   .section-more {
+    /* WCAG 2.5.8: 24px minimum for a standalone target. */
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
     font-family: var(--font-mono);
     font-size: 0.7rem;
     color: var(--color-bud);
@@ -281,6 +285,12 @@
     color: var(--color-ink-soft);
   }
 
+  .card-field.link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+  }
+
   .card-fields {
     display: flex;
     flex-wrap: wrap;
@@ -315,6 +325,12 @@
   }
 
   @media (max-width: 820px) {
+    /* Meta copy below 12px is hard to read in a hand. */
+    .section-more,
+    .card-field {
+      font-size: 0.75rem;
+    }
+
     .section {
       padding-top: 80px;
     }
@@ -351,4 +367,10 @@
       transition: none;
     }
   }
+@media (max-width: 820px) {
+  /* Must match the specificity of `.card-tags .pill` above, or it loses. */
+  .card-tags .pill {
+    font-size: 0.75rem;
+  }
+}
 </style>

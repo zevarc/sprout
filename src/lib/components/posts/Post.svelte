@@ -329,6 +329,13 @@
     }
 
     @media (max-width: 768px) {
+        .post-kicker,
+        .post-date,
+        .post-time,
+        .post-updated {
+            font-size: 0.75rem;
+        }
+
         .post-layout {
             /* minmax(0, …) keeps long code lines from stretching the grid item */
             grid-template-columns: minmax(0, 1fr);
@@ -553,4 +560,12 @@
         opacity: 0.7;
         margin: 72px 0 12px;
     }
+@media (max-width: 768px) {
+  .post-kicker,
+  .post-date,
+  .post-time,
+  .post-updated {
+    font-size: 0.75rem;
+  }
+}
 </style>

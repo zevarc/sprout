@@ -86,4 +86,9 @@
       padding-top: 96px;
     }
   }
+@media (max-width: 767px) {
+  .section-count {
+    font-size: 0.75rem;
+  }
+}
 </style>

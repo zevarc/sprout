@@ -48,4 +48,9 @@
       left: 16px;
     }
   }
+@media (max-width: 768px) {
+  .page-logo {
+    min-height: 24px;
+  }
+}
 </style>

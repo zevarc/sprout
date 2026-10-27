@@ -193,6 +193,9 @@
   }
 
   .more a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
     font-family: var(--font-mono);
     font-size: 0.82rem;
     color: var(--color-bud-deep);
@@ -275,6 +278,11 @@
   }
 
   @media (max-width: 640px) {
+    .names-date,
+    .names-note {
+      font-size: 0.75rem;
+    }
+
     .about-page {
       padding-top: 96px;
     }
@@ -284,4 +292,9 @@
       gap: 12px;
     }
   }
+@media (max-width: 820px) {
+  .block h2 {
+    font-size: 0.75rem;
+  }
+}
 </style>

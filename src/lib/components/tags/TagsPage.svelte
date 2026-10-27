@@ -152,4 +152,9 @@
       padding-top: 96px;
     }
   }
+@media (max-width: 640px) {
+  .n {
+    font-size: 0.75rem;
+  }
+}
 </style>

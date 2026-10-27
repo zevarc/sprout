@@ -60,7 +60,9 @@
   }
 
   .tags-link {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
     margin-top: 14px;
     font-family: var(--font-mono);
     font-size: 0.8rem;

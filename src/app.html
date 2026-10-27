@@ -2,7 +2,9 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<!-- viewport-fit=cover + env(safe-area-inset-*) lets fixed controls respect
+		     notches and the home indicator instead of being letterboxed. -->
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<!-- Fonts are self-hosted (see src/styles/fonts.css); only the two
 		     latin files that render above the fold are preloaded. -->
 		<link rel="preload" as="font" type="font/woff2" href="/fonts/inter-latin.woff2" crossorigin>

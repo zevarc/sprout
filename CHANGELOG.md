@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.9.5 — mobile pass
+
+Audited at 320, 390, 414, 740 (landscape), 768 and 1280 px.
+
+- **iOS Safari no longer zooms on focus.** Comment fields (14.7px), the admin
+  login/filters (12.5–14.4px) and the search category select (13.6px) were under
+  16px; on touch they are 1rem now. Specificity matters here: `.filters input`
+  beat the plain `input` rule, so the admin override is scoped `.admin input` and
+  placed last.
+- **Tap targets reach the 24px floor.** Home "more"/card/footer links (18–19px),
+  project titles (23px), the tags entry, timeline rows (19–23px), the About
+  project link, the GitHub sign-in link and the page logo were under it; they now
+  carry `min-height: 24px` without changing their look. Inline links inside a
+  sentence stay as they are (WCAG 2.5.8 exempts them).
+- **Safe areas.** `viewport-fit=cover` plus `env(safe-area-inset-*)` on the
+  language pill, the home float group and the page body, so fixed controls clear
+  notches and the home indicator.
+- **Mobile type floor.** Kind badges (9.9–10.6px), tag pills (11.5px), post
+  meta (11.5px), About section headings (11.5px) and tag counts now render at
+  12px on phones/tablets. Media-query overrides sit at the end of each style
+  block or match the base selector's specificity — both rules had silently lost
+  the cascade before.
+- The admin login field has a real `<label>` instead of a placeholder.
+
 ## 0.9.4 — a language switch that fits
 
 - The switcher showed the full locale name. On the home page that name was drawn

@@ -727,8 +727,14 @@
     <p class="muted">…</p>
   {:else if role !== 'owner'}
     <form class="login" onsubmit={login}>
-      <p class="muted">输入 ADMIN_TOKEN 登录</p>
-      <input type="password" bind:value={token} placeholder="ADMIN_TOKEN" autocomplete="current-password" />
+      <label class="muted" for="admin-token">输入 ADMIN_TOKEN 登录</label>
+      <input
+        id="admin-token"
+        type="password"
+        bind:value={token}
+        placeholder="ADMIN_TOKEN"
+        autocomplete="current-password"
+      />
       <button type="submit" disabled={!token}>登录</button>
       {#if loginError}<span class="error">{loginError}</span>{/if}
     </form>
@@ -1444,7 +1450,13 @@
     color: var(--color-bud-deep);
   }
 
-  @media (max-width: 760px) {
+  @media (max-width: 760px), (pointer: coarse) {
+    /* iOS Safari zooms on focus below 16px. */
+    input,
+    select,
+    textarea {
+      font-size: 1rem;
+    }
     .layout,
     .grid {
       grid-template-columns: 1fr;
@@ -1662,4 +1674,13 @@
     font-size: 0.78rem;
     word-break: break-all;
   }
+@media (max-width: 1024px), (pointer: coarse) {
+  /* Same specificity as `.filters input` / `.media-list input`, but later:
+     iOS Safari zooms the viewport when a control below 16px is focused. */
+  .admin input,
+  .admin select,
+  .admin textarea {
+    font-size: 1rem;
+  }
+}
 </style>

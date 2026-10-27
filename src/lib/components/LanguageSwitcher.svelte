@@ -60,8 +60,8 @@
      guessing how wide its neighbours are. */
   .lang-switch-group {
     position: fixed;
-    top: 20px;
-    right: 24px;
+    top: max(20px, env(safe-area-inset-top));
+    right: max(24px, env(safe-area-inset-right));
     z-index: 1000;
     display: flex;
     gap: 8px;
