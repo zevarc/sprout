@@ -186,6 +186,13 @@ describe('assets', () => {
 
 		const all = await listAssets(db, { types: ['post', 'note'], lang: 'en' });
 		expect(all.map((n) => n.type)).toEqual(['note', 'post']);
+
+		// Omitting both `type` and `types` lists every kind — the editor's
+		// unfiltered list (the admin's `loadNodes` sends no type). An explicit
+		// empty `types` is different: it asks for nothing.
+		const everyKind = await listAssets(db, { lang: 'en' });
+		expect(everyKind.map((n) => n.type).sort()).toEqual(['note', 'post']);
+		expect(await listAssets(db, { types: [], lang: 'en' })).toEqual([]);
 	});
 
 	it('stores kind-specific attributes as real columns', async () => {

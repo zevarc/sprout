@@ -12,7 +12,7 @@ import { first, query, run } from '$lib/server/db';
 import { ulid } from '$lib/server/id';
 import { renderMarkdown } from '$lib/server/render';
 import { buildSearchText } from '$lib/server/search';
-import { getContentType } from '$lib/content/registry';
+import { getContentType, listTypes } from '$lib/content/registry';
 import { mediaForAssets } from '$lib/server/repositories/media';
 import { readTags, replaceTagStatements } from '$lib/server/repositories/tags';
 import { site } from '$lib/site';
@@ -135,7 +135,10 @@ export interface FieldOrder {
 }
 
 export interface ListAssetsOptions {
-	/** One kind, or several (`types`) — several means a UNION across kind tables. */
+	/**
+	 * One kind, or several (`types`) — several means a UNION across kind tables.
+	 * Omit both to list every declared kind; pass `types: []` for none.
+	 */
 	type?: string;
 	types?: string[];
 	lang?: string;
@@ -158,7 +161,9 @@ export async function listAssets(
 	db: D1Database,
 	opts: ListAssetsOptions = {}
 ): Promise<ContentNode[]> {
-	const types = opts.type ? [opts.type] : (opts.types ?? []);
+	// No `type`/`types` means every declared kind (the editor's unfiltered list,
+	// e.g. the admin's `loadNodes`); an explicit empty `types` still means none.
+	const types = opts.type ? [opts.type] : (opts.types ?? listTypes().map((t) => t.type));
 	if (types.length === 0) return [];
 
 	const where: string[] = [];
