@@ -118,10 +118,10 @@ async function main() {
 	const now = new Date().toISOString();
 	const { items, picks } = FROM_FILE ? fromFile(FROM_FILE) : await fromHttp();
 
-	// 1. Upsert blogs in chunks (a single statement per chunk keeps D1 params
-	//    well under limits: 11 columns × 40 rows = 440 params).
-	for (let i = 0; i < items.length; i += 40) {
-		const slice = items.slice(i, i + 40);
+	// 1. Upsert blogs in chunks. D1's HTTP API caps bound parameters at 100
+	//    per query (not SQLite's 32766): 11 columns × 8 rows = 88 params.
+	for (let i = 0; i < items.length; i += 8) {
+		const slice = items.slice(i, i + 8);
 		const placeholders = slice.map(() => `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).join(', ');
 		const params = slice.flatMap((b) => [
 			b.id,
