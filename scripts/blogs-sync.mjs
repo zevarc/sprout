@@ -139,7 +139,17 @@ async function main() {
 	const now = new Date().toISOString();
 	const { items, picks } = FROM_FILE ? fromFile(FROM_FILE) : await fromHttp();
 
-	// 1. Upsert blogs in chunks. D1's HTTP API caps bound parameters at 100
+	// 1. File mode is snapshot-replace semantics: clear and reinsert.
+	// Upserting on top of existing rows breaks when id↔url pairs were
+	// reassigned by Zevprobe's url normalization (a row updated to a url that
+	// another, not-yet-updated row still holds → transient UNIQUE clash).
+	// HTTP mode keeps incremental upserts (no reassignments there).
+	if (FROM_FILE) {
+		await d1(`DELETE FROM discovered_picks`);
+		await d1(`DELETE FROM discovered_blogs`);
+	}
+
+	// 2. Insert blogs in chunks. D1's HTTP API caps bound parameters at 100
 	//    per query (not SQLite's 32766): 11 columns × 8 rows = 88 params.
 	for (let i = 0; i < items.length; i += 8) {
 		const slice = items.slice(i, i + 8);
@@ -157,28 +167,15 @@ async function main() {
 			JSON.stringify(b.latestPosts ?? []),
 			now
 		]);
-		await d1(UPSERT_BLOG.replace('VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', `VALUES ${placeholders}`), params);
+		const insert = FROM_FILE
+			? `INSERT INTO discovered_blogs
+				 (id, url, feed_url, title, description, language, favicon_url,
+					last_post_at, first_seen, latest_posts, synced_at)
+				 VALUES ${placeholders}`
+			: UPSERT_BLOG.replace('VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', `VALUES ${placeholders}`);
+		await d1(insert, params);
 	}
 	console.log(`[blogs-sync] upserted ${items.length} blogs`);
-
-	// 1b. File mode is snapshot-based: D1 should mirror the snapshot exactly.
-	// Drop rows whose id is no longer in the snapshot (e.g. url-dedupe in
-	// Zevprobe collapsed site+feed duplicates into one id).
-	if (FROM_FILE) {
-		const keepIds = items.map((b) => Number(b.id)).filter((n) => Number.isInteger(n));
-		if (keepIds.length > 0) {
-			// ids are integers — safe to inline; chunk to stay under query limits
-			for (let i = 0; i < keepIds.length; i += 500) {
-				await d1(`DELETE FROM discovered_blogs WHERE id NOT IN (${keepIds.slice(i, i + 500).join(',')})`);
-			}
-			await d1(
-				`DELETE FROM discovered_picks WHERE pick_date NOT IN (${picks
-					.map((p) => `'${String(p.date).replace(/'/g, "")}'`)
-					.join(',') || `''`})`
-			);
-		}
-	}
-
 	// 2. Picks. A pick may reference a blog absent from this batch (fresh DB in
 	//    HTTP mode) — backfill that single blog before inserting so the foreign
 	//    key always resolves.
