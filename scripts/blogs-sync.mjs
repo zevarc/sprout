@@ -110,8 +110,29 @@ function fromFile(path) {
 		if (rec.type === 'blog') items.push(rec);
 		else if (rec.type === 'pick') picks.push({ date: rec.pickDate, blog: { id: rec.blogId } });
 	}
-	console.log(`[blogs-sync] file mode: ${path} -> ${items.length} blogs, ${picks.length} picks`);
-	return { items, picks };
+	// 同一站点可能同时以「站点 + feed」两个历史 id 出现：按 url 去重，
+	// 优先保留被 pick 引用的 id，否则保留最大 id（与游标语义一致）。
+	const pickedIds = new Set(picks.map((p) => p.blog?.id));
+	const byUrl = new Map();
+	for (const b of items) {
+		const existing = byUrl.get(b.url);
+		if (!existing) {
+			byUrl.set(b.url, b);
+		} else {
+			const keep =
+				pickedIds.has(b.id) !== pickedIds.has(existing.id)
+					? pickedIds.has(b.id)
+						? b
+						: existing
+					: b.id > existing.id
+						? b
+						: existing;
+			byUrl.set(b.url, keep);
+		}
+	}
+	const deduped = [...byUrl.values()];
+	console.log(`[blogs-sync] file mode: ${path} -> ${deduped.length} blogs (${items.length - deduped.length} url-dupes dropped), ${picks.length} picks`);
+	return { items: deduped, picks };
 }
 
 async function main() {
@@ -139,6 +160,24 @@ async function main() {
 		await d1(UPSERT_BLOG.replace('VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', `VALUES ${placeholders}`), params);
 	}
 	console.log(`[blogs-sync] upserted ${items.length} blogs`);
+
+	// 1b. File mode is snapshot-based: D1 should mirror the snapshot exactly.
+	// Drop rows whose id is no longer in the snapshot (e.g. url-dedupe in
+	// Zevprobe collapsed site+feed duplicates into one id).
+	if (FROM_FILE) {
+		const keepIds = items.map((b) => Number(b.id)).filter((n) => Number.isInteger(n));
+		if (keepIds.length > 0) {
+			// ids are integers — safe to inline; chunk to stay under query limits
+			for (let i = 0; i < keepIds.length; i += 500) {
+				await d1(`DELETE FROM discovered_blogs WHERE id NOT IN (${keepIds.slice(i, i + 500).join(',')})`);
+			}
+			await d1(
+				`DELETE FROM discovered_picks WHERE pick_date NOT IN (${picks
+					.map((p) => `'${String(p.date).replace(/'/g, "")}'`)
+					.join(',') || `''`})`
+			);
+		}
+	}
 
 	// 2. Picks. A pick may reference a blog absent from this batch (fresh DB in
 	//    HTTP mode) — backfill that single blog before inserting so the foreign

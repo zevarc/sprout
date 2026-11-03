@@ -20,6 +20,7 @@ export const en = {
     about: 'About',
     tags: 'Tags',
     timeline: 'Timeline',
+    blogroll: 'Blogroll',
   },
   home: {
     selectedWriting: 'Latest writing',
