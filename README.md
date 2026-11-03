@@ -27,6 +27,35 @@ pnpm content:verify   # proves the live DB and the mirror still match
 
 ---
 
+## Blogroll (Zevprobe, opt-in)
+
+Run [Zevprobe](https://github.com/zevarc/zevprobe) somewhere (a small VPS is
+enough) and sprout can showcase the independent blogs it discovers daily:
+
+```bash
+pnpm db:migrate:remote                        # adds discovered_blogs / discovered_picks / sync_state
+ZEVPROBE_URL=https://probe.example.com \
+CF_ACCOUNT_ID=... CF_DATABASE_ID=... \
+CF_API_TOKEN=<D1-edit-scoped-token> \
+pnpm blogs:sync                               # incremental pull, idempotent
+```
+
+The token only needs **Account → D1 → Edit on this one database** — the
+discovery service never gets write access, the sync is always pull-shaped.
+
+Two ways to run the sync:
+
+- **GitHub Actions (recommended)** — the Zevprobe repo's `daily` workflow runs
+  the discovery and calls this script with `--from-file <export.jsonl>`; no
+  server involved. Add `CF_ACCOUNT_ID` / `CF_DATABASE_ID` / `CF_API_TOKEN` as
+  Actions secrets and you're done.
+- **VPS** — deploy `zevprobe-sync.service/.timer` (in the Zevprobe repo) to run
+  the script daily against the local API (`ZEVPROBE_URL`, incremental cursor).
+
+`/blogroll` renders once data exists; sites without the tables simply 404 there.
+
+---
+
 ## Features
 
 | | |
@@ -43,6 +72,7 @@ pnpm content:verify   # proves the live DB and the mirror still match
 | **Image upload** | Content-addressed keys in R2, served from your own `/media/<key>` route |
 | **Locales** | `site.locales` drives everything; `en` + `zh` out of the box, single-language sites need no `/zh` tree |
 | **Portable** | Standard SQLite, relative media keys, append-only event log, full export contract |
+| **Blogroll** | Daily-discovered independent blogs pulled from a Zevprobe instance (opt-in) |
 | **Admin UI** | `/admin`: editor (autosave, split preview, pre-publish checks), uploads, moderation, stats, members |
 
 ## Stack
