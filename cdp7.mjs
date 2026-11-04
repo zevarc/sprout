@@ -1,0 +1,17 @@
+import { writeFileSync } from 'node:fs';
+const list = await (await fetch('http://127.0.0.1:9333/json/list')).json();
+const page = list.find((t) => t.type === 'page');
+const ws = new WebSocket(page.webSocketDebuggerUrl);
+let id = 0; const pending = new Map();
+ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } };
+await new Promise((r) => (ws.onopen = r));
+const send = (method, params = {}) => new Promise((res) => { const i = ++id; pending.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
+await send('Page.enable');
+await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+await send('Page.navigate', { url: 'http://localhost:5174/posts' });
+await new Promise((r) => setTimeout(r, 4000));
+const info = (await send('Runtime.evaluate', { expression: `(() => { const r = document.querySelector('.post-row'); const t = r.querySelector('.post-title').getBoundingClientRect(); return JSON.stringify({w: Math.round(t.width), h: Math.round(t.height), scrollW: document.documentElement.scrollWidth}); })()`, returnByValue: true })).result.result.value;
+console.log(info);
+const shot = await send('Page.captureScreenshot', { format: 'png' });
+writeFileSync('/tmp/posts-mobile.png', Buffer.from(shot.result.data, 'base64'));
+ws.close();

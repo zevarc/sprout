@@ -346,13 +346,25 @@
 
     .post-row {
       grid-template-columns: 32px 1fr;
-      gap: 12px;
+      gap: 4px 12px;
+      align-items: start;
+    }
+
+    /* Explicit placement: without it the title auto-places into the 32px index
+       column and wraps every two or three characters. */
+    .post-index {
+      grid-column: 1;
+      grid-row: 1;
     }
 
     .post-date {
       grid-column: 2;
       grid-row: 1;
-      margin-top: -10px;
+    }
+
+    .post-title {
+      grid-column: 1 / -1;
+      grid-row: 2;
     }
 
     .post-time {
