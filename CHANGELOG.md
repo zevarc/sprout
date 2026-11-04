@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1 — TOC scroller
+
+- Dropped the fade mask on the table-of-contents scroller: it faded the last row
+  even when the list fit, which read as "there is more below" when there wasn't.
+
 ## 0.11.0 — reading experience
 
 - **The table of contents is one component with a scroll spy.** `PostToc.svelte`
