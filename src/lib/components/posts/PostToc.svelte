@@ -183,30 +183,30 @@
       aria-hidden="true"
     ></div>
     <ol class="toc-list">
-      {#each headings as h, i (h.id)}
+      {#each rows as row (row.h.id)}
         <li
           class="toc-item"
-          class:active={h.id === currentId}
-          class:read={i < activeIndex}
-          data-level={h.level}
+          class:active={row.h.id === currentId}
+          class:read={row.i < activeIndex}
+          data-level={row.h.level}
         >
           <a
-            href={`#${h.id}`}
-            data-id={h.id}
-            aria-current={h.id === currentId ? 'location' : undefined}
+            href={`#${row.h.id}`}
+            data-id={row.h.id}
+            aria-current={row.h.id === currentId ? 'location' : undefined}
             onclick={(event) => {
               event.preventDefault();
-              go(h);
+              go(row.h);
             }}
           >
             <span class="toc-badge" aria-hidden="true">
-              {#if h.level === 2}
-                <span class="toc-num">{numbers.get(h.id)}</span>
+              {#if row.h.level === 2}
+                <span class="toc-num">{numbers.get(row.h.id)}</span>
               {:else}
-                <span class="toc-dot" class:small={h.level >= 4}></span>
+                <span class="toc-dot" class:small={row.h.level >= 4}></span>
               {/if}
             </span>
-            <span class="toc-label" title={h.text}>{h.text}</span>
+            <span class="toc-label" title={row.h.text}>{row.h.text}</span>
           </a>
         </li>
       {/each}
