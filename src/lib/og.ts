@@ -1,9 +1,14 @@
 /**
  * Generates an Open Graph share image (SVG) for a single post,
  * reusing the site's nautical visual language (sky gradient + sun + waves).
+ *
+ * Colours come from the resolved theme palette, so a site that overrides
+ * `--color-paper` / `--color-bud` (or picks another preset) gets a matching
+ * share card instead of the stock green.
  */
 
 import { site } from '$lib/site';
+import { resolvePalette } from '$lib/engine/theme';
 
 function escapeXml(s: string): string {
   return s
@@ -33,6 +38,9 @@ export function wrapTitle(text: string, maxWidth = 44): string[] {
       lines.push(line);
       if (lines.length >= maxLines) {
         truncated = true;
+        // `line` held the text just pushed; leave it empty or the tail below
+        // would push a duplicate fourth line.
+        line = '';
         break;
       }
       line = ch;
@@ -51,6 +59,19 @@ export function wrapTitle(text: string, maxWidth = 44): string[] {
 }
 
 export function generateOgSvg(title: string, lang: string): string {
+  const palette = resolvePalette();
+  /** Palette lookup with a last-resort fallback so a custom theme can't break the SVG. */
+  const color = (token: string, fallback: string) => palette[token] ?? fallback;
+
+  const ink = color('--color-ink', '#29372f');
+  const paper = color('--color-paper', '#f1f5ee');
+  const paperDeep = color('--color-paper-deep', '#e2eade');
+  const bud = color('--color-bud', '#5e8b74');
+  const budDeep = color('--color-bud-deep', '#3f6a55');
+  const gradA = color('--grad-bud-a', '#6f9c86');
+  const gradB = color('--grad-bud-b', '#b9d2c1');
+  const gradC = color('--grad-bud-c', '#e0c97f');
+
   const lines = wrapTitle(title, 30);
   const fontSize = lines.length === 1 ? 66 : lines.length === 2 ? 54 : 44;
   const lineHeight = fontSize * 1.25;
@@ -62,20 +83,20 @@ export function generateOgSvg(title: string, lang: string): string {
   const titleXml = lines
     .map(
       (l, i) => `
-    <text x="600" y="${Math.round(startY + i * lineHeight)}" text-anchor="middle" font-family="Fraunces, Georgia, 'Songti SC', serif" font-size="${fontSize}" font-weight="600" fill="#29372f">${escapeXml(l)}</text>`
+    <text x="600" y="${Math.round(startY + i * lineHeight)}" text-anchor="middle" font-family="Fraunces, Georgia, 'Songti SC', serif" font-size="${fontSize}" font-weight="600" fill="${ink}">${escapeXml(l)}</text>`
     )
     .join('');
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#f1f5ee"/>
-      <stop offset="100%" stop-color="#e2eade"/>
+      <stop offset="0%" stop-color="${paper}"/>
+      <stop offset="100%" stop-color="${paperDeep}"/>
     </linearGradient>
     <linearGradient id="lg" x1="0" y1="1" x2="0.45" y2="0">
-      <stop offset="0%" stop-color="#6f9c86"/>
-      <stop offset="55%" stop-color="#b9d2c1"/>
-      <stop offset="100%" stop-color="#e0c97f"/>
+      <stop offset="0%" stop-color="${gradA}"/>
+      <stop offset="55%" stop-color="${gradB}"/>
+      <stop offset="100%" stop-color="${gradC}"/>
     </linearGradient>
   </defs>
 
@@ -86,9 +107,9 @@ export function generateOgSvg(title: string, lang: string): string {
   <g opacity="0.07" transform="translate(40, 396) scale(8.6)"><path fill="url(#lg)" d="m 7.7915687,21.187121 c -2.165092,-0.244068 -3.830287,-1.277655 -4.939085,-3.065689 -0.754217,-1.21624 -1.039193,-2.943583 -0.728762,-4.417303 0.458748,-2.177836 1.90419,-3.7857163 4.110442,-4.5723732 0.646862,-0.230644 0.736367,-0.235037 5.3888013,-0.264503 3.226852,-0.02044 4.731014,0.0035 4.731014,0.07527 0,0.05788 -1.434594,1.2529962 -3.187987,2.6558112 -1.983739,1.587105 -3.152147,2.586411 -3.093109,2.645449 0.155939,0.15594 5.790281,0.0058 6.676721,-0.177886 0.872069,-0.180734 1.860728,-0.618482 2.429913,-1.075892 0.528547,-0.424751 1.17931,-1.36539 1.446824,-2.091296 0.316697,-0.859367 0.314615,-2.4579732 -0.0044,-3.3869452 -0.605911,-1.764353 -1.801259,-2.831745 -3.721076,-3.322751 -1.062792,-0.271817 -3.221534,-0.277609 -4.240607,-0.01138 -1.38588,0.362059 -2.9743383,1.144851 -4.1469833,2.043634 -0.358925,0.275101 -0.677011,0.500183 -0.706859,0.500183 -0.318269,0 0.795456,-1.287967 1.801882,-2.083786 0.9801933,-0.775076 2.1435003,-1.372752 3.2543573,-1.672003 0.634,-0.170792 1.09491,-0.217999 2.125161,-0.217659 3.027867,10e-4 4.875739,0.959253 6.26313,3.247886 0.655203,1.08082 0.923312,2.883432 0.632136,4.2501172 -0.4103,1.925804 -1.44525,3.284562 -3.157621,4.145559 -1.116912,0.561594 -1.79428,0.638027 -6.221139,0.701985 -3.8294183,0.05533 -4.7521743,0.02226 -4.7521743,-0.170296 0,-0.048 1.412001,-1.216008 3.1377803,-2.59557 1.961688,-1.568144 3.102072,-2.5440033 3.04251,-2.6035643 -0.15632,-0.156321 -5.7888573,-0.0066 -6.6771133,0.177494 -1.453996,0.3013363 -2.519285,0.9544773 -3.245608,1.9899223 -1.699621,2.422976 -0.849827,6.082015 1.712973,7.375713 1.043991,0.527004 1.963863,0.711161 3.552297,0.711161 1.6602403,0 2.5807283,-0.22106 4.1948573,-1.007416 0.864942,-0.421374 1.351776,-0.730681 2.711048,-1.72245 0.196699,-0.143518 0.199566,-0.139591 0.07389,0.101198 -0.465987,0.892799 -2.183318,2.384664 -3.489366,3.031252 -1.47248,0.728984 -3.1895093,1.007268 -4.9738343,0.806122 z"/></g>
 
 ${titleXml}
-  <path d="M 440 480 Q 580 480 600 462 Q 620 480 760 480" stroke="#5e8b74" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.55"/>
-  <text x="600" y="540" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="46" font-weight="700" fill="#29372f">${escapeXml(site.name)}</text>
-  <text x="600" y="586" text-anchor="middle" font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="19" letter-spacing="5" fill="#5e8b74">${escapeXml(tagline)}</text>
+  <path d="M 440 480 Q 580 480 600 462 Q 620 480 760 480" stroke="${bud}" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.55"/>
+  <text x="600" y="540" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="46" font-weight="700" fill="${ink}">${escapeXml(site.name)}</text>
+  <text x="600" y="586" text-anchor="middle" font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="19" letter-spacing="5" fill="${budDeep}">${escapeXml(tagline)}</text>
 </svg>
 `;
 }

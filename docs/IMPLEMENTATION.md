@@ -176,6 +176,10 @@ Endpoints return JSON errors (401/400/404/409/413/415/429) instead of throwing a
   code, inline HTML, entities, code spans and Setext headings are all covered.
   `slugify` still lives in `lib/reading.ts` because markdown-it-anchor receives it.
 - Images get `loading="lazy"` and `decoding="async"`.
+- `==highlight==` is a local inline rule (no plugin dependency, since every
+  instance mirrors the engine's runtime deps in its own `package.json`).
+- `link_open` marks absolute links whose host is not `site.url` with
+  `class="external"`, `target="_blank"` and `rel="noopener noreferrer"`.
 - Fenced code becomes `<div class="code-block" data-lang="…">` with an icon-only
   copy button and `<pre class="code-pre"><code class="language-…">…</code></pre>`.
   Languages are normalized through an alias map, and unknown ones become `text`.
@@ -186,6 +190,10 @@ Endpoints return JSON errors (401/400/404/409/413/415/429) instead of throwing a
   theme stylesheet: the syntax colours are `--syntax-*` tokens in `main.css`.
   `lib/lightbox.js` wires image zoom.
 - `rebuildBodyHtml` re-renders `body_html` without touching sources or timestamps.
+- `lib/engine/theme.ts` also exposes `resolvePalette()`: `variables.css` (via
+  `?raw`) → preset → site overrides, with `var()` aliases followed. The OG image
+  uses it, so share cards follow the theme instead of a second copy of the hex
+  values.
 
 ---
 

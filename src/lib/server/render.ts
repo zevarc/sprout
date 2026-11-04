@@ -17,6 +17,7 @@
 import MarkdownIt from 'markdown-it';
 import anchor from 'markdown-it-anchor';
 import { slugify, type TocItem } from '$lib/reading';
+import { site } from '$lib/site';
 
 type Md = InstanceType<typeof MarkdownIt>;
 
@@ -71,6 +72,50 @@ const SUPPORTED = new Set([
 	'yaml'
 ]);
 
+/**
+ * `==highlight==` → `<mark>`.
+ *
+ * Deliberately a local rule instead of a plugin: every instance mirrors the
+ * engine's runtime dependencies in its own package.json, so a new dependency
+ * would mean touching every site's lockfile for 30 lines of code. Nested inline
+ * markup inside the highlight still parses (the content is tokenized).
+ */
+function markRule(state: any, silent: boolean): boolean {
+	const start = state.pos;
+	const max = state.posMax;
+	if (start + 4 > max) return false;
+	if (state.src.charCodeAt(start) !== 0x3d || state.src.charCodeAt(start + 1) !== 0x3d) return false;
+
+	let end = start + 2;
+	while (end < max - 1) {
+		if (state.src.charCodeAt(end) === 0x3d && state.src.charCodeAt(end + 1) === 0x3d) break;
+		end++;
+	}
+	if (end >= max - 1 || end === start + 2) return false;
+
+	if (!silent) {
+		state.push('mark_open', 'mark', 1);
+		const prevMax = state.posMax;
+		state.pos = start + 2;
+		state.posMax = end;
+		state.md.inline.tokenize(state);
+		state.posMax = prevMax;
+		state.push('mark_close', 'mark', -1);
+	}
+
+	state.pos = end + 2;
+	return true;
+}
+
+/** Host of the site itself; links to it stay in the same tab. */
+const SITE_HOST = (() => {
+	try {
+		return new URL(site.url).host;
+	} catch {
+		return '';
+	}
+})();
+
 function normalizeLang(info: string): string {
 	const name = info.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
 	const canonical = ALIASES[name] ?? name;
@@ -93,6 +138,32 @@ function build(): { trusted: Md; safe: Md } {
 			breaks: false,
 			typographer: false
 		});
+
+		md.inline.ruler.before('emphasis', 'sprout_mark', markRule);
+
+		// Outbound links open in a new tab and carry a marker in the CSS; links to
+		// the site itself (or in-page anchors) behave exactly as before.
+		const renderLinkOpen =
+			md.renderer.rules.link_open ??
+			((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+		md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+			const rawHref = tokens[idx].attrGet('href');
+			const href = typeof rawHref === 'string' ? rawHref : '';
+			if (/^https?:\/\//i.test(href)) {
+				let external = true;
+				try {
+					external = new URL(href).host !== SITE_HOST;
+				} catch {
+					/* unparseable but absolute: treat as external */
+				}
+				if (external) {
+					tokens[idx].attrJoin('class', 'external');
+					tokens[idx].attrSet('target', '_blank');
+					tokens[idx].attrSet('rel', 'noopener noreferrer');
+				}
+			}
+			return renderLinkOpen(tokens, idx, options, env, self);
+		};
 
 		md.use(anchor, {
 			slugify,

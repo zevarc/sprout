@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.12.0 — reading polish
+
+- **Share cards follow the theme.** `generateOgSvg` now takes its colours from
+  `resolvePalette()` (base stylesheet → preset → site overrides, `var()` aliases
+  followed) instead of a hard-coded copy of the classic greens. The stylesheet
+  is still the only source of truth: it is inlined with `?raw` and parsed once.
+  Fixed along the way: `wrapTitle` pushed a duplicate fourth line for very long
+  titles, so the last line repeated itself.
+- **`==highlight==`** becomes `<mark>` via a local inline rule — no
+  `markdown-it-mark` dependency, because every instance mirrors the engine's
+  runtime deps in its own `package.json`. Nested inline markup inside the
+  highlight still parses; code spans are untouched.
+- **Outbound links** get `class="external"`, `target="_blank"`,
+  `rel="noopener noreferrer"` and a small `↗`; same-site and in-page links are
+  unchanged.
+- **Back to top** button on article pages (rAF-throttled, appears past the fold,
+  reduced-motion aware, hidden in print).
+- **Long contents lists fold.** Past 16 headings the TOC shows all h2s plus the
+  children of the current section, with an expand button — accurate without
+  becoming a wall of links. The rule lives in `lib/scroll-spy.js` (`tocRows`)
+  and is unit-tested.
+- **Print styles**: article only, black on white, code slabs flattened, page
+  chrome (nav, TOC, comments, code buttons) hidden, outbound URLs appended to
+  link text, no breaks inside tables/code/figures.
+- `vitest.config.js` enables CSS processing, because the palette import is a
+  `?raw` CSS module.
+
 ## 0.11.1 — TOC scroller
 
 - Dropped the fade mask on the table-of-contents scroller: it faded the last row

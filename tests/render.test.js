@@ -80,6 +80,30 @@ describe('markdown rendering', () => {
 		expect(html).toContain('data-lang="text"');
 	});
 
+	it('turns ==text== into a highlight, without touching code spans', async () => {
+		const md = 'a ==marked **bold**== b `==not==`';
+		const html = await renderMarkdown(md);
+
+		expect(html).toContain('<mark>marked <strong>bold</strong></mark>');
+		expect(html).toContain('<code>==not==</code>');
+	});
+
+	it('marks outbound links but leaves in-page and same-host links alone', async () => {
+		const md = [
+			'[external](https://example.com/x)',
+			'[internal](https://sprout.zevarc.com/posts/x)',
+			'[anchor](#section)',
+			'[relative](/posts/x)'
+		].join('\n\n');
+		const html = await renderMarkdown(md);
+
+		expect(html).toContain('class="external"');
+		expect(html).toContain('target="_blank"');
+		expect(html).toContain('rel="noopener noreferrer"');
+		expect(html).not.toContain('class="external" href="#section"');
+		expect((html.match(/class="external"/g) ?? []).length).toBe(1);
+	});
+
 	it('wraps tables so wide ones can scroll', async () => {
 		const html = await renderMarkdown('| a | b |\n|---|---|\n| 1 | 2 |');
 		expect(html).toContain('<div class="table-wrap"><table>');

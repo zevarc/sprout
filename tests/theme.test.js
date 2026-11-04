@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { themeCss, resolveTheme, PRESETS } from '$lib/engine/theme';
+import { themeCss, resolveTheme, resolvePalette, PRESETS } from '$lib/engine/theme';
 
 describe('theme layer', () => {
 	it('emits nothing for the classic theme with no overrides', () => {
@@ -155,4 +155,23 @@ describe('preset contrast (WCAG AA)', () => {
 			});
 		}
 	}
+});
+
+/**
+ * The share image is drawn outside the CSS cascade, so it needs a concrete
+ * palette. That palette is parsed from `variables.css` (single source of truth)
+ * rather than duplicated in TypeScript.
+ */
+describe('resolved palette for non-CSS consumers', () => {
+	it('reads the base sheet and follows var() aliases', () => {
+		const palette = resolvePalette('classic', {});
+		expect(palette['--color-paper']).toMatch(/^#[0-9a-fA-F]{6}$/);
+		expect(palette['--border-color']).toBe(palette['--color-outline']);
+		expect(palette['--color-outline']).toBe(palette['--color-paper-line']);
+	});
+
+	it('applies preset values and per-site overrides', () => {
+		expect(resolvePalette('mono', {})['--color-paper']).toBe('#f6f6f3');
+		expect(resolvePalette('classic', { '--color-bud': '#123456' })['--color-bud']).toBe('#123456');
+	});
 });

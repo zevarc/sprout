@@ -4,6 +4,7 @@
     import Arc from '$lib/components/visuals/Arc.svelte';
     import CommentSection from '$lib/components/comments/CommentSection.svelte';
     import PostToc from '$lib/components/posts/PostToc.svelte';
+    import BackToTop from '$lib/components/posts/BackToTop.svelte';
     import { onMount } from 'svelte';
     import { formatDate, getDictionary, getLink, homePath as localeHome } from '$lib/i18n/index.js';
     import { site } from '$lib/site';
@@ -107,7 +108,13 @@
 {#if headings.length > 1}
   <details class="toc-mobile">
     <summary>{tocLabel}</summary>
-    <PostToc {headings} label={tocLabel} compact />
+    <PostToc
+      {headings}
+      label={tocLabel}
+      expandLabel={t.posts.tocExpand}
+      collapseLabel={t.posts.tocCollapse}
+      compact
+    />
   </details>
 {/if}
 
@@ -180,10 +187,17 @@
 
   {#if headings.length > 1}
     <aside class="toc-desktop">
-      <PostToc {headings} label={tocLabel} />
+      <PostToc
+        {headings}
+        label={tocLabel}
+        expandLabel={t.posts.tocExpand}
+        collapseLabel={t.posts.tocCollapse}
+      />
     </aside>
   {/if}
 </div>
+
+<BackToTop label={t.posts.backToTop} />
 
 <style>
     .reading-progress {

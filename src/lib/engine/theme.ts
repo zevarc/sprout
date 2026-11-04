@@ -8,6 +8,10 @@
  */
 
 import { theme as assembledTheme } from '$lib/engine/registry';
+// The stylesheet is the palette's only source of truth. `?raw` inlines it at
+// build time, so the worker can hand concrete colours to non-CSS consumers
+// (the OG share image) without a second copy of the hex values.
+import baseCss from '../../styles/variables.css?raw';
 
 export interface ThemeDefinition {
 	light: Record<string, string>;
@@ -139,6 +143,51 @@ export interface ResolvedTheme {
 	name: string;
 	light: Record<string, string>;
 	dark?: Record<string, string>;
+}
+
+/** `--name: value;` pairs of a declaration block, comments removed. */
+function declarationsOf(block: string): Record<string, string> {
+	const tokens: Record<string, string> = {};
+	for (const match of block.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
+		tokens[`--${match[1]}`] = match[2].trim();
+	}
+	return tokens;
+}
+
+const BASE_CSS = baseCss.replace(/\/\*[\s\S]*?\*\//g, '');
+const DARK_AT = BASE_CSS.indexOf('@media (prefers-color-scheme: dark)');
+
+/** Palette as written in `variables.css` (light and dark). */
+export const BASE_TOKENS: { light: Record<string, string>; dark: Record<string, string> } = {
+	light: declarationsOf(BASE_CSS.slice(0, DARK_AT)),
+	dark: declarationsOf(BASE_CSS.slice(DARK_AT))
+};
+
+/** Follows `var(--token)` references (one palette level deep, usually 1 hop). */
+export function resolveTokens(tokens: Record<string, string>): Record<string, string> {
+	const resolve = (value: string, depth = 0): string => {
+		const alias = /^var\((--[a-z0-9-]+)\)$/i.exec(value);
+		if (!alias || depth > 8) return value;
+		return resolve(tokens[alias[1]] ?? '', depth + 1);
+	};
+
+	const out: Record<string, string> = {};
+	for (const [name, value] of Object.entries(tokens)) out[name] = resolve(value);
+	return out;
+}
+
+/**
+ * The concrete palette a consumer outside the CSS cascade should use:
+ * base sheet → preset → per-site overrides, with `var()` aliases followed.
+ * Tokens that are themselves computed (`color-mix(...)`) are returned verbatim;
+ * ask for a base token when you need a real colour.
+ */
+export function resolvePalette(
+	name: string = assembledTheme?.name ?? 'classic',
+	overrides: Record<string, string> = assembledTheme?.tokens ?? {}
+): Record<string, string> {
+	const preset = PRESETS[name] ?? PRESETS.classic;
+	return resolveTokens({ ...BASE_TOKENS.light, ...preset.light, ...overrides });
 }
 
 /** Resolve a preset + overrides. Overrides win in both light and dark. */

@@ -1,5 +1,5 @@
 <script>
-  import { pickActiveIndex, scrollTarget } from '$lib/scroll-spy.js';
+  import { pickActiveIndex, scrollTarget, tocRows } from '$lib/scroll-spy.js';
 
   /**
    * Table of contents for an article body.
@@ -11,10 +11,18 @@
    * @type {{
    *   headings?: import('$lib/reading').TocItem[],
    *   label?: string,
-   *   compact?: boolean
+   *   compact?: boolean,
+   *   expandLabel?: string,
+   *   collapseLabel?: string
    * }}
    */
-  let { headings = [], label = 'Contents', compact = false } = $props();
+  let {
+    headings = [],
+    label = 'Contents',
+    compact = false,
+    expandLabel = 'Show all sections',
+    collapseLabel = 'Show fewer sections'
+  } = $props();
 
   /** Sticky header height + breathing room. Mirrors `html { scroll-padding-top }`. */
   const OFFSET = 80;
@@ -36,6 +44,15 @@
   let frame = 0;
 
   const activeIndex = $derived(headings.findIndex((h) => h.id === currentId));
+
+  /** Past this many headings the list folds to the current h2 and its children. */
+  const DENSE_AT = 16;
+  const dense = $derived(headings.length > DENSE_AT);
+  let expandAll = $state(false);
+
+  const rows = $derived(
+    tocRows(headings, { activeId: currentId, denseAt: DENSE_AT, expandAll })
+  );
 
   /** Level-2 headings are numbered; deeper ones get a dot. */
   const numbers = $derived.by(() => {
@@ -131,6 +148,7 @@
   // Keep the indicator and the active row inside the scroll box.
   $effect(() => {
     const id = currentId;
+    void rows; // re-measure when folding changes the visible rows
     if (!scrollBox || !id) return;
     const link = scrollBox.querySelector(`a[data-id="${CSS.escape(id)}"]`);
     if (!(link instanceof HTMLElement)) {
@@ -194,6 +212,16 @@
       {/each}
     </ol>
   </div>
+  {#if dense}
+    <button
+      type="button"
+      class="toc-more"
+      aria-expanded={expandAll}
+      onclick={() => (expandAll = !expandAll)}
+    >
+      {expandAll ? collapseLabel : expandLabel}
+    </button>
+  {/if}
 </nav>
 
 <style>
@@ -225,6 +253,27 @@
 
   .compact .toc-scroll {
     max-height: min(60vh, 420px);
+  }
+
+  .toc-more {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 7px 10px;
+    border: 1px solid var(--color-outline);
+    border-radius: var(--radius-md);
+    background: none;
+    color: var(--color-bud-deep);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out);
+  }
+
+  .toc-more:hover {
+    background: var(--color-toc-pill);
   }
 
   .toc-list {

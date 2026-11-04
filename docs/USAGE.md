@@ -236,6 +236,9 @@ export const theme = {
 
 Two rules that keep the palette coherent (both are covered by tests):
 
+- The Open Graph share image (`/og/<slug>.svg`) is drawn from the same palette:
+  it resolves the theme (base sheet → preset → site overrides) instead of
+  hard-coding the stock greens.
 - **Text never uses plain `--color-bud`.** It is a decorative green (3.5:1 on paper):
   links, dates and labels use `--color-bud-deep`, or `--color-text-meta` /
   `--color-text-faint` for hierarchy. Don't fake hierarchy with `opacity`.
@@ -404,7 +407,18 @@ curl -s --get --data-urlencode "q=构建" --data "lang=zh" \
 
 - Online: `/admin` → Content → New. Markdown with preview.
 - Markdown support: headings (TOC anchors), fenced code (copy button,
-  browser-highlighted), images (lazy), links, lists, blockquotes.
+  language badge, browser-highlighted), tables (rounded, zebra, own scroll box),
+  images (lazy), lists, blockquotes, `==highlight==` → `<mark>`, `<kbd>`,
+  `<hr>`, figures.
+- Outbound `http(s)` links open in a new tab, get `rel="noopener noreferrer"`
+  and a small `↗` marker; links to the site itself and in-page anchors are left
+  alone.
+- Long tables of contents (more than 16 headings) fold to "all h2 + the current
+  section" with an expand button, so the list stays scannable without hiding
+  where the reader is.
+- Printing hides the page chrome (nav, TOC, comments, code buttons, back-to-top),
+  switches the article to black on white and prints outbound URLs after the link
+  text.
 - Uploads: images become `/media/<sha256>.<ext>` in the body and in the media
   panel.
 - Bulk/Markdown import: [DATA-IMPORT-EXPORT](./DATA-IMPORT-EXPORT.md#import).

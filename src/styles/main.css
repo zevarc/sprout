@@ -433,3 +433,91 @@ textarea {
     font-size: 0.75rem;
   }
 }
+
+/* 12. Print — the article is what matters; chrome, motion and dark slabs go. */
+@media print {
+  html {
+    font-size: 11pt;
+  }
+
+  body {
+    background: white;
+    background-image: none;
+    color: black;
+  }
+
+  .reading-progress,
+  .page-logo,
+  .lang-switch,
+  .toc-desktop,
+  .toc-mobile,
+  .toc-more,
+  .back-to-top,
+  .comments,
+  .related,
+  .post-end,
+  .code-copy,
+  .code-block::before,
+  .lightbox-overlay {
+    display: none;
+  }
+
+  .post-layout {
+    display: block;
+    max-width: none;
+  }
+
+  .post-article,
+  article {
+    max-width: none;
+    padding: 0;
+  }
+
+  a {
+    color: black;
+    text-decoration: none;
+  }
+
+  /* Link targets are only useful on paper. */
+  .prose a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+
+  .prose a.external::after {
+    content: ' (' attr(href) ')';
+    transform: none;
+    margin: 0;
+  }
+
+  /* Dark code slabs waste ink. */
+  .code-pre,
+  .code-pre code,
+  .code-pre code.hljs,
+  .code-pre [class^='hljs-'],
+  .code-pre [class*=' hljs-'] {
+    background: white !important;
+    color: black !important;
+    border-color: #999 !important;
+  }
+
+  pre,
+  blockquote,
+  table,
+  figure,
+  img {
+    break-inside: avoid;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  @page {
+    margin: 16mm;
+  }
+}

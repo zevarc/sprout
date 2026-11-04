@@ -45,3 +45,49 @@ export function pickActiveIndex(tops, line) {
 export function scrollTarget(top, offset) {
 	return Math.max(0, Math.round(top - offset));
 }
+
+/** @typedef {import('$lib/reading').TocItem} TocItem */
+
+/**
+ * The h2 that owns the reading position — the section the reader is inside.
+ * @param {TocItem[]} headings
+ * @param {string} activeId
+ * @returns {string} heading id, or '' when there is no h2 at all
+ */
+export function ownerHeading(headings, activeId) {
+	let owner = headings.find((h) => h.level === 2)?.id ?? '';
+	const active = headings.findIndex((h) => h.id === activeId);
+	for (let i = 0; i <= active; i++) {
+		if (headings[i].level === 2) owner = headings[i].id;
+	}
+	return owner;
+}
+
+/**
+ * Rows the TOC should render.
+ *
+ * Short documents show everything. Past `denseAt` the list folds to "all h2 +
+ * the children of the current h2", which keeps it scannable while still showing
+ * where the reader actually is; `expandAll` restores the full list.
+ *
+ * @param {TocItem[]} headings
+ * @param {{ activeId?: string, denseAt?: number, expandAll?: boolean }} [options]
+ * @returns {{ h: TocItem, i: number }[]}
+ */
+export function tocRows(headings, options = {}) {
+	const { activeId = '', denseAt = 16, expandAll = false } = options;
+	const index = new Map(headings.map((h, i) => [h.id, i]));
+
+	if (headings.length <= denseAt || expandAll) {
+		return headings.map((h) => ({ h, i: index.get(h.id) ?? 0 }));
+	}
+
+	const owner = ownerHeading(headings, activeId);
+	const rows = [];
+	let current = '';
+	for (const h of headings) {
+		if (h.level === 2) current = h.id;
+		if (h.level === 2 || current === owner) rows.push({ h, i: index.get(h.id) ?? 0 });
+	}
+	return rows;
+}

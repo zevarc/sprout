@@ -12,6 +12,9 @@ export default defineConfig({
 	},
 	test: {
 		include: ['tests/**/*.test.{js,ts}'],
-		environment: 'node'
+		environment: 'node',
+		// The theme layer reads `variables.css?raw` (the palette's single source
+		// of truth); without CSS processing in tests that import resolves empty.
+		css: true
 	}
 });

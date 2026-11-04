@@ -82,6 +82,21 @@
     text-decoration-color var(--dur-fast) var(--ease-out);
 }
 
+/* Outbound links (marked by the renderer) carry a small arrow so the reader
+   knows the tab will change. */
+.prose a.external::after {
+  content: '↗';
+  display: inline-block;
+  margin-left: 0.12em;
+  font-size: 0.78em;
+  color: var(--color-bud);
+  transform: translateY(-0.15em);
+}
+
+.prose a.external:hover::after {
+  color: var(--color-link);
+}
+
 .prose a:hover {
   color: var(--color-link);
   background: var(--color-link-hover);

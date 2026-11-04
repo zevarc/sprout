@@ -171,7 +171,9 @@ overlay; replacing that file restyles the page without forking the route.
   (`lib/scroll-spy.js`, pure maths + rAF-throttled measurements).
 - Headings for the TOC come from the renderer (`extractHeadings` in
   `lib/server/render.ts`), never from a regex over the markdown source, so an id
-  in the TOC always exists in the body.
+  in the TOC always exists in the body. Long TOCs fold in `lib/scroll-spy.js`
+  (`tocRows`), not in the route.
+- Print styles live in `main.css`: article only, black on white, no page chrome.
 - `type.comments` decides whether the detail shows comments; list/detail
   always display `occurredAt ?? date` and receive the active `lang`.
 - Bespoke visuals are static routes, not dynamically registered components.
