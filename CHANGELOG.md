@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.2 — mobile list titles
+
+- The home and `/posts` lists on phones put the title into the 32px index column
+  (`32px 1fr` grid, title auto-placed), so titles wrapped every two or three
+  characters. Index and date now occupy row 1 and the title spans the full row.
+  Restores the instance-side fix (2c2a5d16) that lived in the pre-submodule copy.
+
 ## 0.13.1 — mobile seam
 
 - Added a bottom margin to the folded contents panel on phones: it sat directly
