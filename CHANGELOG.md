@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.1 — instance wiring fix
+
+- **The universal hook is loaded again in consuming apps.** The docs and the
+  scaffold mapped the engine's `hooks.js` to `kit.files.hooks.client`, but
+  `hooks.js` is the *universal* hook — the key is `hooks.universal`. With the
+  wrong key the locale `reroute` never ran, so every `/<locale>/…` URL 404'd
+  while unprefixed pages kept working. 0.10.0's engine was unaffected (it uses
+  the default `src/hooks.js`); only sites that point `files.hooks` at the engine
+  were broken.
+- `docs/INSTANCE.md` now spells out the whole `files` mapping, including why
+  `hooks.js` must be `universal`.
+
 ## 0.10.0 — engine / instance split
 
 This release changes how a site relates to the engine. A site can now consume

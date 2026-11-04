@@ -64,6 +64,21 @@ src/lib/site.js      → export { site } from '$site/config'
 src/lib/sprout.js    → export { contentTypes, … } from '$site/assembly'
 ```
 
+The `files` mapping that makes the engine's own shell active:
+
+```js
+files: {
+	routes: kit('routes'),
+	lib: kit('lib'),
+	appTemplate: kit('app.html'),
+	// `hooks.js` is the universal hook (the locale reroute). Kit's key is
+	// `universal` — mapping it to `client` silently drops the reroute and every
+	// `/<locale>/…` URL 404s.
+	hooks: { universal: kit('hooks.js'), server: kit('hooks.server.js') },
+	assets: path.resolve('static')
+}
+```
+
 …which is why nothing else in the engine changes. In the engine's own repo the
 alias points at its own `src/site/` (the demo instance), so the same code runs
 both ways.

@@ -121,7 +121,9 @@ const config = {
 			routes: kit('routes'),
 			lib: kit('lib'),
 			appTemplate: kit('app.html'),
-			hooks: { client: kit('hooks.js'), server: kit('hooks.server.js') },
+			// hooks.js is the *universal* hook (locale reroute); Kit's key is
+			// "universal", not "client". This engine ships no client hook.
+			hooks: { universal: kit('hooks.js'), server: kit('hooks.server.js') },
 			assets: path.resolve('static')
 		}
 	}
