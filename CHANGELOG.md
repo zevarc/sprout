@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.2 — print rules
+
+- Print-only `display: none` now uses `!important`: a scoped component rule of the
+  same name won on specificity, so the logo (and anything else styled by a
+  component) still printed. The language switcher container is hidden as a whole.
+
 ## 0.12.1 — TOC folding
 
 - Fixed the long-contents fold: 0.12.0 computed the folded rows but the
