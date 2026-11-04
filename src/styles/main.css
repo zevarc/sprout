@@ -446,9 +446,11 @@ textarea {
     color: black;
   }
 
+  /* `!important` only here: scoped component styles (e.g. `.toc-mobile` becoming
+     `display: block` below 1023px) would otherwise win on specificity. */
   .reading-progress,
   .page-logo,
-  .lang-switch,
+  .lang-switch-group,
   .toc-desktop,
   .toc-mobile,
   .toc-more,
@@ -459,7 +461,7 @@ textarea {
   .code-copy,
   .code-block::before,
   .lightbox-overlay {
-    display: none;
+    display: none !important;
   }
 
   .post-layout {
