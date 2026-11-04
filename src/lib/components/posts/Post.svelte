@@ -278,8 +278,9 @@
         .toc-mobile {
             display: block;
             max-width: var(--prose-measure);
-            /* Clears the fixed logo + language switcher. */
-            margin: 76px auto 0;
+            /* Clears the fixed logo + language switcher; the bottom margin keeps
+               the panel's top hairline from reading as a second underline. */
+            margin: 76px auto 16px;
             padding: 0 clamp(16px, 4vw, 24px);
         }
         .toc-mobile summary {
