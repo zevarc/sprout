@@ -130,7 +130,8 @@ humans and diffs.
    on both sides.
 
 Deliberately **not** exported: `sessions`, `invites`, `page_views`, `meta`,
-`body_html`, and the `*_fts` search tables.
+`body_html`, `friend_applications` (a moderation queue holding contact details),
+and the `*_fts` search tables.
 
 ---
 

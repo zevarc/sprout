@@ -61,6 +61,11 @@
   /** @type {any} */
   let stats = $state(null);
 
+  // 友链申请（声明了 friend 类型时）
+  /** @type {any[]} */
+  let friendQueue = $state([]);
+  let friendMsg = $state('');
+
   // 成员与邀请（features.members 开启时）
   /** @type {any[]} */
   let members = $state([]);
@@ -215,6 +220,41 @@
     invites = data.invites ?? [];
   }
 
+  async function loadFriends() {
+    friendMsg = '';
+    const res = await fetch('/api/admin/friends?status=pending');
+    if (!res.ok) {
+      friendQueue = [];
+      return;
+    }
+    friendQueue = (await res.json()).applications ?? [];
+  }
+
+  /** @param {string} id @param {'approve'|'reject'|'spam'} action */
+  async function reviewFriend(id, action) {
+    friendMsg = '';
+    const res = await fetch('/api/admin/friends', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, action })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      friendMsg = `处理失败：${data.error ?? res.status}`;
+      return;
+    }
+    if (action === 'approve') friendMsg = '已通过，友链已发布。';
+    await loadFriends();
+  }
+
+  /** @param {string|null} state */
+  function reciprocalLabel(state) {
+    if (state === 'ok') return '已回链';
+    if (state === 'missing') return '未发现回链';
+    if (state === 'unreachable') return '无法访问';
+    return '未检测';
+  }
+
   async function createInvite() {
     memberMsg = '';
     newInviteUrl = null;
@@ -252,6 +292,7 @@
     else if (tab === 'moderation') loadQueue();
     else if (tab === 'stats') loadStats();
     else if (tab === 'members') loadMembers();
+    else if (tab === 'friends') loadFriends();
   });
 
   /** 上次写作使用的语言：短内容不该每次都被拽回默认语言。 */
@@ -742,6 +783,9 @@
     <nav class="tabs">
       <button class:active={tab === 'content'} onclick={() => (tab = 'content')}>内容</button>
       <button class:active={tab === 'moderation'} onclick={() => (tab = 'moderation')}>审核</button>
+      {#if contentTypes.friend}
+        <button class:active={tab === 'friends'} onclick={() => (tab = 'friends')}>友链</button>
+      {/if}
       <button class:active={tab === 'stats'} onclick={() => (tab = 'stats')}>统计</button>
       {#if hasFeature('members')}
         <button class:active={tab === 'members'} onclick={() => (tab = 'members')}>成员</button>
@@ -1049,6 +1093,41 @@
                 <button class="primary" onclick={() => moderate(item.id, 'approved')}>通过</button>
                 <button class="ghost" onclick={() => moderate(item.id, 'spam')}>垃圾</button>
                 <button class="danger" onclick={() => moderate(item.id, 'deleted')}>删除</button>
+              </div>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    {/if}
+
+    {#if tab === 'friends' && contentTypes.friend}
+      {#if friendMsg}<p class="muted">{friendMsg}</p>{/if}
+      {#if friendQueue.length === 0}
+        <p class="muted">没有待审的友链申请。</p>
+      {:else}
+        <ul class="queue">
+          {#each friendQueue as a (a.id)}
+            <li>
+              <div class="q-meta">
+                <span class="node-type">{a.name}</span>
+                <span class="muted">{reciprocalLabel(a.reciprocal)} · {a.lang}</span>
+                <time>{a.createdAt}</time>
+              </div>
+              <div class="q-body">
+                <p><a href={a.url} target="_blank" rel="noopener noreferrer">{a.url}</a></p>
+                {#if a.description}<p>{a.description}</p>{/if}
+                {#if a.email}<p class="muted">邮箱：{a.email}</p>{/if}
+                {#if a.linksPage}
+                  <p class="muted">
+                    友链页：<a href={a.linksPage} target="_blank" rel="noopener noreferrer">{a.linksPage}</a>
+                  </p>
+                {/if}
+                {#if a.message}<p class="muted">备注：{a.message}</p>{/if}
+              </div>
+              <div class="actions">
+                <button class="primary" onclick={() => reviewFriend(a.id, 'approve')}>通过并发布</button>
+                <button class="ghost" onclick={() => reviewFriend(a.id, 'reject')}>拒绝</button>
+                <button class="danger" onclick={() => reviewFriend(a.id, 'spam')}>垃圾</button>
               </div>
             </li>
           {/each}

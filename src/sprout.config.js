@@ -73,6 +73,25 @@ export const contentTypes = {
 		schemaType: 'SocialMediaPosting',
 		fields: []
 	},
+	// 友情链接：站点自己维护的友链列表，与 `/blogroll`（外部发现服务）互不相干。
+	// 列表页是 `/friends` 的静态路由（覆盖通用列表页），详情页仍由 `[type]` 提供。
+	friend: {
+		type: 'friend',
+		route: '/friends',
+		label: { en: 'Friends', zh: '友链' },
+		public: true,
+		feed: false,
+		comments: false,
+		listRenderer: 'cards',
+		detailRenderer: 'compact',
+		schemaType: 'WebSite',
+		fields: [
+			{ key: 'url', label: { en: 'Site URL', zh: '站点地址' }, type: 'url', required: true },
+			{ key: 'avatar', label: { en: 'Avatar', zh: '头像' }, type: 'url' },
+			{ key: 'feed', label: { en: 'Feed', zh: 'RSS' }, type: 'url' },
+			{ key: 'order_index', label: { en: 'Order', zh: '排序' }, type: 'number' }
+		]
+	},
 	project: {
 		type: 'project',
 		route: '/projects',

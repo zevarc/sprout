@@ -145,7 +145,7 @@ validation as the API.
 | Key | Layout | Used for |
 |---|---|---|
 | `list` | date + title + excerpt rows | articles, notes |
-| `cards` | card grid (title/excerpt/date/tags) | projects, links |
+| `cards` | card grid (title/excerpt/date/tags) | projects, friends |
 | `feed` | timeline (date, HTML, images) | moments, micro-posts |
 | `article` | TOC, read time, related, comments | long-form posts |
 | `compact` | title/meta/body/comments, no TOC | short posts |
@@ -250,8 +250,8 @@ RTL layout needs its own stylesheet — the attribute and hooks are the foundati
 not the finished layout.
 
 i18n key groups: `nav`, `home`, `posts`, `search`, `comments`, `moments`,
-`projects`, `tags`, `about`, `seo`, `feed.label`, `feed.language`, `common.empty`,
-`language`.
+`projects`, `friends`, `tags`, `about`, `seo`, `feed.label`, `feed.language`,
+`common.empty`, `language`.
 
 ---
 
@@ -415,3 +415,42 @@ enforces this).
 ### Add a language
 
 See §6. No route files are needed.
+
+---
+
+## 16. Friend links
+
+`/friends` is a static override of the `friend` kind declared in
+`src/sprout.config.js`: cards point outward, and the application form sits below
+the list. `migrations/0004_friends.sql` creates the two tables — run
+`pnpm db:migrate:local` (or `:remote`) once after pulling.
+
+### Adding a link
+
+1. `/admin` → Content → **+ 新建** → type `friend`.
+2. `title` is the site name, `summary` the one-line description.
+3. Declared fields: `url` (required), `avatar`, `feed`, `order_index`.
+4. Tags become group chips on the card; `order_index` sorts ascending (empty
+   values last).
+5. Publish. There is no rebuild step.
+
+The public list is deliberately **not** filtered by locale — a blogroll is one
+list for the whole site. Entries store the locale they were authored in only so
+their `/friends/<slug>` profile page gets the right prefix.
+
+### Applications
+
+The form renders when `friend_applications` exists (the migration is the opt-in,
+like `/blogroll`). Submitting never publishes anything:
+
+- Honeypot field `website`; one `pending` row per site URL (partial unique index);
+  3 requests per salted IP hash per 24 hours.
+- A best-effort probe fetches the applicant's site and records whether it links
+  back (`reciprocal`: `ok` / `missing` / `unreachable`). It is shown in the queue
+  as a hint, not enforced.
+- `/admin` → **友链**: approve / reject / spam. Approval creates a published
+  `friends` asset, assigns the next `order_index`, and stores its id in
+  `friend_applications.asset_id`.
+
+Applicants' email and IP hash never appear on the site and are never exported;
+`friends` itself is a normal content kind, so it is part of the export bundle.

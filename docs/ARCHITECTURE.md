@@ -37,7 +37,8 @@ Full column/constraint detail: [DATA-MODEL](./DATA-MODEL.md). Export format:
 | Table | Purpose | Key facts |
 |---|---|---|
 | `assets` | The shared part of content | Opaque ULID `id`; `type` says which kind table holds the detail; `lang`; `group_id` groups translations/series; `status`; `visibility`; `published_at` / `occurred_at`; `author_id` never null |
-| `posts`, `moments`, `projects`, … | One table per content kind | The asset id is the primary key; the kind's own columns carry real `NOT NULL` / `CHECK`; `UNIQUE (lang, slug)` locally |
+| `posts`, `moments`, `projects`, `friends`, … | One table per content kind | The asset id is the primary key; the kind's own columns carry real `NOT NULL` / `CHECK`; `UNIQUE (lang, slug)` locally |
+| `friend_applications` | Public friend-link requests | A moderation queue, not content; holds an email and an IP hash, so it is **never exported**; approving creates a `friends` asset |
 | `comments` | Comments on any asset | Points at `assets.id`, never at a kind table; one `status` column; author never null |
 | `reactions` | Reactions | `(asset, person, emoji)` is the primary key |
 | `tags`, `asset_tags` | Tags | A vocabulary table plus usage, so renaming a tag is one `UPDATE` |
@@ -90,6 +91,8 @@ non-default locale prefixes **for matching**. The effective routes:
 | `/posts`, `/posts/[slug]` | Bespoke post list/detail (static override) | public |
 | `/notes/[slug]` | Note detail (generic detail) | public |
 | `/projects`, `/projects/[slug]` | Bespoke project list/detail | public |
+| `/friends`, `/friends/[slug]` | Friend-link cards + application form (static override); generic detail | public |
+| `/blogroll` | Discovered blogs (opt-in; 404 without the tables) | public |
 | `/tags`, `/tags/[tag]` | Tag archive | public |
 | `/about`, `/search` | Static pages | public |
 | `/timeline` | Merged timeline | public (public entries; add `/timeline` to `privateRoutes` for members-only) |

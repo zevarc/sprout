@@ -62,7 +62,8 @@ export/
   media/<r2_key>                  # binaries
 ```
 
-Not exported: `sessions`, `invites`, `page_views`, `meta`, and the search tables.
+Not exported: `sessions`, `invites`, `page_views`, `meta`, `friend_applications`
+(the moderation queue for friend-link requests), and the search tables.
 `body_html` is not exported either (it is derived); comment HTML is never stored.
 
 ---

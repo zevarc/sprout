@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased — friend links
+
+- **`/friends`** is a curated blogroll: a card wall of site name, one-line
+  description, avatar, RSS and group tags, ordered by `order_index`. Cards point
+  outward; each link also has a `/friends/<slug>` profile page.
+- **Applications are a queue, not content.** The public form (below the list)
+  has a honeypot, one pending request per site URL and 3 requests per salted IP
+  hash per day. A best-effort probe records whether the applicant links back;
+  the result is an admin hint, never an automatic rejection.
+- **Admin review.** `/admin` gains a 友链 tab: approve / reject / spam. Approval
+  publishes a `friends` asset (next `order_index`) and links the request to it via
+  `asset_id`.
+- **Data.** `migrations/0004_friends.sql` adds `friends`, `friends_fts` and
+  `friend_applications`. `friends` is a normal content kind, so it is exported and
+  restorable; the application queue holds contact details and is never exported.
+  The public list is intentionally language-agnostic.
+
 ## 0.9.5 — mobile pass
 
 Audited at 320, 390, 414, 740 (landscape), 768 and 1280 px.

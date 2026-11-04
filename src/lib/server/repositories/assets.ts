@@ -37,7 +37,7 @@ export function kindTable(type: string): string {
  * Kinds with an optional title store NULL and let the display fall back to the
  * summary — see `nodeToView`.
  */
-const TITLE_REQUIRED = new Set(['post', 'project']);
+const TITLE_REQUIRED = new Set(['post', 'project', 'friend']);
 
 /** A declared field key, as a column name. */
 export function fieldColumn(key: string): string {

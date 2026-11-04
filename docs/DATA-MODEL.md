@@ -66,7 +66,7 @@ people ──< identities                 external accounts → person
    ├──< comments.author_id            who said it       (NOT NULL)
    └──< reactions.person_id           who reacted
 
-assets ─1:1─ posts | moments | projects     exactly one type row per asset
+assets ─1:1─ posts | moments | projects | friends   exactly one type row per asset
    ├──< comments.asset_id
    ├──< reactions.asset_id
    ├──< asset_tags >── tags
@@ -80,6 +80,8 @@ assets ─1:1─ posts | moments | projects     exactly one type row per asset
 | `sessions` | sign-in credential | no |
 | `invites` | one-shot invite link | no |
 | `assets` | the part of content that is shared by all kinds | yes |
+| `friends` | friend links (a content kind): site url, avatar, feed, curated order | yes |
+| `friend_applications` | public friend-link requests, with email and IP hash; a moderation queue, not content | no |
 | `posts` `moments` `projects` (…) | the content itself, one table per kind | yes |
 | `pages` | comment anchors for hand-written pages (`/about`); not content — never listed, searched or fed | yes |
 | `comments` | comments (any kind of asset) | yes |
@@ -203,7 +205,7 @@ owns its own constraints:
 | `body_html` | derived cache, never exported |
 | … | this kind's own columns, with real `NOT NULL` / `CHECK` |
 
-The site ships four:
+The site ships five:
 
 - `posts` — `title NOT NULL`, `summary`, `body_md`, `body_html`
 - `notes` — the same spine with a nullable title (a note is often one paragraph)
@@ -213,8 +215,12 @@ The site ships four:
   `stage` (active / maintained / archived — deliberately *not* named `status`, to
   avoid confusion with the asset's publication status), `website`, `repo_url`,
   `order_index`
+- `friends` — `title NOT NULL` (the site name), `summary` (one line), `url`,
+  `avatar`, `feed`, `order_index`. A friend link is content, so the generic
+  editor, tags, export and search work unchanged. The public list is one list for
+  the whole site: `/friends` does not filter by locale.
 
-Adding a fifth kind later is: one `CREATE TABLE` + its FTS table + a line in the
+Adding a sixth kind later is: one `CREATE TABLE` + its FTS table + a line in the
 exporter. No existing table is touched.
 
 ### 4.7 `comments`
@@ -338,6 +344,7 @@ posts_fts    (id UNINDEXED, lang UNINDEXED, title, summary, body)   fts5, tokeni
 notes_fts    (id UNINDEXED, lang UNINDEXED, title, summary, body)
 moments_fts  (id UNINDEXED, lang UNINDEXED, title, summary, body)
 projects_fts (id UNINDEXED, lang UNINDEXED, title, summary, body)
+friends_fts  (id UNINDEXED, lang UNINDEXED, title, summary, body)
 ```
 
 Search is per kind, so each kind gets its own index and can index different
@@ -362,6 +369,29 @@ a join.
 Do **not** build this speculatively. It costs storage proportional to edits and
 nothing else in the design depends on it; adding it later touches no existing
 table.
+
+### 4.15 `friend_applications` — the public request queue
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | TEXT PK | opaque ULID |
+| `name` `url` | TEXT NOT NULL | the applicant's site |
+| `description` `avatar_url` `feed_url` `links_page` | TEXT | what they submitted; `links_page` is where they linked back |
+| `email` | TEXT | contact only — never published, never exported |
+| `message` | TEXT | free-form note |
+| `lang` | TEXT NOT NULL | locale of the submission |
+| `status` | TEXT NOT NULL DEFAULT `pending` | `CHECK ∈ pending \| approved \| rejected \| spam` |
+| `reciprocal` | TEXT | probe result: `ok` / `missing` / `unreachable` / `skipped` |
+| `source_hash` | TEXT | salted IP hash, rate limiting only |
+| `asset_id` | TEXT | FK → `assets(id)` ON DELETE SET NULL; the published `friends` row |
+| `created_at` `reviewed_at` | TEXT NOT NULL / nullable | |
+| `reviewed_by` | TEXT | FK → `people(id)` ON DELETE SET NULL |
+
+This is a **queue, not content**: it is written by the public form, read only by
+admins, and deliberately stays out of the export (it holds contact details and an
+IP hash, like `invites`). A partial unique index refuses a second `pending` row
+for the same URL. Approval creates the `friends` asset and backfills `asset_id`,
+so a published link remains traceable to the request that produced it.
 
 ---
 
@@ -468,13 +498,17 @@ nodes/<kind>/<slug>.<lang>.md                    human-readable mirror
 media/<r2_key>                                   binaries
 ```
 
+A site that declares the `friend` kind adds `friends.jsonl`; the
+`friend_applications` queue is never part of a bundle.
+
 Rules:
 
 1. **Deterministic**: rows sorted by primary key, JSON object keys sorted, ISO-8601
    timestamps. `export → restore → export` is byte-identical (existing test).
    Full detail in [EXPORT-CONTRACT](./EXPORT-CONTRACT.md).
 2. **Not exported**: `sessions`, `invites`, `page_views`, `meta`, `*_fts`,
-   `body_html` (recomputed on restore).
+   `body_html` (recomputed on restore), `friend_applications` (a moderation
+   queue with contact details).
 3. **Kind-aware restore**: the importer reads `schema.json.types` and restores
    exactly those kind files. **An unknown kind file is skipped with a warning**,
    so a bundle produced by a newer build does not crash an older one — this is
@@ -550,10 +584,16 @@ Every question is settled here. There is nothing left to choose.
 | Erasing a person | reactions cascade; content and comments are reassigned to a standing anonymous person row, then the row is deleted (§5.3) | keeps the record intact, satisfies the request, and never destroys content by accident |
 | `projects.stage` values | `active` / `maintained` / `archived`, with **no `CHECK`** | a kind's own vocabulary is open, like every other content vocabulary |
 | Soft delete | **none**; deleting is real | the export/mirror is the recovery mechanism; a `deleted_at` column would tax every read |
+| Friend applications in the export | **never** | the queue holds an applicant's email and a salted IP hash; approving creates a normal `friends` asset, which *is* exported |
 
 ---
 
 ## Appendix A — full DDL
+
+This appendix mirrors `migrations/0001_init.sql`. Later changes are append-only
+migrations and are authoritative there, not copied here: `0002_pages.sql`,
+`0003_discovered_blogs.sql`, `0004_friends.sql` (`friends`, `friends_fts`,
+`friend_applications`).
 
 ```sql
 -- ============================================================

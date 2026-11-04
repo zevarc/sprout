@@ -246,6 +246,61 @@ export async function listProjects(
 	return nodes.map(nodeToProjectView).sort(byProjectOrder).slice(0, limit);
 }
 
+/**
+ * A friend link, as the `/friends` cards need it. The public list is
+ * deliberately language-agnostic: a blogroll is one list for the whole site, so
+ * entries are not filtered by the current locale.
+ */
+export interface FriendView {
+	id: string;
+	slug: string;
+	lang: string;
+	/** Site name (`friends.title`). */
+	title: string;
+	description: string;
+	url: string;
+	avatar: string | null;
+	feed: string | null;
+	orderIndex: number;
+	tags: string[];
+	/** When the link was added (publish time, else creation time). */
+	since: string;
+	/** The local profile page, `/friends/<slug>`. */
+	detailUrl: string;
+}
+
+export function nodeToFriendView(n: ContentNode): FriendView {
+	return {
+		id: n.id,
+		slug: n.slug,
+		lang: n.lang,
+		title: n.title ?? n.summary ?? n.slug,
+		description: n.summary ?? '',
+		url: typeof n.fields?.url === 'string' ? n.fields.url : '',
+		avatar: typeof n.fields?.avatar === 'string' ? n.fields.avatar : null,
+		feed: typeof n.fields?.feed === 'string' ? n.fields.feed : null,
+		orderIndex: Number(n.fields?.order_index ?? 999),
+		tags: n.tags ?? [],
+		since: n.publishedAt ?? n.createdAt,
+		detailUrl: `${getLink('friends', n.lang)}/${n.slug}`
+	};
+}
+
+/**
+ * Published, public friend links in curated order (`order_index` ASC, NULLs
+ * last). No `lang` filter on purpose — see `FriendView`.
+ */
+export async function listFriendViews(db: D1Database, limit = 200): Promise<FriendView[]> {
+	const nodes = await listAssets(db, {
+		type: 'friend',
+		status: 'published',
+		visibility: 'public',
+		orderByField: { field: 'order_index', direction: 'asc' },
+		limit
+	});
+	return nodes.map(nodeToFriendView);
+}
+
 /** Related assets by shared tags, then recency. */
 export async function findRelatedViews(
 	db: D1Database,

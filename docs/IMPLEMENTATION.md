@@ -45,12 +45,14 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 | `server/rebuild.ts` | Rebuild the derived `body_html` of every kind |
 | `server/stats.ts` | `recordPageview`, `pageviewStats`, `prunePageviews` |
 | `server/mediaAccess.ts` | Media readability (public only if **every** binding is public) |
+| `server/friends.ts` | Friend-application URL hygiene (http(s) only, no local targets) and the reciprocal-link probe |
 | `server/repositories/assets.ts` | `assets` + one table per kind: CRUD, multi-kind listings, per-kind search and FTS |
 | `server/repositories/comments.ts` | Comments (one status column), trust check, rate-limit counts |
 | `server/repositories/reactions.ts` | One row per (asset, person, emoji) |
 | `server/repositories/people.ts` | People, identities, sessions; `role` is the only authority |
 | `server/repositories/tags.ts` | Tag vocabulary + `asset_tags` |
 | `server/repositories/media.ts` | Objects + bindings; strict audience rule |
+| `server/repositories/friendApplications.ts` | Friend-link request queue: submit, rate-limit counts, approve (creates the `friends` asset) |
 | `server/repositories/invites.ts` | Invite links |
 | `server/id.ts` | ULID |
 
@@ -58,7 +60,7 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 
 - Generic: `routes/[type]` (list), `routes/[type]/[slug]` (detail).
 - Static overrides: `posts`, `posts/[slug]`, `projects`,
-  `projects/[slug]`, `tags`, `tags/[tag]`.
+  `projects/[slug]`, `friends`, `tags`, `tags/[tag]`.
 - Fixed pages: `about`, `search`, `timeline`, `admin`, `login`, `invite/[token]`.
 - Outputs: `feed.xml`, `og/[slug].svg`, `sitemap.xml`, `media/[...key]`.
 - API: see §11.
