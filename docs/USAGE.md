@@ -221,9 +221,9 @@ export const theme = {
 |---|---|
 | Paper/ink | `--color-paper`, `--color-paper-deep`, `--color-paper-line`, `--color-ink`, `--color-ink-soft`, `--color-ink-faint` |
 | Accent | `--color-bud`, `--color-bud-deep`, `--color-bud-soft`, `--color-bud-pale`, `--color-sprout`, `--color-sprout-deep`, `--color-sprout-pale`, `--color-sprout-ink` |
-| Surfaces | `--color-surface`, `--color-on-surface`, `--color-surface-container`, `-low`, `-high`, `--color-primary`, `--color-on-primary`, `--color-primary-container`, `--color-on-primary-container`, `--color-error`, `--color-outline`, `--color-divider` |
+| Surfaces | `--color-surface`, `--color-on-surface`, `--color-surface-container`, `-low`, `-high`, `--color-surface-raised` (the reading sheet), `--color-primary`, `--color-on-primary`, `--color-primary-container`, `--color-on-primary-container`, `--color-error`, `--color-outline`, `--color-divider` |
 | Text & links | `--color-text-meta`, `--color-text-faint`, `--color-link`, `--color-link-line`, `--color-link-hover` |
-| Controls | `--color-action-bg`, `--color-action-ink`, `--color-action-bg-hover`, `--color-pill-bg`, `--color-pill-ink`, `--color-disabled-bg`, `--color-disabled-ink`, `--focus-ring` |
+| Controls | `--color-action-bg`, `--color-action-ink`, `--color-action-bg-hover`, `--color-action-bg-active`, `--color-press-tint`, `--color-pill-bg`, `--color-pill-ink`, `--color-disabled-bg`, `--color-disabled-ink`, `--focus-ring` |
 | Prose | `--color-mark-bg`, `--color-mark-ink`, `--color-quote-bg`, `--color-quote-line`, `--color-table-head`, `--color-table-row-alt`, `--color-table-line`, `--color-code-bg`, `--color-code-fg`, `--color-code-border`, `--color-code-chrome`, `--color-code-chrome-ink`, `--color-code-faint`, `--syntax-*` |
 | Table of contents | `--color-toc-pill`, `--color-toc-badge`, `--color-toc-badge-ink`, `--color-toc-active`, `--color-toc-read`, `--color-toc-unread`, `--color-toc-track` |
 | Status | `--color-success`, `--color-warning`, `--color-error` |
@@ -245,6 +245,11 @@ Two rules that keep the palette coherent (both are covered by tests):
 - **Solid buttons use `--color-action-bg` + `--color-action-ink`**, not
   `--color-primary` + `--color-on-primary` (that pair does not clear AA at small
   sizes). `tests/theme.test.js` asserts the pairs in both colour schemes.
+- **Interaction states are part of the theme, not the component.** Hover tints
+  with the `-hover` tokens, pressing with `--color-press-tint` /
+  `--color-action-bg-active`, keyboard focus with `--focus-ring` (inset rings on
+  rows, `outline-offset: 1px` on inline links). `:visited` is deliberately not
+  styled: one accent hue cannot express it without breaking the palette.
 
 Long-form typography — links, lists, quotes, `<hr>`, tables, `<mark>`, `<kbd>`,
 figures and the rendered heading body — lives in `src/styles/prose.css` and

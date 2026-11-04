@@ -98,10 +98,24 @@
 }
 
 .prose a:hover {
+  /* Keep the underline: on a paper background the tint alone is too quiet a
+     signal that the text is a link. */
   color: var(--color-link);
   background: var(--color-link-hover);
-  text-decoration-color: transparent;
   border-bottom: 0;
+}
+
+.prose a:active {
+  background: var(--color-press-tint);
+}
+
+/* The global ring is meant for boxes; inside running text it reads better as a
+   close-fitting, tinted box. */
+.prose a:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+  border-radius: 3px;
+  background: var(--color-link-hover);
 }
 
 /* Highlighted text: `==`-style emphasis written as raw `<mark>`, plus the

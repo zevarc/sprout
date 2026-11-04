@@ -125,6 +125,12 @@
     transform: translateY(-2px);
   }
 
+
+  .friend-card:active {
+    transform: none;
+    box-shadow: var(--shadow-soft);
+  }
+
   @keyframes card-in {
     to {
       opacity: 1;

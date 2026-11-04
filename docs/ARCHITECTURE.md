@@ -198,6 +198,13 @@ overlay; replacing that file restyles the page without forking the route.
   `--color-action-bg` / `--color-action-ink`. `tests/theme.test.js` asserts the
   text pairs clear WCAG AA in both colour schemes.
 - `--shadow-*` tokens make elevation themeable too.
+- The article page is one **reading sheet**: `.post-layout` paints
+  `--color-surface-raised` with a hairline and a soft shadow (full-bleed page
+  with top/bottom hairlines on phones), so the blueprint grid frames the
+  document instead of showing through the text column.
+- Interaction states come from tokens as well: `--color-press-tint` and
+  `--color-action-bg-active` for pressed, `--focus-ring` for keyboard focus.
+  `:visited` is intentionally unstyled (single-accent palette).
 
 ---
 

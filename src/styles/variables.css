@@ -63,6 +63,11 @@
   --color-surface-container: var(--color-paper-deep);
   --color-surface-container-low: #ecf1e9;
   --color-surface-container-high: #dfe7dc;
+  /* The reading sheet: one step "in front of" the page in both schemes. */
+  --color-surface-raised: color-mix(in srgb, var(--color-paper) 74%, white);
+  /* Edge of the reading sheet; a hairline in light, a legible rule in dark
+     (where the raised surface is only ~4% lighter than the page). */
+  --color-panel-line: var(--color-outline);
 
   --color-primary: var(--color-bud);
   --color-on-primary: #0f1411;       /* 4.8:1 on --color-primary（仍偏装饰，实心按钮用 action） */
@@ -76,6 +81,10 @@
   /* Mixing towards `--color-ink` darkens in light mode and lightens in dark
      mode, which is the right hover direction in both. */
   --color-action-bg-hover: color-mix(in srgb, var(--color-action-bg) 88%, var(--color-ink));
+  --color-action-bg-active: color-mix(in srgb, var(--color-action-bg) 78%, var(--color-ink));
+
+  /* Pressed state for rows, links and quiet controls (4.6:1 under link text). */
+  --color-press-tint: color-mix(in srgb, var(--color-bud) 18%, var(--color-paper));
 
   --color-success: var(--color-bud-deep);
   --color-warning: var(--color-sprout-ink);
@@ -195,6 +204,9 @@
     --color-surface-container: #1a2721;
     --color-surface-container-low: #16211b;
     --color-surface-container-high: #20302a;
+    /* Lighter than the page, same direction as light mode. */
+    --color-surface-raised: var(--color-paper-deep);
+    --color-panel-line: color-mix(in srgb, var(--color-paper-line) 70%, var(--color-ink-faint));
 
     --color-primary: var(--color-bud);
     --color-on-primary: #10221a;

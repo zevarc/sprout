@@ -418,6 +418,10 @@
     background: var(--color-action-bg-hover);
   }
 
+  button:active:not(:disabled) {
+    background: var(--color-action-bg-active);
+  }
+
   button:disabled {
     background: var(--color-disabled-bg);
     color: var(--color-disabled-ink);

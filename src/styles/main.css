@@ -84,8 +84,9 @@ a {
   transition: border-color 0.2s, color 0.2s;
 }
 
+/* Colour only: components that want an underline declare it themselves (the
+   old global border-bottom also drew a stub under pill-shaped links). */
 a:hover {
-  border-bottom-color: var(--color-bud-deep);
   color: var(--color-bud-deep);
 }
 
@@ -392,10 +393,6 @@ textarea {
     line-height: 1.6;
   }
 
-  /* 只给文章页的正文容器加内边距；裸 article 会波及项目卡片等 */
-  .post-article {
-    padding: 0 1rem;
-  }
 }
 
 /* 11. Lightbox */
@@ -451,28 +448,13 @@ textarea {
   .reading-progress,
   .page-logo,
   .lang-switch-group,
-  .toc-desktop,
-  .toc-mobile,
   .toc-more,
   .back-to-top,
   .comments,
-  .related,
-  .post-end,
   .code-copy,
   .code-block::before,
   .lightbox-overlay {
     display: none !important;
-  }
-
-  .post-layout {
-    display: block;
-    max-width: none;
-  }
-
-  .post-article,
-  article {
-    max-width: none;
-    padding: 0;
   }
 
   a {

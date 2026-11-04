@@ -75,6 +75,9 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 - `components/posts/PostToc` is the table of contents (sidebar + mobile
   `<details>`); it owns the scroll spy (`lib/scroll-spy.js`) and its own
   indicator, so the article page only lays out the grid.
+- The article (`Post`) is drawn as a single reading sheet (`.post-layout`), with
+  the TOC inside it on desktop and full-bleed on phones; list pages keep
+  one-card-per-item.
 - Comments, search, tags, projects, about, PageLogo, LanguageSwitcher, visuals.
 - `styles/variables.css` defines the base tokens; `styles/prose.css` styles
   everything *inside* rendered markdown (`.prose`), so the two detail renderers

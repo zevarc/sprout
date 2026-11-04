@@ -276,6 +276,10 @@
     background: var(--color-toc-pill);
   }
 
+  .toc-more:active {
+    background: var(--color-press-tint);
+  }
+
   .toc-list {
     position: relative;
     z-index: 1;
@@ -328,6 +332,16 @@
   .toc-item a:hover {
     color: var(--color-toc-active);
     transform: translateX(1px);
+  }
+
+  .toc-item a:active {
+    background: var(--color-press-tint);
+    transform: none;
+  }
+
+  .toc-item a:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
   }
 
   .toc-item.read a {

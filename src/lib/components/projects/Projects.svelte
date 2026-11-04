@@ -122,6 +122,12 @@
     transform: translateY(-2px);
   }
 
+
+  .project-card:active {
+    transform: none;
+    box-shadow: var(--shadow-soft);
+  }
+
   .project-header {
     display: flex;
     justify-content: space-between;

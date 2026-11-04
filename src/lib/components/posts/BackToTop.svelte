@@ -98,6 +98,11 @@
     border-color: var(--color-action-bg);
   }
 
+  .back-to-top.visible:active {
+    background: var(--color-action-bg-active);
+    transform: scale(0.96);
+  }
+
   @media print {
     .back-to-top {
       display: none;

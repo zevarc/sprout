@@ -215,7 +215,7 @@
 
     article {
         max-width: var(--prose-measure);
-        padding: 96px clamp(16px, 4vw, 24px) clamp(16px, 4vw, 24px);
+        padding: 40px 0 clamp(16px, 3vw, 32px);
         line-height: 1.7;
         -webkit-font-smoothing: antialiased;
         text-rendering: optimizeLegibility;
@@ -224,12 +224,18 @@
     /* Body typography lives in `src/styles/prose.css` — one source for every
        markdown renderer. Only layout belongs here. */
 
+    /* One reading sheet: title, body, related posts, comments and the TOC share
+       a single surface, so the blueprint grid frames a document instead of
+       showing through the text column. */
     .post-layout {
-        max-width: 1180px;
-        margin: 0 auto;
+        max-width: 1024px;
+        margin: 88px auto 120px;
+        padding: 0 clamp(20px, 3vw, 48px);
+        background: var(--color-surface-raised);
+        border: 1px solid var(--color-panel-line);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-soft);
         display: grid;
-        /* Hug the pair so wide screens do not leave a dead gutter between the
-           article and the TOC. */
         grid-template-columns: minmax(0, var(--prose-measure)) 232px;
         justify-content: center;
         gap: clamp(28px, 4vw, 56px);
@@ -239,19 +245,32 @@
     .toc-desktop {
         position: sticky;
         top: 96px;
-        padding: 8px 0;
+        /* Optically aligns the "contents" label with the article's kicker. */
+        padding: 76px 0 8px;
     }
 
     .toc-mobile {
         display: none;
     }
 
-    /* The sidebar needs ~900px to sit next to a 72ch column; below that the
-       TOC moves above the article as a <details> panel. */
-    @media (max-width: 1023px) {
+    /* The sheet needs ~928px of columns; under ~1100px it would sit almost edge
+       to edge, so the layout becomes the full-bleed page and the TOC moves above
+       the article as a <details> panel. */
+    @media (max-width: 1099px) {
+        /* Phones get a full-bleed page instead of a giant card: same surface,
+           no radius/shadow, hairlines top and bottom. */
         .post-layout {
             /* minmax(0, …) keeps long code lines from stretching the grid item */
             grid-template-columns: minmax(0, 1fr);
+            margin: 0 auto;
+            padding: 0 clamp(16px, 4vw, 24px);
+            border: 0;
+            border-block: 1px solid var(--color-panel-line);
+            border-radius: 0;
+            box-shadow: none;
+        }
+        article {
+            padding-top: 24px;
         }
         .toc-desktop {
             display: none;
@@ -301,8 +320,30 @@
             border-radius: var(--radius-md);
             background: var(--color-surface-container-low);
         }
+    }
+
+    /* Print: the reading sheet becomes plain paper (component-owned rules, so no
+       !important war with the global print block). */
+    @media print {
+        .post-layout {
+            display: block;
+            max-width: none;
+            margin: 0;
+            padding: 0;
+            background: none;
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+        }
         article {
-            padding-top: 28px;
+            max-width: none;
+            padding: 0;
+        }
+        .toc-desktop,
+        .toc-mobile,
+        .related,
+        .post-end {
+            display: none;
         }
     }
 
@@ -392,6 +433,17 @@
         font-size: 0.75rem;
         border: 1px solid var(--color-outline);
         text-decoration: none;
+        transition: background var(--dur-fast) var(--ease-out),
+            border-color var(--dur-fast) var(--ease-out);
+    }
+
+    .tag:hover {
+        background: var(--color-press-tint);
+        border-color: var(--color-bud-soft);
+    }
+
+    .tag:active {
+        background: color-mix(in srgb, var(--color-bud) 26%, var(--color-paper));
     }
 
     .related {
@@ -425,6 +477,16 @@
     }
 
     .related-link:hover {
+        background: var(--color-surface-container);
+    }
+
+    .related-link:active {
+        background: var(--color-press-tint);
+    }
+
+    .related-link:focus-visible {
+        outline: 2px solid var(--focus-ring);
+        outline-offset: -2px;
         background: var(--color-surface-container);
     }
 

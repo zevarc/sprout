@@ -265,6 +265,12 @@
     transform: translateY(-2px);
   }
 
+
+  .card:active {
+    transform: none;
+    box-shadow: var(--shadow-soft);
+  }
+
   .card-title {
     font-family: var(--font-serif);
     font-size: 1.3rem;

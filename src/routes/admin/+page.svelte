@@ -1415,6 +1415,14 @@
     color: var(--color-action-ink);
   }
 
+  button.primary:hover:not(:disabled) {
+    background: var(--color-action-bg-hover);
+  }
+
+  button.primary:active:not(:disabled) {
+    background: var(--color-action-bg-active);
+  }
+
   button.ghost {
     border: 1px solid var(--color-paper-line);
     color: var(--color-on-surface);

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.13.0 — reading sheet and interaction states
+
+- **The article is one reading sheet.** `.post-layout` paints
+  `--color-surface-raised` with a hairline border, `--radius-lg` and
+  `--shadow-soft`, so title, body, related posts, comments and the table of
+  contents share one surface and the blueprint grid frames a document instead of
+  showing through the text column. Phones drop the card look: full-bleed sheet
+  with top/bottom hairlines. Print resets the sheet to plain black on white.
+- **Interaction states are tokenised and complete.** New `--color-press-tint`
+  and `--color-action-bg-active`; prose links keep their dashed underline on
+  hover (the tint alone is too quiet a signal on paper) and gain pressed/focus
+  states, TOC rows and the expand button get pressed/inset-focus states,
+  back-to-top and buttons get pressed states, tags and related rows respond,
+  cards settle on press.
+- **One underline mechanism.** The global `a:hover` no longer adds a
+  `border-bottom`; components that want an underline declare it themselves. That
+  removes the stray stub the old rule drew under pill-shaped links.
+- `:visited` stays unstyled on purpose (single accent hue), documented in the
+  theme docs and in the instance's design notes.
+
 ## 0.12.2 — print rules
 
 - Print-only `display: none` now uses `!important`: a scoped component rule of the

@@ -175,6 +175,10 @@
     background: var(--color-action-bg-hover);
   }
 
+  .visit:active {
+    background: var(--color-action-bg-active);
+  }
+
   .secondary {
     display: inline-flex;
     align-items: center;
