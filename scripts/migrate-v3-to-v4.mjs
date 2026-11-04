@@ -19,8 +19,10 @@
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { contentTypes } from '../src/sprout.config.js';
-import { site } from '../src/site.config.js';
+import { loadAssembly, loadSite } from './lib/site.mjs';
+
+const { contentTypes } = await loadAssembly();
+const site = await loadSite();
 
 const [INPUT, OUTPUT] = process.argv.slice(2);
 if (!INPUT || !OUTPUT) {

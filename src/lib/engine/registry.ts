@@ -1,5 +1,5 @@
 /**
- * The assembled registry: base `sprout.config.js` plus every contributed mod.
+ * The assembled registry: base `$site/assembly` plus every contributed mod.
  * This is the single source the engine reads for types, features, home sections
  * and theme tokens.
  */

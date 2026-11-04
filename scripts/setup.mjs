@@ -23,7 +23,9 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
-import { site } from '../src/site.config.js';
+import { loadSite } from './lib/site.mjs';
+
+const site = await loadSite();
 
 const argv = process.argv.slice(2);
 const flag = (name) => {
@@ -166,9 +168,9 @@ if (!dryRun) console.log('✓ 迁移已应用');
 // 9. done
 console.log('\n' + '─'.repeat(50));
 console.log(' 完成。接下来：\n');
-console.log('   1) 在 src/site.config.js 填上你的站点名与域名（当前：');
+console.log('   1) 在 src/site/config.js 填上你的站点名与域名（当前：');
 console.log(`      name = "${site.name}"   url = "${site.url}"）`);
-console.log('   2) 在 src/sprout.config.js 声明内容类型 / 能力 / 首页区块 / 主题');
+console.log('   2) 在 src/site/assembly.js 声明内容类型 / 能力 / 首页区块 / 主题');
 console.log('   3) 构建并部署：  pnpm build && pnpm run deploy');
 console.log('   4) 打开 /admin 登录，令牌就是 .dev.vars 里的 ADMIN_TOKEN');
 console.log('   5) 迁移已有内容： ADMIN_TOKEN=… API_URL=https://你的域名 pnpm content:import');

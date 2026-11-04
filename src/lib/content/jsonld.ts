@@ -3,7 +3,7 @@
  *
  * Separate from `content/view.ts` on purpose: the view layer reads the
  * repositories, which must never be reachable from a component in the browser.
- * A site can override the type per kind with `schemaType` in `sprout.config.js`.
+ * A site can override the type per kind with `schemaType` in `$site/assembly`.
  */
 
 import { getContentType } from '$lib/content/registry';

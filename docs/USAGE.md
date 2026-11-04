@@ -15,7 +15,11 @@ Deployment: [DEPLOY](./DEPLOY.md). Data lifecycle:
 
 ## 2. Configuration
 
-### 2.1 `src/site.config.js` — identity
+Both files below live in the **instance** (`src/site/`), reached through the
+`$site` alias. See [INSTANCE](./INSTANCE.md) if this site consumes the engine as
+a package — the paths are the same, only `$site` changes where it points.
+
+### 2.1 `src/site/config.js` — identity
 
 | Key | Type | Required | Notes |
 |---|---|---|---|
@@ -52,7 +56,7 @@ export const site = {
 };
 ```
 
-### 2.2 `src/sprout.config.js` — assembly
+### 2.2 `src/site/assembly.js` — assembly
 
 | Export | Type | Notes |
 |---|---|---|
@@ -63,6 +67,17 @@ export const site = {
 | `privateRoutes` | `string[]` | Non-type paths that require a session |
 | `content` | `{ defaultVisibility, timelineOrder }` | Defaults for new nodes |
 | `mods` | `Mod[]` | Data contributions merged into the assembly |
+
+Site wording belongs in `mods[].i18n`, not in the engine's `lib/i18n/*.js`: the
+engine deep-merges mod fragments over its dictionaries (arrays replace
+wholesale), so renaming a nav entry or replacing the About copy never forks an
+engine file:
+
+```js
+export const mods = [
+	{ id: 'site-copy', i18n: { en: { nav: { about: 'Me' } }, zh: { nav: { about: '关于我' } } } }
+];
+```
 
 `ContentTypeDef`:
 
@@ -98,7 +113,7 @@ optional `fields: string[]` (which declared fields cards display), optional
 ### 3.1 Adding a type
 
 ```js
-// src/sprout.config.js
+// src/site/assembly.js
 export const contentTypes = {
   …existing,
   link: {
@@ -218,7 +233,7 @@ Add a language:
 2. Add `src/lib/i18n/ja.js` with the same keys as `en.js` — including
    `feed: { label, language }` (the RSS channel-title suffix and the `<language>` tag).
 3. Register it in `src/lib/i18n/index.js` (`baseDictionaries`).
-4. Add a `brand.ja` entry in `site.config.js` (optional but recommended).
+4. Add a `brand.ja` entry in `src/site/config.js` (optional but recommended).
 
 URL scheme: the default locale lives at the root (`/posts/x`); every other locale
 is a prefix (`/ja/posts/x`). No route files are needed. Always build links with
@@ -331,7 +346,8 @@ and post pages use.
 export const commentablePages = [{ path: '/about', title: { en: 'About', zh: '关于' } }];
 ```
 
-The page's copy stays in the dictionaries. The database gains one anchor asset per
+The page's copy stays in the dictionaries (or in a `mods[].i18n` fragment for
+site-specific wording). The database gains one anchor asset per
 locale, created when the first comment arrives — id `page:about:zh`, kind `page`.
 Pages are invisible to lists, feeds, the sitemap, tags and search; they exist so a
 comment has an `assets.id` to reference like everything else conversational. They
@@ -401,7 +417,7 @@ export default {
   theme: { tokens: { '--color-bud': '#4a4a45' } }
 };
 
-// src/sprout.config.js
+// src/site/assembly.js
 import family from './mods/family.js';
 export const mods = [family];
 ```
@@ -421,7 +437,7 @@ See §6. No route files are needed.
 ## 16. Friend links
 
 `/friends` is a static override of the `friend` kind declared in
-`src/sprout.config.js`: cards point outward, and the application form sits below
+`src/site/assembly.js`: cards point outward, and the application form sits below
 the list. `migrations/0004_friends.sql` creates the two tables — run
 `pnpm db:migrate:local` (or `:remote`) once after pulling.
 

@@ -1,6 +1,8 @@
 /**
  * Single import point for the site assembly.
  * App code should use `import { contentTypes, features, home, theme, mods } from '$lib/sprout'`.
+ *
+ * Like `$lib/site`, the backing file is instance-owned (`$site/assembly`).
  */
 export {
 	contentTypes,
@@ -11,5 +13,5 @@ export {
 	privateRoutes,
 	content,
 	commentablePages
-} from '../sprout.config.js';
-export { default as sprout } from '../sprout.config.js';
+} from '$site/assembly';
+export { default as sprout } from '$site/assembly';

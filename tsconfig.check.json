@@ -1,0 +1,22 @@
+// The engine's own type gate (`pnpm check`).
+//
+// Deliberately NOT named `tsconfig.json`: a site that vendors this repo inside
+// its project root (see docs/INSTANCE.md) would otherwise have Vite's tsconfig
+// discovery pick *this* file for engine modules — and `extends` points at a
+// generated `.svelte-kit/tsconfig.json` that only exists in the engine's own
+// checkout. Keeping the name distinct leaves the consuming app's tsconfig in
+// charge of the whole build graph.
+{
+	"extends": "./.svelte-kit/tsconfig.json",
+	"compilerOptions": {
+		"allowJs": true,
+		"checkJs": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"strict": true,
+		"moduleResolution": "bundler"
+	}
+}

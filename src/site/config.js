@@ -1,5 +1,8 @@
 /**
- * sprout — 站点配置
+ * 站点配置（“我是谁”）——属于**实例**，不属于引擎。
+ *
+ * 引擎通过 `$site` 别名读取它：本仓库里指向 `src/site/`（引擎自带的 demo 实例）；
+ * 以引擎包形式被别的站点使用时，指向那个站点的 `src/site/`。见 `docs/INSTANCE.md`。
  *
  * 这是你唯一需要改的「身份」文件：把它改成你自己的，整个平台就属于你了。
  * 保持纯 JavaScript（只用 JSDoc 标注类型），这样应用和 CLI 脚本都能直接 import，
@@ -9,39 +12,10 @@
  *   · 本文件 = 「我是谁」：站名、域名、作者、首页/分享用的品牌文案、SEO
  *   · src/lib/i18n/*.js = 其余站点文案与界面词汇（按钮、标签、区块标题…）
  *
- * @typedef {{
- *   code: string,
- *   label: string,
- *   short?: string,
- *   intl?: string,
- *   dateFormat?: Intl.DateTimeFormatOptions,
- *   dir?: 'ltr' | 'rtl'
- * }} Locale
- * @typedef {{
- *   claim: string,
- *   claimSource: string,
- *   creed: string[],
- *   ogTagline: string,
- *   seoTitle: string,
- *   seoDescription: string,
- *   feedDescription: string,
- *   role?: string
- * }} Brand
- * @typedef {{
- *   name: string,
- *   url: string,
- *   author: string,
- *   locales: Locale[],
- *   defaultLocale: string,
- *   ogImage?: string,
- *   logo?: string,
- *   topics?: string[],
- *   contact: { email: string, github: string },
- *   brand: Record<string, Brand>
- * }} SiteConfig
+ * 类型契约见 `$lib/content/site.ts` 的 `SiteConfig`（引擎与所有实例共用同一份形状）。
  */
 
-/** @type {SiteConfig} */
+/** @type {import('$lib/content/site').SiteConfig} */
 export const site = {
 	/** 站点名：用于 title、导航、页脚、JSON-LD */
 	name: 'sprout',

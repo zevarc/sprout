@@ -1,7 +1,8 @@
 # AGENTS.md — sprout
 
 Cloudflare 原生的「数据可携带」个人内容平台：SvelteKit + Cloudflare Workers + D1 (SQLite) + R2。
-站点 = 配置装配出来的：身份在 `src/site.config.js`，装配在 `src/sprout.config.js`。
+站点 = 配置装配出来的：身份在 `src/site/config.js`，装配在 `src/site/assembly.js`（都在 `$site` 别名后面）。
+本仓库同时是「引擎 + demo 实例」：别的站点可以把本仓库当作引擎包依赖，只保留身份/内容/资产，见 `docs/INSTANCE.md`。
 
 ## 命令
 
@@ -15,6 +16,7 @@ pnpm test           # vitest run（含 architecture guards）
 pnpm build          # adapter-cloudflare 构建
 pnpm db:migrate:local  # wrangler d1 migrations apply DB --local
 pnpm db:console:local -- "SELECT …"
+node scripts/init-instance.mjs ../my-site   # 生成一个只有身份/内容/资产的实例骨架
 ```
 
 其它脚本：`content:export|restore|import|verify`、`blogs:sync`、`notify:indexnow`、
@@ -26,8 +28,10 @@ pnpm db:console:local -- "SELECT …"
 
 | 路径 | 职责 |
 |---|---|
-| `src/site.config.js` | 「我是谁」：name/url/author/locales/brand |
-| `src/sprout.config.js` | 「我由什么构成」：contentTypes、features、home、theme、mods、privateRoutes、content |
+| `src/site/config.js` | 「我是谁」：name/url/author/locales/brand |
+| `src/site/assembly.js` | 「我由什么构成」：contentTypes、features、home、theme、mods、privateRoutes、content |
+| `src/site/pages/` | 页面级视觉覆盖（路由与 loader 在引擎，实例只换渲染组件；目前是 `/blogroll`） |
+| `scripts/lib/site.mjs` | 脚本按 cwd（或 `SITE_DIR`）解析实例配置 —— 引擎脚本因此能服务任意实例 |
 | `src/lib/engine/` | 装配合并、registry、feature gate、启动期校验、主题 |
 | `src/lib/content/` | 共享 schema 类型、领域类型、类型 helper、node → view |
 | `src/lib/server/` | 领域逻辑：db、render、search、auth、cache、export/restore、rebuild、stats、mediaAccess、`repositories/` |
@@ -51,13 +55,13 @@ pnpm db:console:local -- "SELECT …"
    `docs/EXPORT-CONTRACT.md`。
 6. **可见性只在领域层判定**：`listViews` 默认 `visibility='public'`；私有详情 404；
    `/api/search` 对匿名只给 public；`/media` 走 `mediaAccess`（未挂载 = 私有）。
-7. **厂商耦合只允许三处**：`wrangler*.toml`、`src/app.d.ts`、`src/lib/server/db.ts`。
+7. **厂商耦合只允许三处**：`wrangler*.toml`、`src/app.d.ts`、`src/lib/server/db.ts`（实例侧同样只有这三处）。
    其余是纯 TypeScript，测试用 `tests/helpers/d1-memory.js`（node:sqlite 模拟 D1）。
 8. **不要提交个人数据**：`.dev.vars*`、`export/`、真实内容与媒体都在 git 之外。
 
 ## 常见改动怎么做
 
-- **加内容类型**：只在 `src/sprout.config.js` 的 `contentTypes` 里声明。单段路由
+- **加内容类型**：只在 `src/site/assembly.js` 的 `contentTypes` 里声明。单段路由
   （`/links`）自动获得通用列表/详情页和 sitemap 收录，不需要 migration、不需要新路由文件；
   多段路由才需要自己的静态路由。启动期校验会拒绝未知 renderer 键与路由冲突。
 - **加语言**：`site.locales` + `src/lib/i18n/<code>.js`（键与 `en.js` 对齐）+ 在
@@ -66,7 +70,14 @@ pnpm db:console:local -- "SELECT …"
   `localeFromPath(event.url.pathname)`，链接用 `getLink(path, lang)` / `homePath(lang)`。
   翻译靠 `assets.group_id` 分组，各语言可以有不同 slug。
 - **加 mod**：mod 是数据不是组件（贡献 contentTypes/features/home.sections/theme.tokens/i18n），
-  注册到 `mods`；mod 不能注入路由。定制页面 = 静态路由覆盖（SvelteKit 静态段优先于 `[type]`）。
+  注册到 `mods`；mod 不能注入路由。**站点文案差异写进 `mods[].i18n`**，不要改
+  `src/lib/i18n/*.js`（那是引擎基线，改了每次升级都冲突）。
+- **定制页面视觉**：路由与 loader 留在引擎，页面渲染 `$site/pages/<name>.svelte`
+  （默认实现是引擎自己的组件）。实例不能新增路由 —— `kit.files.routes` 只有一个目录。
+- **让引擎支持一个实例**：实例通过 `svelte.config.js` 的 `kit.files.*` 指向本仓库的
+  `routes/lib/app.html/hooks`，用 `$site` 指到自己的 `src/site/`。改动引擎时不要引入
+  新的实例相关路径假设；`tsconfig.check.json`（不是 `tsconfig.json`）是为了不让 vendored
+  副本抢走宿主应用的 tsconfig。
 - **加迁移**：新建 `migrations/000N_*.sql`；`tests/helpers/d1-memory.js` 会按文件名顺序自动全跑一遍。
 - **加 server 逻辑**：在 `src/lib/server/*` 里加测试（可用 `createTestDb()`），
   需要「有真实字段的 kind」时用 `tests/helpers/kinds.js`（不要硬编码模板里的 `project`）。
@@ -87,6 +98,7 @@ pnpm check && pnpm test && pnpm build
 | schema 或导出格式 | `docs/DATA-MODEL.md`、`docs/EXPORT-CONTRACT.md`、`CHANGELOG.md` |
 | 部署 / 脚本 | `docs/DEPLOY.md`、`docs/DATA-IMPORT-EXPORT.md` |
 | 行为或不变式 | `docs/ARCHITECTURE.md`、`docs/IMPLEMENTATION.md`、`docs/VERIFY.md` |
+| 实例 / 引擎边界（`$site`、`kit.files`、页面覆盖、submodule） | `docs/INSTANCE.md`、`CHANGELOG.md` |
 
 先读 `docs/ARCHITECTURE.md`（分层、路由与 locale 机制、renderer、数据流）再动手。
 提交信息用 `feat:` / `fix:` / `docs:` / `refactor:` / `chore:` 前缀，主题 ≤72 字符。

@@ -1,5 +1,5 @@
 // English dictionary — site copy & UI vocabulary.
-// Brand identity (name, homepage copy, SEO) lives in src/site.config.js.
+// Brand identity (name, homepage copy, SEO) lives in `$site/config`.
 export const en = {
   language: '中文',
   common: {

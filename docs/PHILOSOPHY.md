@@ -84,9 +84,10 @@ must not force a change to the core tables. A new capability rides on a column o
 
 ## 6. Architecture choices
 
-1. **Configuration is assembly.** `site.config.js` answers *who you are*;
-   `sprout.config.js` answers *what you are made of* (types, features, home,
-   theme, mods). A pure merge builds one registry.
+1. **Configuration is assembly.** `src/site/config.js` answers *who you are*;
+   `src/site/assembly.js` answers *what you are made of* (types, features, home,
+   theme, mods). A pure merge builds one registry. Both files are
+   instance-owned behind the `$site` alias, so the engine ships no identity.
 2. **One route tree for N languages.** A non-default locale is a URL prefix; a
    universal `reroute` hook strips it **for matching only**, leaving
    `url.pathname` intact. Adding a language needs no route files.

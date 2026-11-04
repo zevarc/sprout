@@ -5,9 +5,13 @@
  * origin rather than from a build directory.
  *
  *   BASE_URL=http://localhost:5173 node scripts/check-sitemap.mjs
+ *
+ * The site URL comes from the instance in the working directory
+ * (`scripts/lib/site.mjs`), falling back to `BASE_URL`.
  */
-import { site } from '../src/site.config.js';
+import { loadSite } from './lib/site.mjs';
 
+const site = await loadSite();
 const BASE = (process.env.BASE_URL ?? site.url).replace(/\/$/, '');
 
 const res = await fetch(`${BASE}/sitemap.xml`);

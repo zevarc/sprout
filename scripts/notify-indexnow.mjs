@@ -4,9 +4,12 @@
  * 可选功能：需要环境变量 INDEXNOW_KEY，并在 static/ 放一个 <KEY>.txt（内容就是 key）。
  * sitemap 是动态路由，因此从线上站点抓取。
  * 用法: INDEXNOW_KEY=xxxx BASE_URL=https://your-domain.com node scripts/notify-indexnow.mjs
+ *
+ * 站点 URL 从工作目录里的实例读取（`scripts/lib/site.mjs`）。
  */
-import { site } from '../src/site.config.js';
+import { loadSite } from './lib/site.mjs';
 
+const site = await loadSite();
 const BASE = (process.env.BASE_URL ?? site.url).replace(/\/$/, '');
 const HOST = new URL(site.url).hostname;
 const KEY = process.env.INDEXNOW_KEY ?? '';

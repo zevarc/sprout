@@ -23,11 +23,11 @@ pnpm exec wrangler whoami
 
 ## 1. Configure the site
 
-Two files:
+Two files, both instance-owned and reached through the `$site` alias:
 
-1. **`src/site.config.js`** — identity. Set `name`, `url` (the final origin, no
+1. **`src/site/config.js`** — identity. Set `name`, `url` (the final origin, no
    trailing slash), `author`, `contact`, `locales`, `defaultLocale`, `brand`.
-2. **`src/sprout.config.js`** — assembly. Declare types, features, home sections,
+2. **`src/site/assembly.js`** — assembly. Declare types, features, home sections,
    theme, mods.
 
 `url` drives canonical URLs, hreflang, sitemap, OG and RSS. A wrong value makes
@@ -179,6 +179,18 @@ pnpm check && pnpm test && pnpm build
 pnpm run deploy
 ```
 
+Running *this* engine from a site (see [INSTANCE](./INSTANCE.md))? The engine is
+a vendored directory, so the upgrade is a pointer bump and the schema is read
+from it:
+
+```bash
+git submodule update --remote packages/sprout
+pnpm install
+pnpm db:migrate:remote        # wrangler's migrations_dir points into the engine
+pnpm check && pnpm test && pnpm build
+pnpm run deploy
+```
+
 After a renderer change, rebuild the derived HTML:
 
 ```bash
@@ -291,7 +303,9 @@ pnpm test
 pnpm build
 ```
 
-All three must pass.
+All three must pass. A site that vendors the engine checks out the submodule
+first (`actions/checkout` with `submodules: true`) and keeps the same three
+commands.
 
 ---
 
@@ -305,6 +319,6 @@ All three must pass.
 | Custom domain returns 522 | apex A/CNAME points at a dead origin | remove the record, or use a Worker route |
 | `migrations apply` does nothing after a schema rewrite | migration tracking still says `0001` applied | drop tables + `d1_migrations`, re-apply |
 | Private media 401/404 | request lacks `ADMIN_TOKEN` | set it; scripts send `Bearer` |
-| Boot fails with a config error | invalid type route/locale/feature/renderer/mod | read the error and fix `site.config.js` / `sprout.config.js` |
+| Boot fails with a config error | invalid type route/locale/feature/renderer/mod | read the error and fix `src/site/config.js` / `src/site/assembly.js` |
 | Theme has no effect | overridden by `?theme=`, or a typo in the token name | remove the query; check `--token` names |
 | GitHub login 501 | secrets missing | set both client id and secret |

@@ -1,8 +1,12 @@
 /**
- * sprout — 站点装配（assembly）
+ * 站点装配（assembly）——属于**实例**，不属于引擎。
+ *
+ * 引擎通过 `$site` 别名读取它（本仓库 `src/site/assembly.js`；实例站点用自己的同名文件）。
+ * 界面文案的站点差异请写进 `mods[].i18n`，不要改 `src/lib/i18n/*.js` ——
+ * 那样升级引擎时永远不会冲突。
  *
  * 分工：
- *   · `site.config.js` = 「我是谁」：站名、域名、作者、语言、品牌文案。
+ *   · `src/site/config.js` = 「我是谁」：站名、域名、作者、语言、品牌文案。
  *   · 本文件         = 「我由什么构成」：内容类型、能力开关、首页区块、主题、扩展模块。
  *
  * 三条规则（见 docs/ARCHITECTURE.md）：
@@ -13,31 +17,10 @@
 
 /**
  * 内容类型注册表——站点声明「我有哪些类型」。引擎据此组装路由与展现。
- *
- * @typedef {{ en?: string, zh?: string }} Label
- * @typedef {{ value: string, label: Label }} FieldOption
- * @typedef {{
- *   key: string,
- *   label: Label,
- *   type: 'text'|'textarea'|'markdown'|'tags'|'url'|'number'|'date'|'boolean'|'select',
- *   required?: boolean,
- *   options?: FieldOption[]
- * }} FieldDef
- * @typedef {{
- *   type: string,
- *   route: string,
- *   label: Label,
- *   public?: boolean,
- *   feed?: boolean,
- *   comments?: boolean,
- *   listRenderer?: 'list' | 'cards' | 'feed',
- *   detailRenderer?: 'article' | 'compact',
- *   schemaType?: string,
- *   fields: FieldDef[]
- * }} ContentTypeDef
+ * 类型形状见 `$lib/content/site.ts`（`SiteAssembly`）与 `$lib/content/schema.ts`。
  */
 
-/** @type {Record<string, ContentTypeDef>} */
+/** @type {import('$lib/content/site').SiteAssembly['contentTypes']} */
 export const contentTypes = {
 	post: {
 		type: 'post',
@@ -177,7 +160,7 @@ export const theme = {
  * 扩展模块（贡献）。每个模块可贡献 contentTypes / features / home.sections / theme.tokens / i18n；
  * 不能注入路由（路由来自类型声明）。形状见 `src/lib/content/schema.ts` 的 `Mod`，
  * 合并逻辑见 `src/lib/engine/assembly.ts`，启动期由 `validate` 校验。
- * @type {import('./lib/content/schema').Mod[]}
+ * @type {import('$lib/content/schema').Mod[]}
  */
 export const mods = [];
 
@@ -191,7 +174,7 @@ export const privateRoutes = [];
  * 接受评论的静态页面（`path` + 各语言的锚点标题）。页面不是内容：不进列表、搜索、
  * feed、sitemap；数据库里只多一条锚点资产，评论依旧挂在 `assets.id` 上。
  * 锚点在第一条评论出现时才创建，id 由路由与语言决定（`page:about:zh`）。
- * @type {import('./lib/content/pages').CommentablePage[]}
+ * @type {import('$lib/content/pages').CommentablePage[]}
  */
 export const commentablePages = [{ path: '/about', title: { en: 'About', zh: '关于' } }];
 

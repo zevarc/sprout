@@ -13,6 +13,7 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 | File | Responsibility |
 |---|---|
 | `lib/content/schema.ts` | Dependency-free types: `Label`, `FieldDef`, `FieldOption`, `ContentTypeDef`, `HomeSection`, `Mod`. `fields` is the **declaration** that drives the editor and the write-boundary validation (`lib/engine/fields.ts`) |
+| `lib/content/site.ts` | The instance contract: `SiteConfig`, `SiteAssembly`, `Locale`, `Brand`. Both `$site` files are checked against these, so a consuming app gets the same types as the demo |
 | `lib/content/types.ts` | Domain types: `ContentNode`, `NewNode`, `ContentEvent`, `MediaItem`, `NodeVisibility`, `Actor`, … |
 | `lib/content/registry.ts` | Type helpers: `getContentType`, `getTypeByRouteSegment`, `listTypes`, `publicTypes`, `privateTypes`, `feedTypes`, `listRouteSegments`, `labelText` |
 | `lib/content/view.ts` | `nodeToView()` (readTime, excerpt, TOC, URL, JSON-LD), `listViews`, `listFeaturedViews`, `findRelatedViews`, `nodeToProjectView`, `listProjects`, `translationLinks` (per-locale alternates from `group_id`) |
@@ -26,6 +27,8 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 | `lib/engine/features.ts` | `hasFeature(id)`, `listFeatures()`, `KNOWN_FEATURES` |
 | `lib/engine/validate.ts` | `validateConfig()` / `assertValidConfig()` |
 | `lib/engine/theme.ts` | `PRESETS`, `resolveTheme()`, `themeCss()` |
+| `lib/components/blogroll/BlogrollPage.svelte` | Default rendering for `/blogroll`; the route renders `$site/pages/blogroll.svelte`, which by default wraps this component (page overlay seam) |
+| `scripts/lib/site.mjs` | Resolves the instance a script runs against (`SITE_DIR` → cwd → `src/site/{config,assembly}.js`) |
 | `hooks.js` | Universal `reroute()` (locale prefix → root tree, matching only) |
 | `hooks.server.js` | html lang/dir, private-route guard, security headers, theme injection, noindex |
 

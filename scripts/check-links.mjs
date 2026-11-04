@@ -8,8 +8,14 @@
  * The seeds are the pages a site must have, taken from its own config: the home
  * page, its public type routes, and the built-in public pages. A site that has
  * no `project` type is therefore never asked for `/projects`.
+ *
+ * The config is read from the instance in the working directory (see
+ * `scripts/lib/site.mjs`), so the script works from any site that uses the
+ * engine: `BASE_URL=… node <engine>/scripts/check-links.mjs`.
  */
-import { contentTypes, features } from '../src/sprout.config.js';
+import { loadAssembly } from './lib/site.mjs';
+
+const { contentTypes, features } = await loadAssembly();
 
 const BASE = (process.env.BASE_URL ?? 'http://localhost:5173').replace(/\/$/, '');
 const LIMIT = Number(process.env.LIMIT ?? 200);

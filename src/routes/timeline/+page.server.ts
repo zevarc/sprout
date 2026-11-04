@@ -13,11 +13,11 @@ export const prerender = false;
 
 /**
  * The merged timeline: every kind in one list, ordered by when things happened
- * (or were published — see `sprout.config.js` `content.timelineOrder`).
+ * (or were published — see `$site/assembly` `content.timelineOrder`).
  *
  * Public by default — visitors see public entries only; an owner/member session
  * also sees private ones. Sites that want a members-only timeline list
- * `/timeline` in `sprout.config.js` → `privateRoutes`.
+ * `/timeline` in `$site/assembly` → `privateRoutes`.
  */
 export async function load(event) {
 	if (!hasFeature('timeline')) throw error(404, 'Not found');

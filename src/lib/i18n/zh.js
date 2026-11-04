@@ -1,5 +1,5 @@
 // 中文字典 —— 站点文案与界面词汇。
-// 品牌身份（站名、首页文案、SEO）在 src/site.config.js 里。
+// 品牌身份（站名、首页文案、SEO）在 `$site/config` 里。
 export const zh = {
   language: 'English',
   common: {

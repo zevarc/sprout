@@ -32,7 +32,7 @@ pnpm content:verify   # proves the live DB and the mirror still match
 | | |
 |---|---|
 | **Content** | Posts, notes, moments (micro-blog) and projects — all one typed content model |
-| **Extensible** | Add a type in `src/sprout.config.js`; a single-segment route gets generic `/[type]` pages with a chosen renderer (`list` / `cards` / `feed`) — no schema change, no new route files |
+| **Extensible** | Add a type in `src/site/assembly.js`; a single-segment route gets generic `/[type]` pages with a chosen renderer (`list` / `cards` / `feed`) — no schema change, no new route files |
 | **Private** | Per-node `visibility`; private content and its media are owner/member-only |
 | **Members** | Single-use invite links sign family or co-authors in as `member` — no accounts |
 | **Timeline** | A merged `/timeline` across every type, ordered by when things happened |
@@ -51,6 +51,10 @@ pnpm content:verify   # proves the live DB and the mirror still match
 
 SvelteKit · Cloudflare Workers (`adapter-cloudflare`) · D1 (SQLite) · R2 · TypeScript · Vitest
 
+Also usable as an **engine**: routes, data layer, migrations and tooling live
+here, while a site keeps identity, content and assets
+([`docs/INSTANCE.md`](./docs/INSTANCE.md)).
+
 ---
 
 ## Quick start
@@ -66,10 +70,16 @@ pnpm bootstrap     # creates D1 + R2, generates secrets, writes .dev.vars, migra
 pnpm dev           # http://localhost:5173
 ```
 
-Then make it yours in **two files**:
+Then make it yours in **two files** (both instance-owned, read through the
+`$site` alias):
 
-- [`src/site.config.js`](./src/site.config.js) — name, URL, author, contact, locales, brand.
-- [`src/sprout.config.js`](./src/sprout.config.js) — content types, features, home sections, theme, mods.
+- [`src/site/config.js`](./src/site/config.js) — name, URL, author, contact, locales, brand.
+- [`src/site/assembly.js`](./src/site/assembly.js) — content types, features, home sections, theme, mods.
+
+> **Running more than one site?** This repo doubles as an engine: a site can
+> vendor it as a package and keep only identity, content and assets —
+> [`docs/INSTANCE.md`](./docs/INSTANCE.md), scaffolded by
+> `node scripts/init-instance.mjs ../my-site`.
 
 Deploy:
 
@@ -99,7 +109,7 @@ ADMIN_TOKEN=dev-admin-token API_URL=http://localhost:5173 pnpm content:import
 
 ## Configuration
 
-*Who you are* lives in `src/site.config.js`:
+*Who you are* lives in `src/site/config.js`:
 
 ```js
 export const site = {
@@ -113,7 +123,7 @@ export const site = {
 };
 ```
 
-*What the site is made of* lives in `src/sprout.config.js`:
+*What the site is made of* lives in `src/site/assembly.js`:
 
 ```js
 export const contentTypes = { /* types + fields */ };
@@ -136,7 +146,7 @@ export const mods = [];                                  // contributions
 
 ## Content types
 
-Declared in `src/sprout.config.js`:
+Declared in `src/site/assembly.js`:
 
 | type | route | rendering |
 |---|---|---|
@@ -192,7 +202,7 @@ own static routes.
   the hooks exist, yet a full RTL layout needs its own stylesheet.
 - Generic list/detail pages cover **single-segment** type routes; a multi-segment route
   (e.g. `/lab/notes`) needs its own static pages.
-- `fields` in `sprout.config.js` is declarative: the admin form has bespoke inputs for
+- `fields` in `src/site/assembly.js` is declarative: the admin form has bespoke inputs for
   the built-in types; custom fields for a new type go through the API/import.
 - No newsletter/subscriptions or rich-text editor (Markdown + preview).
 - Syntax highlighting happens in the browser, so code is plain text until JS loads.

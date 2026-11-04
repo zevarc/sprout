@@ -2,7 +2,7 @@
  * Commentable static pages.
  *
  * A site declares which of its hand-written pages accept comments (see
- * `commentablePages` in `sprout.config.js`). The page's copy stays in the
+ * `commentablePages` in `$site/assembly`). The page's copy stays in the
  * dictionaries where it belongs; the only thing the database holds is an anchor
  * asset, so the comment tables keep referencing `assets.id` like everything else
  * conversational does.

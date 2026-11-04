@@ -1,5 +1,5 @@
 /**
- * Cross-cutting capabilities, assembled from `sprout.config.js` plus mods.
+ * Cross-cutting capabilities, assembled from `$site/assembly` plus mods.
  *
  * Content *types* are not features — declaring a type gives it routes. These are
  * the orthogonal capabilities (comments, members, analytics, timeline…) that a

@@ -1,7 +1,7 @@
 /**
  * Declarative field handling for site-owned content types.
  *
- * `sprout.config.js` declares a type's `fields`; this module is the single
+ * `$site/assembly` declares a type's `fields`; this module is the single
  * place that turns form/API input into typed values and validates it. The
  * admin editor renders from the same declarations, so the form and the write
  * boundary can never drift apart.

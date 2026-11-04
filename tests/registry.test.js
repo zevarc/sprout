@@ -11,7 +11,7 @@ import {
 } from '$lib/content/registry';
 
 /**
- * These assertions are written against whatever `sprout.config.js` declares —
+ * These assertions are written against whatever `$site/assembly` declares —
  * they are engine invariants, not a demo-site fixture. Any site can run them.
  */
 const types = listTypes();

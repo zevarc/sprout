@@ -6,7 +6,7 @@
  * of each article), so search engines see one consistent entity with one `@id`
  * instead of a different half-filled `Person` per page.
  *
- * Client-safe: it only reads `site.config.js`.
+ * Client-safe: it only reads `$site/config`.
  */
 
 import { site } from '$lib/site';

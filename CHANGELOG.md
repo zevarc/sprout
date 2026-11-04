@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased — engine / instance split
+
+- **The engine no longer owns identity.** `src/site.config.js` and
+  `src/sprout.config.js` moved to `src/site/config.js` and `src/site/assembly.js`,
+  reached through a new `$site` alias (`src/lib/site.js` → `$site/config`,
+  `src/lib/sprout.js` → `$site/assembly`). Nothing else in the engine changed:
+  its 469 `$lib/**` imports still point at its own code, so the same tree runs as
+  a standalone app *and* as an engine package.
+- **A site can consume this repo as a dependency** (`docs/INSTANCE.md`): it points
+  `kit.files.{routes,lib,appTemplate,hooks}` into `packages/sprout/src/…`, keeps
+  only `src/site/**`, `src/content/**`, `static/**` and `wrangler.toml`, and sets
+  `migrations_dir` at the engine. No copy, no rsync, no per-file reconcile —
+  installing the engine *is* the upgrade. `node scripts/init-instance.mjs` writes
+  the skeleton (config, assembly, page overlay, app.d.ts, build configs).
+- **Type contract for instances**: `lib/content/site.ts` exports `SiteConfig` /
+  `SiteAssembly`; both the demo and any instance are checked against them.
+- **Page overlays.** `/blogroll` now renders `$site/pages/blogroll.svelte` (default
+  = `lib/components/blogroll/BlogrollPage.svelte`), so a site restyles the page
+  without forking the route or its loader. Component-only styling also fixes a
+  theme-guard violation the old inline page carried (colour literals).
+- **Fonts are bundled, not copied.** `static/fonts/**` → `lib/assets/fonts/**`,
+  referenced from `styles/fonts.css`; Vite emits content-hashed URLs, so an
+  instance needs no `static/fonts`. The two `/fonts/*.woff2` preloads in
+  `app.html` are gone with the static copies (`font-display: swap` still applies).
+- **Scripts resolve the instance at runtime** (`scripts/lib/site.mjs`): `SITE_DIR`
+  if set, else the working directory, then `src/site/{config,assembly}.js`. So an
+  engine script run from a site's root operates on that site.
+- **`tsconfig.check.json`** replaces `tsconfig.json` for the engine's own type
+  gate: a vendored engine copy must not hijack Vite's tsconfig discovery in the
+  consuming app.
+
 ## Unreleased — friend links
 
 - **`/friends`** is a curated blogroll: a card wall of site name, one-line

@@ -5,7 +5,9 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			// Unit tests import server/app modules directly; no SvelteKit plugin needed.
-			$lib: fileURLToPath(new URL('./src/lib', import.meta.url))
+			$lib: fileURLToPath(new URL('./src/lib', import.meta.url)),
+			// Instance-owned files (identity, assembly, page overlays).
+			$site: fileURLToPath(new URL('./src/site', import.meta.url))
 		}
 	},
 	test: {

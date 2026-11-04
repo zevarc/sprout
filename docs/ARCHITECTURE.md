@@ -52,12 +52,18 @@ Full column/constraint detail: [DATA-MODEL](./DATA-MODEL.md). Export format:
 
 ## 3. Configuration as assembly
 
-Two files with different jobs:
+Two instance files with different jobs, both reached through the `$site` alias:
 
-| File | Contents |
-|---|---|
-| `src/site.config.js` | `name`, `url`, `author`, `contact`, `locales`, `defaultLocale`, `brand` |
-| `src/sprout.config.js` | `contentTypes`, `features`, `home`, `theme`, `mods`, `privateRoutes`, `content` |
+| File | Alias | Contents |
+|---|---|---|
+| `src/site/config.js` | `$site/config` | `name`, `url`, `author`, `contact`, `locales`, `defaultLocale`, `brand` |
+| `src/site/assembly.js` | `$site/assembly` | `contentTypes`, `features`, `home`, `theme`, `mods`, `privateRoutes`, `content` |
+
+They belong to the **site**, not to the engine: this repo is simultaneously the
+engine and its demo site, so `$site` points at its own `src/site/`. A site that
+vendors this repo as a package points `$site` at its own directory and loads
+routes/lib from here (`docs/INSTANCE.md`). The type contract for both files is
+`lib/content/site.ts` (`SiteConfig`, `SiteAssembly`).
 
 `src/lib/engine/assembly.ts` is pure: it merges the base config with every `mod`
 into one assembly. `src/lib/engine/registry.ts` is the single object the engine
@@ -135,11 +141,17 @@ The optional-param design (`[[lang]]` in the tree) was measured and rejected:
 it greedily consumes a segment, so `/posts/hello` resolves as
 `lang=posts,type=hello`, and `/zh` is captured by `[type]`.
 
-### Static overrides
+### Static overrides and page overlays
 
-SvelteKit ranks a static segment above a dynamic one. A type that needs bespoke
-markup keeps its own `/<route>/…` routes; the generic `[type]` routes simply do
-not win for those paths.
+SvelteKit ranks a static segment above a dynamic one, so a type that needs
+bespoke markup keeps its own `/<route>/…` routes; the generic `[type]` routes
+simply do not win for those paths.
+
+A *site* cannot add routes (there is one `kit.files.routes` directory, and it
+belongs to the engine). Design differences ride on a **page overlay**: the route
+and its `load` stay in the engine and render `$site/pages/<name>.svelte`, whose
+default implementation is the engine's own component. `/blogroll` is the first
+overlay; replacing that file restyles the page without forking the route.
 
 ---
 
@@ -241,12 +253,14 @@ in-memory `node:sqlite`.
 
 ```
 src/
-  site.config.js        identity
-  sprout.config.js      assembly (types, features, home, theme, mods)
-  content/              seed content
+  site/                 instance-owned, read through the `$site` alias
+    config.js           identity
+    assembly.js         assembly (types, features, home, theme, mods)
+    pages/              optional page overlays (blogroll today)
+  content/              content sources (instance-owned)
   lib/
     engine/             assembly · registry · features · validate · theme
-    content/            schema · types · registry(helpers) · view
+    content/            schema · site (instance types) · types · registry · view
     server/             db · render · search · auth · cache · export · restore
                         rebuild · stats · mediaAccess · loadNode · id · repositories/
     components/         generic UI (views + tokens only)
@@ -255,8 +269,12 @@ src/
   hooks.js              reroute (universal)
   hooks.server.js       lang, private guard, security headers, theme injection
 migrations/0001_init.sql
+scripts/                content/ops scripts (resolve the instance from cwd)
 tests/                  unit tests + architecture guards
 ```
+
+`tsconfig.check.json` (not `tsconfig.json`) holds the engine's type gate, so a
+vendored copy never hijacks an app's tsconfig discovery.
 
 ---
 
