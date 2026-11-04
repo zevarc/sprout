@@ -219,8 +219,8 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
-    /* Fade the first/last row instead of cutting a row in half. */
-    mask-image: linear-gradient(to bottom, transparent 0, black 14px, black calc(100% - 14px), transparent 100%);
+    /* No fade mask: with a short list it made the last row look clipped, and
+       with a long one the thin scrollbar already says there is more. */
   }
 
   .compact .toc-scroll {
