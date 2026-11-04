@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.1 — TOC folding
+
+- Fixed the long-contents fold: 0.12.0 computed the folded rows but the
+  template still rendered every heading, so the list was never shortened.
+
 ## 0.12.0 — reading polish
 
 - **Share cards follow the theme.** `generateOgSvg` now takes its colours from
