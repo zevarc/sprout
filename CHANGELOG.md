@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.14.0 — one language switch, one site map
+
+- **The home page no longer has its own language switcher.** It used a
+  hand-rolled floating button revealed by scrolling *up*, which duplicated the
+  shared control, offered only one other locale (instead of all), and could be
+  tabbed into while invisible (`opacity: 0` + `pointer-events: none` keeps a
+  control focusable). The home page now renders the same `LanguageSwitcher` in
+  the top-right as every other page.
+- **The scroll-revealed shortcut stack is gone.** Its clock icon linked to
+  moments (not the timeline it looked like) and duplicated a footer entry; its
+  back-to-top duplicated the article page's component. The bottom-right corner
+  now holds just `BackToTop`, shared with articles.
+- **The footer is the complete site map**: it gained `Search`, which previously
+  had no other entry point anywhere on the site.
+- Docs: chrome is described as three jobs (language top-right, footer = map,
+  back-to-top bottom-right); the instance's design notes drop "floating
+  search/language/back-to-top".
+
 ## 0.13.2 — mobile list titles
 
 - The home and `/posts` lists on phones put the title into the 32px index column

@@ -205,6 +205,12 @@ overlay; replacing that file restyles the page without forking the route.
 - Interaction states come from tokens as well: `--color-press-tint` and
   `--color-action-bg-active` for pressed, `--focus-ring` for keyboard focus.
   `:visited` is intentionally unstyled (single-accent palette).
+- Chrome has three fixed jobs and nothing else: **language** is the shared
+  `LanguageSwitcher` in the top-right of *every* page (including the home page),
+  the **footer** is the site map (every destination, search included), and the
+  bottom-right corner holds a single `BackToTop`. There is no scroll-revealed
+  shortcut stack: it duplicated the map, hid a required control behind a gesture
+  and its clock icon read as "timeline" while linking to moments.
 
 ---
 

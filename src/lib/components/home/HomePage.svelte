@@ -1,6 +1,8 @@
 <script>
   import HomeSection from './HomeSection.svelte';
-  import { getDictionary, getLink, homePath as localeHome, localeShort } from '$lib/i18n/index.js';
+  import { getDictionary, getLink, homePath as localeHome } from '$lib/i18n/index.js';
+  import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
+  import BackToTop from '$lib/components/posts/BackToTop.svelte';
   import { getContentType, labelText, publicListTypes } from '$lib/content/registry';
   import { hasFeature } from '$lib/engine/features';
   import { site } from '$lib/site';
@@ -29,13 +31,7 @@
    * The quick link to the site's moments, if it declares any *public* ones: a
    * public page must not advertise a route that only answers to a session.
    */
-  const momentType = $derived(publicListTypes().find((t) => t.type === 'moment'));
-  const momentPath = $derived(
-    momentType ? getLink(momentType.route.replace(/^\//, ''), lang) : null
-  );
   const home = $derived(localeHome(lang));
-  const switchLocale = $derived(site.locales.find((l) => l.code !== lang));
-  const switchPath = $derived(switchLocale ? localeHome(switchLocale.code) : undefined);
 
   /** Site-level structured data: the site itself plus its owner. */
   const siteJsonLd = $derived({
@@ -63,19 +59,13 @@
     ]
   });
 
-  /* ---------- 滚动方向感知浮动按钮 ---------- */
-  let showFloat = $state(false);
-  let lastY = 0;
-
-  function handleScroll() {
-    const y = window.scrollY;
-    showFloat = y < lastY && y > 320;
-    lastY = y;
-  }
-
-  function scrollToTop() {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
+  /*
+   * Chrome on the cover page: language top-right (the same control as every
+   * other page), the footer as the site map, and one scroll utility bottom-right.
+   * There is deliberately no scroll-revealed shortcut stack: it duplicated the
+   * footer, hid a required control (language) behind a gesture, and its clock
+   * icon read as "timeline" while linking to moments.
+   */
 </script>
 
 <svelte:head>
@@ -92,7 +82,7 @@
   {@html `<script type="application/ld+json">${JSON.stringify(siteJsonLd)}</script>`}
 </svelte:head>
 
-<svelte:window onscroll={handleScroll} />
+<LanguageSwitcher />
 
 <div class="home">
   <header class="hero">
@@ -135,49 +125,11 @@
     <HomeSection {section} items={section.items ?? []} {lang} />
   {/each}
 
-  <div class="float-actions" class:show={showFloat}>
-    {#if momentPath}
-      <a class="float-btn" href={`/${momentPath}`} title={t.moments.title} aria-label={t.moments.title}>
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 8v4l3 2" />
-        </svg>
-      </a>
-    {/if}
-    <a class="float-btn" href={`/${searchPath}`} title={t.search.title} aria-label={t.search.title}>
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <circle cx="11" cy="11" r="7" />
-        <path d="M21 21l-4.3-4.3" />
-      </svg>
-    </a>
-    {#if switchLocale}
-      <!-- A 44px circle cannot hold a full language name: show the compact code
-           and keep the full name as the accessible name. -->
-      <a
-        class="float-btn lang"
-        href={switchPath}
-        hreflang={switchLocale.code}
-        aria-label={(t.common?.switchLanguage ?? 'Switch to {name}').replace('{name}', switchLocale.label)}
-        title={(t.common?.switchLanguage ?? 'Switch to {name}').replace('{name}', switchLocale.label)}
-      >
-        <svg class="lang-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
-        </svg>
-        <span class="lang-code" translate="no">{localeShort(switchLocale.code)}</span>
-      </a>
-    {/if}
-    <button class="float-btn" onclick={scrollToTop} aria-label="top">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 19V5M5 12l7-7 7 7" />
-      </svg>
-    </button>
-  </div>
-
   <footer class="site-footer">
     {#each navTypes as nav (nav.type)}
       <a href={`/${nav.path}`}>{nav.label}</a>
     {/each}
+    <a href={`/${searchPath}`}>{t.search.title}</a>
     {#if hasFeature('timeline')}
       <a href={`/${getLink('timeline', lang)}`}>{t.nav.timeline}</a>
     {/if}
@@ -190,6 +142,8 @@
     <a href={`/${getLink('feed.xml', lang)}`}>RSS</a>
   </footer>
 </div>
+
+<BackToTop label={t.posts.backToTop} />
 
 <style>
   .home {
@@ -344,76 +298,6 @@
     }
   }
 
-  /* ---------- 浮动按钮 ---------- */
-  .float-actions {
-    position: fixed;
-    right: max(24px, env(safe-area-inset-right));
-    bottom: max(24px, env(safe-area-inset-bottom));
-    z-index: 900;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    opacity: 0;
-    transform: translateY(14px);
-    pointer-events: none;
-    transition: opacity 0.25s ease, transform 0.25s ease;
-  }
-
-  .float-actions.show {
-    opacity: 1;
-    transform: none;
-    pointer-events: auto;
-  }
-
-  .float-btn {
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    background: var(--color-surface);
-    border: 1px solid var(--color-paper-line);
-    color: var(--color-ink-soft);
-    box-shadow: var(--shadow-float);
-    cursor: pointer;
-    transition: color 0.2s, border-color 0.2s, box-shadow 0.2s;
-  }
-
-  .float-btn:hover {
-    color: var(--color-bud-deep);
-    border-color: var(--color-bud-soft);
-    box-shadow: var(--shadow-glow);
-  }
-
-  .float-btn.lang {
-    flex-direction: column;
-    gap: 1px;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .float-btn.lang .lang-icon {
-    width: 15px;
-    height: 15px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.7;
-    stroke-linecap: round;
-  }
-
-  .float-btn.lang .lang-code {
-    line-height: 1;
-  }
-
-  .float-btn:focus-visible {
-    outline: 2px solid var(--color-bud);
-    outline-offset: 2px;
-  }
-
   /* ---------- Footer ---------- */
   .site-footer a {
     display: inline-flex;
@@ -454,11 +338,6 @@
       width: 96vw;
     }
 
-    .float-actions {
-      right: max(16px, env(safe-area-inset-right));
-      bottom: max(16px, env(safe-area-inset-bottom));
-    }
-
     /* Meta copy below 12px is hard to read on a phone. */
     .claim-source,
     .scroll-label {
@@ -475,9 +354,6 @@
       animation: none;
     }
 
-    .float-actions {
-      transition: none;
-    }
   }
 @media (max-width: 820px) {
   .site-footer {

@@ -78,6 +78,9 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 - The article (`Post`) is drawn as a single reading sheet (`.post-layout`), with
   the TOC inside it on desktop and full-bleed on phones; list pages keep
   one-card-per-item.
+- The home page renders the same `LanguageSwitcher` (top-right) and `BackToTop`
+  as every other page; its footer is the complete site map (types, search,
+  timeline, blogroll, tags, about, contact, RSS).
 - Comments, search, tags, projects, about, PageLogo, LanguageSwitcher, visuals.
 - `styles/variables.css` defines the base tokens; `styles/prose.css` styles
   everything *inside* rendered markdown (`.prose`), so the two detail renderers
