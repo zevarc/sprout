@@ -8,12 +8,15 @@
  * `$lib/highlight.js`. This keeps publishing fast, cheap and unbounded in
  * language/size, and keeps the Worker bundle small.
  *
- * Heading ids must stay identical to `$lib/reading.ts` so TOC anchors match.
+ * Heading ids come from the same instance that renders the body, and
+ * `extractHeadings` reads them back out of the token stream, so the table of
+ * contents can never point at an id that does not exist (fenced code, inline
+ * HTML, entities and Setext headings are the parser's problem, not a regex's).
  */
 
 import MarkdownIt from 'markdown-it';
 import anchor from 'markdown-it-anchor';
-import { slugify } from '$lib/reading';
+import { slugify, type TocItem } from '$lib/reading';
 
 type Md = InstanceType<typeof MarkdownIt>;
 
@@ -74,7 +77,13 @@ function normalizeLang(info: string): string {
 	return SUPPORTED.has(canonical) ? canonical : 'text';
 }
 
-let mdPromise: Promise<{ trusted: Md; safe: Md }> | null = null;
+/** Built once per isolate; shared by rendering and heading extraction. */
+let renderers: { trusted: Md; safe: Md } | null = null;
+
+function instances(): { trusted: Md; safe: Md } {
+	if (!renderers) renderers = build();
+	return renderers;
+}
 
 function build(): { trusted: Md; safe: Md } {
 	const make = (allowHtml: boolean): Md => {
@@ -85,7 +94,20 @@ function build(): { trusted: Md; safe: Md } {
 			typographer: false
 		});
 
-		md.use(anchor, { slugify, uniqueSlugStartIndex: 1, tabIndex: false });
+		md.use(anchor, {
+			slugify,
+			uniqueSlugStartIndex: 1,
+			tabIndex: false,
+			// A permalink symbol next to the heading: lets readers link to a section
+			// from the rendered page, not only from the TOC. `ariaHidden` keeps the
+			// symbol out of the accessible heading text and out of the TOC labels.
+			permalink: anchor.permalink.ariaHidden({
+				symbol: '#',
+				class: 'heading-anchor',
+				space: false,
+				placement: 'after'
+			})
+		});
 
 		// Content images sit below the title/header, so defer them: no layout
 		// change, just fewer bytes fetched on first paint.
@@ -102,13 +124,22 @@ function build(): { trusted: Md; safe: Md } {
 			const token = tokens[idx];
 			const lang = normalizeLang(token.info ?? '');
 			const escaped = md.utils.escapeHtml(token.content);
+			// Icon-only copy button: language-neutral (no "Copy"/"复制" flash before
+			// the client relabels it) and the label lives in `aria-label`/`title`.
 			return (
-				`<div class="code-block">` +
-				`<button type="button" class="code-copy" aria-label="Copy code">Copy</button>` +
-				`<pre class="code-pre" data-lang="${lang}"><code class="language-${lang}">${escaped}</code></pre>` +
+				`<div class="code-block" data-lang="${lang}">` +
+				`<button type="button" class="code-copy" aria-label="Copy code" title="Copy">` +
+				`<svg class="icon-copy" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 9h9v9H9z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 15H4V4h11v2"/></svg>` +
+				`<svg class="icon-check" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="m4 12 5.5 5.5L20 7"/></svg>` +
+				`</button>` +
+				`<pre class="code-pre"><code class="language-${lang}">${escaped}</code></pre>` +
 				`</div>`
 			);
 		};
+
+		// Tables scroll inside their own box instead of stretching the article.
+		md.renderer.rules.table_open = () => '<div class="table-wrap"><table>';
+		md.renderer.rules.table_close = () => '</table></div>';
 
 		return md;
 	};
@@ -116,19 +147,47 @@ function build(): { trusted: Md; safe: Md } {
 	return { trusted: make(true), safe: make(false) };
 }
 
-async function getRenderers() {
-	if (!mdPromise) mdPromise = Promise.resolve(build());
-	return mdPromise;
-}
-
 /** Renders trusted author markdown (raw HTML allowed). */
 export async function renderMarkdown(source: string): Promise<string> {
-	const { trusted } = await getRenderers();
-	return trusted.render(source);
+	return instances().trusted.render(source);
 }
 
 /** Renders untrusted user content (raw HTML escaped) — e.g. comments. */
 export async function renderComment(source: string): Promise<string> {
-	const { safe } = await getRenderers();
-	return safe.render(source);
+	return instances().safe.render(source);
+}
+
+/**
+ * Table of contents (h2–h4) for raw markdown.
+ *
+ * Reads the ids the renderer actually emits, so TOC anchors and body anchors are
+ * the same thing by construction: `## \`foo\``, headings containing links, raw
+ * HTML or entities, and headings that only exist inside code fences all come out
+ * right. Duplicate headings keep the renderer's `-1`, `-2` suffixes.
+ */
+export function extractHeadings(source: string): TocItem[] {
+	const tokens = instances().trusted.parse(source, {});
+	const headings: TocItem[] = [];
+
+	for (let i = 0; i < tokens.length; i++) {
+		const open = tokens[i];
+		if (open.type !== 'heading_open') continue;
+		const level = Number(open.tag.slice(1));
+		if (level < 2 || level > 4) continue;
+		const inline = tokens[i + 1];
+		if (!inline || inline.type !== 'inline') continue;
+		// Same set of inline tokens markdown-it-anchor feeds to `slugify`: text and
+		// code spans, so the label matches what a reader sees (and what the id was
+		// derived from). Permalink symbols are `html_inline` and drop out here.
+		const text = (inline.children ?? [])
+			.filter((child) => child.type === 'text' || child.type === 'code_inline')
+			.map((child) => child.content)
+			.join('')
+			.trim();
+		if (!text) continue;
+		const id = open.attrGet('id');
+		headings.push({ id: typeof id === 'string' ? id : slugify(text), text, level });
+	}
+
+	return headings;
 }

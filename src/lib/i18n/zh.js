@@ -40,6 +40,8 @@ export const zh = {
     readMore: '阅读全文 →',
     readTime: '分钟阅读',
     toc: '目录',
+    copyCode: '复制代码',
+    copiedCode: '已复制',
     related: '相关文章',
     latest: '最新文章',
     next: '前往码头',

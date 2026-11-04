@@ -8,7 +8,7 @@
   import { setupHighlight } from '$lib/highlight.js';
   import { site } from '$lib/site';
   import { hasFeature } from '$lib/engine/features';
-  import { dirFor, getLink, localeFromPath } from '$lib/i18n/index.js';
+  import { dirFor, getDictionary, getLink, localeFromPath } from '$lib/i18n/index.js';
   import { publicTypes } from '$lib/content/registry';
   import { shareImage } from '$lib/seo';
 
@@ -56,16 +56,20 @@
   });
 
   onMount(() => {
-    const isZh = () => document.documentElement.lang === 'zh';
+    const t = getDictionary(document.documentElement.lang);
     /**
+     * The button is icon-only so the server can emit it without knowing the
+     * locale; the label lives in `aria-label`/`title` and is applied here.
+     * @param {Element} btn
      * @param {boolean} copied
      */
-    const copyLabel = (copied) => isZh() ? (copied ? '已复制' : '复制') : (copied ? 'Copied!' : 'Copy');
+    const relabel = (btn, copied) => {
+      const label = copied ? t.posts.copiedCode : t.posts.copyCode;
+      btn.setAttribute('aria-label', label);
+      btn.setAttribute('title', label);
+    };
 
-    // 初始文案按当前语言设置
-    document.querySelectorAll('.code-copy').forEach((btn) => {
-      btn.textContent = copyLabel(false);
-    });
+    document.querySelectorAll('.code-copy').forEach((btn) => relabel(btn, false));
 
     /**
      * @param {Event} event
@@ -78,10 +82,10 @@
       const code = btn.closest('.code-block')?.querySelector('code')?.textContent ?? '';
       try {
         await navigator.clipboard.writeText(code);
-        btn.textContent = copyLabel(true);
+        relabel(btn, true);
         btn.classList.add('copied');
         setTimeout(() => {
-          btn.textContent = copyLabel(false);
+          relabel(btn, false);
           btn.classList.remove('copied');
         }, 2000);
       } catch {

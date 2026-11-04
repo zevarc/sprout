@@ -98,8 +98,8 @@
   }
 
   .lang-switch:hover {
-    border-color: var(--color-bud);
-    color: var(--color-bud);
+    border-color: var(--color-bud-deep);
+    color: var(--color-bud-deep);
   }
 
   .lang-switch:focus-visible {

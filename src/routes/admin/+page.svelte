@@ -1245,7 +1245,7 @@
   }
 
   .muted {
-    color: var(--text-muted);
+    color: var(--color-text-meta);
     font-size: 0.9rem;
   }
 
@@ -1265,20 +1265,20 @@
     display: flex;
     gap: 8px;
     margin-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--color-outline);
   }
 
   .tabs button {
     padding: 8px 14px;
     font-family: var(--font-mono);
     font-size: 0.82rem;
-    color: var(--text-muted);
+    color: var(--color-text-meta);
     border-bottom: 2px solid transparent;
   }
 
   .tabs button.active {
     color: var(--color-bud-deep);
-    border-bottom-color: var(--color-bud);
+    border-bottom-color: var(--color-bud-deep);
   }
 
   .layout {
@@ -1317,7 +1317,7 @@
     font-size: 0.62rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   .node-title {
@@ -1330,11 +1330,11 @@
   .node-status {
     font-family: var(--font-mono);
     font-size: 0.6rem;
-    color: var(--text-muted);
+    color: var(--color-text-meta);
   }
 
   .node-status.draft {
-    color: var(--color-sprout-deep);
+    color: var(--color-warning);
   }
 
   .editor {
@@ -1411,8 +1411,8 @@
   }
 
   button.primary {
-    background: var(--color-primary);
-    color: var(--color-on-primary);
+    background: var(--color-action-bg);
+    color: var(--color-action-ink);
   }
 
   button.ghost {
@@ -1426,14 +1426,15 @@
   }
 
   button:disabled {
-    opacity: 0.5;
+    background: var(--color-disabled-bg);
+    color: var(--color-disabled-ink);
     cursor: not-allowed;
   }
 
   .preview {
     margin-top: 12px;
     padding: 20px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--color-outline);
     border-radius: 12px;
     background: var(--color-surface-container-low);
     line-height: 1.7;
@@ -1449,7 +1450,7 @@
 
   .queue li {
     padding: 16px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--color-outline);
     border-radius: 12px;
   }
 
@@ -1459,7 +1460,7 @@
     align-items: center;
     font-family: var(--font-mono);
     font-size: 0.7rem;
-    color: var(--text-muted);
+    color: var(--color-text-meta);
     margin-bottom: 8px;
   }
 
@@ -1477,7 +1478,7 @@
   .card {
     flex: 1;
     padding: 20px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--color-outline);
     border-radius: 12px;
     display: flex;
     flex-direction: column;
@@ -1492,7 +1493,7 @@
   .card .lbl {
     font-family: var(--font-mono);
     font-size: 0.7rem;
-    color: var(--text-muted);
+    color: var(--color-text-meta);
   }
 
   .bars {
@@ -1513,7 +1514,7 @@
   }
 
   .bars .day {
-    color: var(--text-muted);
+    color: var(--color-text-meta);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1633,7 +1634,7 @@
   .dirty {
     font-family: var(--font-mono);
     font-size: 0.74rem;
-    color: var(--color-sprout-deep);
+    color: var(--color-warning);
   }
 
   .notice {
@@ -1668,7 +1669,7 @@
   }
 
   .node-row input[type='checkbox'] {
-    accent-color: var(--color-bud);
+    accent-color: var(--color-bud-deep);
     margin: 0;
   }
 

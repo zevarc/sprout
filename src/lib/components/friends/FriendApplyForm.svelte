@@ -267,7 +267,7 @@
 
   input:focus,
   textarea:focus {
-    outline: 2px solid var(--color-bud);
+    outline: 2px solid var(--focus-ring);
     outline-offset: 1px;
     border-color: transparent;
   }
@@ -292,24 +292,26 @@
     font-size: 0.88rem;
     padding: 8px 18px;
     border-radius: 999px;
-    background: var(--color-primary);
-    color: var(--color-on-primary);
+    background: var(--color-action-bg);
+    color: var(--color-action-ink);
     cursor: pointer;
     transition: background 0.2s;
   }
 
   button:hover:not(:disabled) {
-    background: var(--color-bud-deep);
+    background: var(--color-action-bg-hover);
   }
 
   button:disabled {
-    opacity: 0.5;
+    background: var(--color-disabled-bg);
+    color: var(--color-disabled-ink);
+    cursor: not-allowed;
     cursor: not-allowed;
   }
 
   .notice {
     font-size: 0.82rem;
-    color: var(--color-bud-deep);
+    color: var(--color-success);
   }
 
   .error {

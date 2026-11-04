@@ -165,6 +165,13 @@ overlay; replacing that file restyles the page without forking the route.
 - `ContentListPage` is one page shell with three entry layouts.
 - `ContentDetail` is the compact detail (title/meta/body/comments, no TOC or
   related list); `Post` is the article detail (TOC, read time, related, comments).
+- Everything *inside* rendered markdown is styled once, in
+  `src/styles/prose.css`, under `class="prose"`; components only own layout.
+  The TOC is `components/posts/PostToc.svelte` and owns its own scroll spy
+  (`lib/scroll-spy.js`, pure maths + rAF-throttled measurements).
+- Headings for the TOC come from the renderer (`extractHeadings` in
+  `lib/server/render.ts`), never from a regex over the markdown source, so an id
+  in the TOC always exists in the body.
 - `type.comments` decides whether the detail shows comments; list/detail
   always display `occurredAt ?? date` and receive the active `lang`.
 - Bespoke visuals are static routes, not dynamically registered components.
@@ -181,6 +188,13 @@ overlay; replacing that file restyles the page without forking the route.
 - The CSS is injected into `<head>` at SSR (no flash). `?theme=<preset>` previews a
   preset for one request without touching config.
 - Presets: `classic` (base palette), `mono`, `warm`. Any token can be overridden.
+- Most semantic tokens (links, tables, quotes, highlights, code, TOC) are
+  `color-mix`-derived from the paper/ink/accent base, so a preset or a per-site
+  override re-tints them without listing every token.
+- `--color-bud` is decorative (lines, dots, gradients); text uses
+  `--color-bud-deep` / `--color-text-*`, and solid controls use
+  `--color-action-bg` / `--color-action-ink`. `tests/theme.test.js` asserts the
+  text pairs clear WCAG AA in both colour schemes.
 - `--shadow-*` tokens make elevation themeable too.
 
 ---

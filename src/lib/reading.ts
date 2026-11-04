@@ -1,9 +1,11 @@
 /**
  * Reading utilities for markdown content: strip frontmatter, estimate read
- * time, extract a plain-text excerpt, and build the table of contents.
+ * time, extract a plain-text excerpt, and slugify headings.
  *
- * `slugify` here must stay in sync with the heading anchors produced by
- * `$lib/server/render.ts` (markdown-it-anchor), or TOC links break.
+ * `slugify` here is passed to markdown-it-anchor by `$lib/server/render.ts`;
+ * heading extraction itself lives there too, so the table of contents and the
+ * rendered anchors can never drift apart. This file stays dependency-free so
+ * the client can import it.
  */
 
 const CJK_RANGE = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/g;
@@ -58,8 +60,8 @@ export interface TocItem {
 }
 
 /**
- * MUST stay in sync with the anchor slugify in `$lib/server/render.ts`,
- * otherwise TOC anchor ids won't match rendered heading ids.
+ * Reimplemented here for historical reasons: it is what markdown-it-anchor
+ * receives, so it must stay identical to the slug the renderer emits.
  */
 export function slugify(text: string): string {
   return text
@@ -69,32 +71,3 @@ export function slugify(text: string): string {
     .replace(/\s+/g, '-');
 }
 
-/**
- * Extracts a table of contents (h2-h4) from raw markdown.
- * Duplicate headings get `-1`, `-2` suffixes, matching rehypeSlug.
- */
-export function extractHeadings(text: string): TocItem[] {
-  const body = stripFrontmatter(text);
-  const seen = new Map<string, number>();
-  const toc: TocItem[] = [];
-
-  for (const line of body.split('\n')) {
-    const match = line.match(/^(#{2,4})\s+(.+?)\s*#*\s*$/);
-    if (!match) continue;
-    const level = match[1].length;
-    const rawText = match[2]
-      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-      .replace(/[*_`~]/g, '')
-      .trim();
-    if (!rawText) continue;
-
-    let id = slugify(rawText) || 'section';
-    const count = seen.get(id) || 0;
-    seen.set(id, count + 1);
-    if (count > 0) id = `${id}-${count}`;
-
-    toc.push({ id, text: rawText, level });
-  }
-
-  return toc;
-}

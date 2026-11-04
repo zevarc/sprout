@@ -23,6 +23,8 @@
   let website = $state(''); // honeypot — must stay empty
   let submitting = $state(false);
   let notice = $state('');
+  /** Failures reuse the notice slot but must not look like success. */
+  let noticeIsError = $state(false);
 
   // `lang` travels with the request: a page target resolves to a per-language
   // anchor, and the server refuses to guess the language from the client's word.
@@ -88,6 +90,7 @@
     if (!identity.actor && !name.trim()) return;
     submitting = true;
     notice = '';
+    noticeIsError = false;
     try {
       const res = await fetch('/api/events', {
         method: 'POST',
@@ -107,6 +110,7 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         notice = data.error === 'rate limited' ? c.postError : (data.error ?? c.postError);
+        noticeIsError = true;
       } else {
         body = '';
         if (data.status === 'approved') {
@@ -118,6 +122,7 @@
       }
     } catch {
       notice = c.postError;
+      noticeIsError = true;
     } finally {
       submitting = false;
     }
@@ -196,7 +201,7 @@
       <button type="submit" disabled={submitting || !body.trim() || (!identity.actor && !name.trim())}>
         {submitting ? c.submitting : c.submit}
       </button>
-      {#if notice}<span class="notice">{notice}</span>{/if}
+      {#if notice}<span class="notice" class:is-error={noticeIsError}>{notice}</span>{/if}
     </div>
   </form>
 </section>
@@ -205,7 +210,7 @@
   .comments {
     margin-top: 4rem;
     padding-top: 2rem;
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--color-outline);
   }
 
   .section-head {
@@ -225,11 +230,11 @@
     font-family: var(--font-mono);
     font-size: 0.72rem;
     letter-spacing: 0.08em;
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   .muted {
-    color: var(--text-muted);
+    color: var(--color-text-meta);
     font-size: 0.92rem;
   }
 
@@ -255,7 +260,7 @@
     margin: 0;
     object-fit: cover;
     border-radius: 50%;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--color-outline);
   }
 
   .author {
@@ -310,8 +315,8 @@
   }
 
   .github-login:hover {
-    color: var(--color-bud);
-    border-bottom-color: var(--color-bud);
+    color: var(--color-bud-deep);
+    border-bottom-color: var(--color-bud-deep);
   }
 
   .hint {
@@ -334,7 +339,7 @@
 
   .identity .linkish:hover {
     background: none;
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   /* surface + border + radius come from the shared .card class */
@@ -379,7 +384,7 @@
 
   input:focus,
   textarea:focus {
-    outline: 2px solid var(--color-bud);
+    outline: 2px solid var(--focus-ring);
     outline-offset: 1px;
     border-color: transparent;
   }
@@ -403,24 +408,30 @@
     font-size: 0.88rem;
     padding: 8px 18px;
     border-radius: 999px;
-    background: var(--color-primary);
-    color: var(--color-on-primary);
+    background: var(--color-action-bg);
+    color: var(--color-action-ink);
     cursor: pointer;
     transition: background 0.2s;
   }
 
   button:hover:not(:disabled) {
-    background: var(--color-bud-deep);
+    background: var(--color-action-bg-hover);
   }
 
   button:disabled {
-    opacity: 0.5;
+    background: var(--color-disabled-bg);
+    color: var(--color-disabled-ink);
+    cursor: not-allowed;
     cursor: not-allowed;
   }
 
   .notice {
     font-size: 0.82rem;
-    color: var(--color-bud-deep);
+    color: var(--color-success);
+  }
+
+  .notice.is-error {
+    color: var(--color-error);
   }
 
   @media (max-width: 640px) {

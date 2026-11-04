@@ -9,7 +9,8 @@
 import type { ContentNode, Visibility } from '$lib/content/types';
 import { structuredDataType } from './jsonld';
 import { getContentType } from '$lib/content/registry';
-import { calcReadTime, extractExcerpt, extractHeadings, type TocItem } from '$lib/reading';
+import { calcReadTime, extractExcerpt, type TocItem } from '$lib/reading';
+import { extractHeadings } from '$lib/server/render';
 import { getLink } from '$lib/i18n';
 import { site } from '$lib/site';
 import type { D1Database } from '$lib/server/db';

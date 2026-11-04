@@ -85,7 +85,7 @@
       </div>
     </header>
 
-    <div class="content-body">{@html post.bodyHtml}</div>
+    <div class="prose content-body">{@html post.bodyHtml}</div>
 
     {#if comments && hasFeature('comments')}
       <CommentSection targetType={post.type} targetId={post.id} {lang} />
@@ -123,7 +123,7 @@
     gap: 14px;
     font-family: var(--font-mono);
     font-size: 0.78rem;
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   .tags {
@@ -137,37 +137,7 @@
     padding: 3px 9px;
   }
 
-  .content-body {
-    font-size: 1.02rem;
-    line-height: 1.8;
-    color: var(--color-on-surface);
-  }
-
-  .content-body :global(p) {
-    margin: 0 0 0.9em;
-  }
-
-  .content-body :global(img) {
-    display: block;
-    max-width: 100%;
-    height: auto;
-    margin: 2rem auto;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-  }
-
-  .content-body :global(a) {
-    color: var(--color-bud-deep);
-    border-bottom: 1px solid var(--color-bud-soft);
-  }
-
-  .content-body :global(code) {
-    font-family: var(--font-mono);
-    font-size: 0.9em;
-    padding: 0.15em 0.35em;
-    border-radius: 4px;
-    background: var(--color-surface-container);
-  }
+  /* Body typography comes from `src/styles/prose.css`; only layout here. */
 
   @media (max-width: 640px) {
     .compact-page {

@@ -231,6 +231,6 @@
 
   .friend-feed:hover,
   .friend-profile:hover {
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 </style>

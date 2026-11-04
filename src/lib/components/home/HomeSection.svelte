@@ -159,14 +159,14 @@
     min-height: 24px;
     font-family: var(--font-mono);
     font-size: 0.7rem;
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
     letter-spacing: 0.08em;
     border-bottom: 1px solid transparent;
     transition: border-color 0.2s, color 0.2s;
   }
 
   .section-more:hover {
-    border-bottom-color: var(--color-bud);
+    border-bottom-color: var(--color-bud-deep);
     color: var(--color-bud-deep);
   }
 
@@ -218,8 +218,7 @@
   .post-index {
     font-family: var(--font-mono);
     font-size: 0.78rem;
-    color: var(--color-bud);
-    opacity: 0.85;
+    color: var(--color-bud-deep);
   }
 
   .post-date {
@@ -275,7 +274,7 @@
   }
 
   .card-title:hover {
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   .card-excerpt {
@@ -306,7 +305,7 @@
   }
 
   .card-field.link:hover {
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   .card-tags {

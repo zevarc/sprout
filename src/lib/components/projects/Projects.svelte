@@ -139,7 +139,7 @@
 
   .project-year {
     font-size: 0.75rem;
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
     font-family: var(--font-mono);
     letter-spacing: 0.06em;
   }
@@ -161,7 +161,7 @@
   }
 
   .project-title a:hover {
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   /* pill shape + colours come from the shared .pill class */
@@ -195,7 +195,7 @@
   }
 
   .project-link:hover {
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   .project-body {

@@ -5,6 +5,9 @@
  * `data-lang`, so the browser does the highlighting: no Worker CPU/memory
  * limits, and every language works. highlight.js is loaded lazily and only
  * when the page actually contains code.
+ *
+ * Only the highlighter itself is imported — the colour palette lives in our
+ * own tokens (`src/styles/main.css`), not in a vendor stylesheet.
  */
 
 /** @type {Promise<any> | null} */
@@ -12,26 +15,21 @@ let hljsPromise = null;
 
 function loadHljs() {
 	if (!hljsPromise) {
-		hljsPromise = Promise.all([
-			import('highlight.js'),
-			import('highlight.js/styles/github-dark.css')
-		]).then(([mod]) => mod.default ?? mod);
+		hljsPromise = import('highlight.js').then((mod) => mod.default ?? mod);
 	}
 	return hljsPromise;
 }
 
 /** Highlights any not-yet-processed code blocks currently in the DOM. */
 export function setupHighlight() {
-	const blocks = document.querySelectorAll(
-		'pre.code-pre[data-lang] > code:not([data-highlighted])'
-	);
+	const blocks = document.querySelectorAll('pre.code-pre > code:not([data-highlighted])');
 	if (blocks.length === 0) return;
 
 	loadHljs()
 		.then((hljs) => {
 			for (const el of blocks) {
 				if (!(el instanceof HTMLElement)) continue;
-				const lang = el.parentElement?.getAttribute('data-lang') ?? '';
+				const lang = el.closest('.code-block')?.getAttribute('data-lang') ?? '';
 				el.setAttribute('data-highlighted', '1');
 				try {
 					if (lang && lang !== 'text' && hljs.getLanguage(lang)) {

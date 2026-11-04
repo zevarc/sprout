@@ -3,6 +3,7 @@
     import PageLogo from '$lib/components/PageLogo.svelte';
     import Arc from '$lib/components/visuals/Arc.svelte';
     import CommentSection from '$lib/components/comments/CommentSection.svelte';
+    import PostToc from '$lib/components/posts/PostToc.svelte';
     import { onMount } from 'svelte';
     import { formatDate, getDictionary, getLink, homePath as localeHome } from '$lib/i18n/index.js';
     import { site } from '$lib/site';
@@ -13,7 +14,7 @@
     const { post, related = [], comments = true, translations = [] } = $props();
 
     let progress = $state(0);
-    let activeId = $state('');
+    let progressFrame = 0;
 
     const lang = $derived(post.lng);
     const t = $derived(getDictionary(lang));
@@ -26,56 +27,19 @@
     const headings = $derived((post.headings ?? []).filter((/** @type {import('$lib/reading').TocItem} */ h) => h.level <= 4));
 
     function updateProgress() {
+      progressFrame = 0;
       const doc = document.documentElement;
       const scrollable = doc.scrollHeight - doc.clientHeight;
       progress = scrollable > 0 ? Math.min(1, doc.scrollTop / scrollable) : 0;
     }
 
-    onMount(() => {
-      updateProgress();
-      updateActiveHeading();
-    });
-
+    /** One rAF per frame, however many scroll events arrive. */
     function handleScroll() {
-      updateProgress();
-      updateActiveHeading();
+      if (progressFrame) return;
+      progressFrame = requestAnimationFrame(updateProgress);
     }
 
-    /**
-     * Highlights the last heading whose top has scrolled past the nav
-     * (i.e. the section the reader is currently in).
-     */
-    function updateActiveHeading() {
-      const THRESHOLD = 120; // nav height + breathing room
-      let current = '';
-      for (const h of headings) {
-        const el = document.getElementById(h.id);
-        if (!el) continue;
-        if (el.getBoundingClientRect().top <= THRESHOLD) {
-          current = h.id;
-        } else {
-          break; // headings are in document order
-        }
-      }
-      if (current) activeId = current;
-    }
-
-    /**
-     * @param {string} id
-     */
-    function scrollToHeading(id) {
-      const el = document.getElementById(id);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-      // 同步地址栏 hash（不触发滚动、不产生历史记录）
-      const url = new URL(window.location.href);
-      if (url.hash !== `#${id}`) {
-        url.hash = id;
-        history.replaceState(null, '', url);
-      }
-      activeId = id;
-    }
+    onMount(updateProgress);
 
     // Alternates come from the node's group (`group_id`), not from this URL, so a
     // translation may use a different slug and is still linked correctly.
@@ -140,16 +104,10 @@
 
 <PageLogo href={homeLink} />
 
-{#if headings.length > 0}
+{#if headings.length > 1}
   <details class="toc-mobile">
     <summary>{tocLabel}</summary>
-    <ul>
-      {#each headings as h}
-        <li class:sub={h.level > 2}>
-          <a href={`#${h.id}`} class:active={h.id === activeId} onclick={(e) => { e.preventDefault(); scrollToHeading(h.id); }}>{h.text}</a>
-        </li>
-      {/each}
-    </ul>
+    <PostToc {headings} label={tocLabel} compact />
   </details>
 {/if}
 
@@ -193,7 +151,7 @@
             {/if}
         </div>
     </header>
-    <main class="post-content">
+    <main class="prose post-content">
         {@html post.bodyHtml}
     </main>
 
@@ -220,22 +178,9 @@
     <div class="post-end" aria-hidden="true"><Arc size={40} /></div>
   </article>
 
-  {#if headings.length > 0}
-    <aside class="toc" aria-label={tocLabel}>
-      <nav>
-        <p class="toc-title">{tocLabel}</p>
-        <ul>
-          {#each headings as h}
-            <li class:sub={h.level > 2}>
-              <a
-                href={`#${h.id}`}
-                class:active={h.id === activeId}
-                onclick={(e) => { e.preventDefault(); scrollToHeading(h.id); }}
-              >{h.text}</a>
-            </li>
-          {/each}
-        </ul>
-      </nav>
+  {#if headings.length > 1}
+    <aside class="toc-desktop">
+      <PostToc {headings} label={tocLabel} />
     </aside>
   {/if}
 </div>
@@ -248,84 +193,103 @@
         right: 0;
         height: 3px;
         z-index: 1001;
-        background: var(--color-primary);
+        background: var(--color-bud);
         transform-origin: left;
         transform: scaleX(0);
         will-change: transform;
     }
 
     article {
-        max-width: 72ch;
+        max-width: var(--prose-measure);
         padding: 96px clamp(16px, 4vw, 24px) clamp(16px, 4vw, 24px);
         line-height: 1.7;
         -webkit-font-smoothing: antialiased;
         text-rendering: optimizeLegibility;
     }
 
+    /* Body typography lives in `src/styles/prose.css` — one source for every
+       markdown renderer. Only layout belongs here. */
+
     .post-layout {
-        max-width: 1200px;
+        max-width: 1180px;
         margin: 0 auto;
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 240px;
-        gap: 48px;
+        /* Hug the pair so wide screens do not leave a dead gutter between the
+           article and the TOC. */
+        grid-template-columns: minmax(0, var(--prose-measure)) 232px;
+        justify-content: center;
+        gap: clamp(28px, 4vw, 56px);
         align-items: start;
     }
 
-    .toc {
+    .toc-desktop {
         position: sticky;
         top: 96px;
-        max-height: calc(100vh - 120px);
-        overflow-y: auto;
-        padding: 8px 0 8px 16px;
-        border-left: 1px solid var(--border-color);
-        font-size: 0.875rem;
-    }
-
-    .toc-title {
-        font-weight: 600;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        font-size: 0.75rem;
-        margin: 0 0 12px;
-    }
-
-    .toc ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .toc li.sub {
-        padding-left: 16px;
-    }
-
-    .toc a {
-        display: block;
-        padding: 4px 8px;
-        border-radius: 6px;
-        color: var(--text-muted);
-        border: none;
-        line-height: 1.4;
-        transition: color 0.15s, background 0.15s;
-    }
-
-    .toc a:hover {
-        color: var(--primary);
-        background: var(--color-surface-container);
-    }
-
-    .toc a.active {
-        color: var(--color-primary);
-        font-weight: 600;
-        background: var(--color-primary-container);
+        padding: 8px 0;
     }
 
     .toc-mobile {
         display: none;
+    }
+
+    /* The sidebar needs ~900px to sit next to a 72ch column; below that the
+       TOC moves above the article as a <details> panel. */
+    @media (max-width: 1023px) {
+        .post-layout {
+            /* minmax(0, …) keeps long code lines from stretching the grid item */
+            grid-template-columns: minmax(0, 1fr);
+        }
+        .toc-desktop {
+            display: none;
+        }
+        .toc-mobile {
+            display: block;
+            max-width: var(--prose-measure);
+            /* Clears the fixed logo + language switcher. */
+            margin: 76px auto 0;
+            padding: 0 clamp(16px, 4vw, 24px);
+        }
+        .toc-mobile summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            padding: 10px 14px;
+            border: 1px solid var(--color-outline);
+            border-radius: var(--radius-md);
+            background: var(--color-surface-container-low);
+            color: var(--color-bud-deep);
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            list-style: none;
+        }
+        .toc-mobile summary::-webkit-details-marker {
+            display: none;
+        }
+        .toc-mobile summary::after {
+            content: '▾';
+            transition: transform var(--dur-fast) var(--ease-out);
+        }
+        .toc-mobile[open] summary::after {
+            transform: rotate(180deg);
+        }
+        /* The <summary> already carries the label. */
+        .toc-mobile :global(.toc-title) {
+            display: none;
+        }
+        .toc-mobile :global(.toc) {
+            margin-top: 10px;
+            padding: 12px 12px 14px;
+            border: 1px solid var(--color-outline);
+            border-radius: var(--radius-md);
+            background: var(--color-surface-container-low);
+        }
+        article {
+            padding-top: 28px;
+        }
     }
 
     @media (max-width: 768px) {
@@ -335,55 +299,6 @@
         .post-updated {
             font-size: 0.75rem;
         }
-
-        .post-layout {
-            /* minmax(0, …) keeps long code lines from stretching the grid item */
-            grid-template-columns: minmax(0, 1fr);
-        }
-        .toc {
-            display: none;
-        }
-        .toc-mobile {
-            display: block;
-            max-width: 72ch;
-            margin: 36px auto 0;
-            padding: 0 clamp(16px, 4vw, 24px);
-            font-size: 0.875rem;
-        }
-        .toc-mobile summary {
-            cursor: pointer;
-            font-weight: 600;
-            color: var(--color-primary);
-            padding: 8px 12px;
-            border-radius: 8px;
-            background: var(--color-surface-container);
-            list-style: none;
-        }
-        .toc-mobile ul {
-            list-style: none;
-            margin: 8px 0 0;
-            padding: 8px 12px;
-            background: var(--color-surface-container-low);
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .toc-mobile li.sub {
-            padding-left: 14px;
-        }
-        .toc-mobile a {
-            display: block;
-            padding: 4px 6px;
-            color: var(--text-muted);
-            border: none;
-        }
-        .toc-mobile a:hover {
-            color: var(--primary);
-        }
-        article {
-            padding-top: 32px;
-        }
     }
 
     .post-header {
@@ -391,7 +306,7 @@
         overflow: hidden;
         margin-bottom: 2.5rem;
         padding: 40px 0 1.5rem;
-        border-bottom: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--color-outline);
     }
 
     .post-watermark {
@@ -414,7 +329,7 @@
         font-size: 0.72rem;
         text-transform: uppercase;
         letter-spacing: 0.16em;
-        color: var(--color-bud);
+        color: var(--color-bud-deep);
     }
 
     .post-header h1 {
@@ -438,15 +353,15 @@
     }
 
     .post-date {
-        color: var(--color-bud);
+        color: var(--color-bud-deep);
     }
 
     .post-time {
-        color: var(--text-muted);
+        color: var(--color-text-meta);
     }
 
     .post-updated {
-        color: var(--text-muted);
+        color: var(--color-text-meta);
     }
 
     .post-tags {
@@ -461,56 +376,14 @@
         align-items: center;
         padding: 3px 10px;
         font-size: 0.75rem;
-        border: 1px solid var(--color-paper-line);
+        border: 1px solid var(--color-outline);
         text-decoration: none;
-    }
-
-    /* Anchor offset lives in main.css (html { scroll-padding-top }) so every
-       in-page link is covered, not just headings with an id. */
-    :global(.post-article > * + *) {
-        margin-top: 1.2em;
-    }
-    /* Scoped to the article body: an unqualified `img` rule also hit the
-       comment avatars (40px margin → a 108px-tall comment header). */
-    :global(.post-content img) {
-        display: block;
-        max-width: 100%;
-        height: auto;
-        margin: 2.5rem auto;
-        border-radius: 6px;
-        border: 1px solid var(--border-color);
-        box-shadow: 0 4px 12px var(--color-shadow);
-        object-fit: contain;
-    }
-
-    :global(.post-content img + em) {
-        display: block;
-        text-align: center;
-        font-size: 0.9rem;
-        color: var(--text-muted);
-        margin-top: -1.5rem;
-        margin-bottom: 2rem;
-    }
-
-    /* Scoped to the article body — these used to be bare `ul, ol, li` rules
-       that leaked into the TOC, related list and comment list. */
-    :global(.post-content ul, .post-content ol) {
-        padding-left: 1.4em;
-        margin: 1em 0;
-    }
-
-    :global(.post-content li) {
-        margin: 0.4em 0;
-    }
-
-    :global(.post-content li::marker) {
-        color: var(--color-outline);
     }
 
     .related {
         margin-top: 4rem;
         padding-top: 2rem;
-        border-top: 1px solid var(--border-color);
+        border-top: 1px solid var(--color-divider);
     }
 
     .related-title {
@@ -545,7 +418,7 @@
         flex-shrink: 0;
         font-family: var(--font-mono);
         font-size: 0.8rem;
-        color: var(--text-muted);
+        color: var(--color-text-meta);
     }
 
     .related-text {
@@ -556,16 +429,8 @@
     .post-end {
         display: flex;
         justify-content: center;
-        color: var(--color-bud);
+        color: var(--color-bud-deep);
         opacity: 0.7;
         margin: 72px 0 12px;
     }
-@media (max-width: 768px) {
-  .post-kicker,
-  .post-date,
-  .post-time,
-  .post-updated {
-    font-size: 0.75rem;
-  }
-}
 </style>

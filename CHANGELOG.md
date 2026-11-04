@@ -1,5 +1,46 @@
 # Changelog
 
+## Unreleased — reading experience
+
+- **The table of contents is one component with a scroll spy.** `PostToc.svelte`
+  caches heading offsets, updates once per frame, slides an indicator between
+  rows, numbers h2s and dots h3/h4, distinguishes read from unread, keeps the
+  active row inside its own scroll box, and marks the row with
+  `aria-current="location"`. The old code re-measured every heading on every
+  scroll event and kept a stale highlight when you scrolled back to the top.
+- **TOC entries can no longer point at ids that do not exist.** Headings are now
+  read from the same markdown-it token stream that renders the body
+  (`extractHeadings` in `lib/server/render.ts`), so fenced code, inline HTML,
+  entities, links, code spans, Setext headings and duplicate suffixes all match
+  the rendered anchors. Runs once per request, no schema change.
+- **Prose styling has one home:** `src/styles/prose.css`, applied to
+  `class="prose"` (post and note bodies). Links are a colour with a dashed
+  hairline instead of a hover-only change; tables get rounded corners, a tinted
+  header, zebra rows, hairline columns and their own horizontal scroll box;
+  `<mark>` `<kbd>` `<hr>` `<figure>` are finally styled (`<hr>` was invisible:
+  the reset clears its border); quotes, lists and heading rhythm are shared
+  instead of duplicated per component.
+- **Code blocks belong to the palette.** The vendor `github-dark` stylesheet is
+  gone; the slab is hue-tinted and the syntax colours come from `--syntax-*`
+  tokens, so a snippet no longer changes the temperature of the page. The copy
+  button is icon-only (no more English "Copy" flash before the client relabels
+  it) and gains a language badge.
+- **Colour audit fixes.** `--color-ink-faint` was 2.8:1 on paper, `--color-bud`
+  was used as small text at 3.5:1, `--color-sprout-deep` at 2.9:1, and the solid
+  primary button pair at 3.6:1 — all now clear 4.5:1. Text hierarchy no longer
+  uses `opacity` (blogroll, login, invite, admin, comment/apply notices).
+  `--color-ink-soft` is slightly darker, the yellow accent finally has a role
+  (highlights, code strings, status), the scrollbar thumb is visible again, and
+  `var(--radius, 12px)` no longer resolves to a fallback because `--radius-*`
+  exists.
+- **New tokens** (all `color-mix`-derived from the base palette, so presets and
+  per-site overrides stay coherent): link, mark, quote, table, code + syntax,
+  table-of-contents, pill, action/disabled, success/warning, overlay, selection,
+  scrollbar, focus ring, plus `--prose-measure` and the radius/motion scales. See
+  `docs/USAGE.md#5-themes`.
+- **A contrast guard now runs in CI.** `tests/theme.test.js` reads the palette and
+  asserts the text pairs in both colour schemes clear WCAG AA.
+
 ## 0.10.1 — instance wiring fix
 
 - **The universal hook is loaded again in consuming apps.** The docs and the

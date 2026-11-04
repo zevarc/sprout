@@ -40,6 +40,8 @@ export const en = {
     readMore: 'Read More →',
     readTime: 'min read',
     toc: 'Contents',
+    copyCode: 'Copy code',
+    copiedCode: 'Copied!',
     related: 'Related Posts',
     latest: 'Latest Writing',
     next: 'Head to the Dock',

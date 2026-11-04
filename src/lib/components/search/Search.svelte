@@ -172,7 +172,7 @@
     padding: 14px 18px;
     font-size: 1.05rem;
     border-radius: 12px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--color-outline);
     background: var(--color-surface-container);
     color: var(--color-on-surface);
     outline: none;
@@ -187,7 +187,7 @@
   .search-status,
   .search-empty {
     margin-top: 24px;
-    color: var(--text-muted);
+    color: var(--color-text-meta);
     font-size: 0.95rem;
   }
 
@@ -201,7 +201,7 @@
   }
 
   .search-result {
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--color-outline);
     border-radius: 12px;
     transition: border-color 0.2s, transform 0.2s;
   }
@@ -236,15 +236,10 @@
     display: block;
     font-size: 0.9rem;
     line-height: 1.6;
-    color: var(--text-muted);
+    color: var(--color-text-meta);
   }
 
-  .result-excerpt :global(mark) {
-    background: var(--color-primary-container);
-    color: var(--color-on-primary-container);
-    padding: 0 2px;
-    border-radius: 3px;
-  }
+  /* Match highlight uses the shared `mark` rule in main.css. */
 @media (max-width: 1024px), (pointer: coarse) {
   .search-type {
     font-size: 1rem;

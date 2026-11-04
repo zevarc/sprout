@@ -34,12 +34,12 @@
 
   .page-logo:hover {
     opacity: 1;
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   .page-logo-icon {
     display: flex;
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   @media (max-width: 768px) {

@@ -210,18 +210,42 @@ export const theme = {
 - Overrides win in both light and dark mode.
 - Preview any preset for one request: `/posts?theme=mono`.
 - `?theme=classic` means "use the base palette".
+- Most other tokens are **derived** with `color-mix` from the ones below, so
+  overriding `--color-bud` / `--color-paper` / `--color-ink` also re-tints links,
+  tables, quotes, highlights, code and the table of contents. You rarely need to
+  set more than the paper/ink/accent group.
 
 ### Token reference (main groups)
 
 | Group | Tokens |
 |---|---|
 | Paper/ink | `--color-paper`, `--color-paper-deep`, `--color-paper-line`, `--color-ink`, `--color-ink-soft`, `--color-ink-faint` |
-| Accent | `--color-bud`, `--color-bud-deep`, `--color-bud-soft`, `--color-bud-pale`, `--color-sprout`, `--color-sprout-deep`, `--color-sprout-pale` |
-| Surfaces | `--color-surface`, `--color-on-surface`, `--color-surface-container`, `-low`, `-high`, `--color-primary`, `--color-on-primary`, `--color-primary-container`, `--color-on-primary-container`, `--color-error`, `--color-outline` |
+| Accent | `--color-bud`, `--color-bud-deep`, `--color-bud-soft`, `--color-bud-pale`, `--color-sprout`, `--color-sprout-deep`, `--color-sprout-pale`, `--color-sprout-ink` |
+| Surfaces | `--color-surface`, `--color-on-surface`, `--color-surface-container`, `-low`, `-high`, `--color-primary`, `--color-on-primary`, `--color-primary-container`, `--color-on-primary-container`, `--color-error`, `--color-outline`, `--color-divider` |
+| Text & links | `--color-text-meta`, `--color-text-faint`, `--color-link`, `--color-link-line`, `--color-link-hover` |
+| Controls | `--color-action-bg`, `--color-action-ink`, `--color-action-bg-hover`, `--color-pill-bg`, `--color-pill-ink`, `--color-disabled-bg`, `--color-disabled-ink`, `--focus-ring` |
+| Prose | `--color-mark-bg`, `--color-mark-ink`, `--color-quote-bg`, `--color-quote-line`, `--color-table-head`, `--color-table-row-alt`, `--color-table-line`, `--color-code-bg`, `--color-code-fg`, `--color-code-border`, `--color-code-chrome`, `--color-code-chrome-ink`, `--color-code-faint`, `--syntax-*` |
+| Table of contents | `--color-toc-pill`, `--color-toc-badge`, `--color-toc-badge-ink`, `--color-toc-active`, `--color-toc-read`, `--color-toc-unread`, `--color-toc-track` |
+| Status | `--color-success`, `--color-warning`, `--color-error` |
+| Chrome | `--color-overlay`, `--color-scroll-track`, `--color-scroll-thumb`, `--color-scroll-thumb-hover`, `--color-selection-bg`, `--color-selection-ink` |
 | Background art | `--grid-line`, `--grad-bud-a`, `--grad-bud-b`, `--grad-bud-c` |
 | Typography | `--font-serif`, `--font-sans`, `--font-mono` |
-| Layout | `--content-max-width`, `--content-padding` |
+| Layout | `--content-max-width`, `--content-padding`, `--prose-measure` |
+| Rhythm | `--radius-sm`, `--radius-md`, `--radius-lg`, `--radius-pill`, `--ease-out`, `--dur-fast`, `--dur-med` |
 | Elevation | `--shadow-soft`, `--shadow-float`, `--shadow-glow`, `--shadow-card` |
+
+Two rules that keep the palette coherent (both are covered by tests):
+
+- **Text never uses plain `--color-bud`.** It is a decorative green (3.5:1 on paper):
+  links, dates and labels use `--color-bud-deep`, or `--color-text-meta` /
+  `--color-text-faint` for hierarchy. Don't fake hierarchy with `opacity`.
+- **Solid buttons use `--color-action-bg` + `--color-action-ink`**, not
+  `--color-primary` + `--color-on-primary` (that pair does not clear AA at small
+  sizes). `tests/theme.test.js` asserts the pairs in both colour schemes.
+
+Long-form typography — links, lists, quotes, `<hr>`, tables, `<mark>`, `<kbd>`,
+figures and the rendered heading body — lives in `src/styles/prose.css` and
+applies to any element with `class="prose"`. Components own layout only.
 
 ---
 

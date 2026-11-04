@@ -127,7 +127,7 @@
   }
 
   .empty {
-    color: var(--text-muted);
+    color: var(--color-text-meta);
   }
 
   /* ---------- list ---------- */
@@ -159,7 +159,7 @@
   .entry-date {
     font-family: var(--font-mono);
     font-size: 0.78rem;
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
     padding-top: 4px;
   }
 
@@ -205,7 +205,7 @@
   .card-date {
     font-family: var(--font-mono);
     font-size: 0.74rem;
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   .card-title {
@@ -276,7 +276,7 @@
   .feed-date {
     font-family: var(--font-mono);
     font-size: 0.76rem;
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
     border: none;
     padding-top: 2px;
   }
@@ -303,7 +303,7 @@
     height: 120px;
     object-fit: cover;
     border-radius: 10px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--color-outline);
   }
 
   .feed-link {

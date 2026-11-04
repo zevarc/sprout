@@ -87,7 +87,7 @@
 
 <style>
   .empty {
-    color: var(--text-muted);
+    color: var(--color-text-meta);
   }
 
   .month {
@@ -154,7 +154,7 @@
   .entry-date {
     font-family: var(--font-mono);
     font-size: 0.76rem;
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   .badge {
@@ -223,7 +223,7 @@
     height: 120px;
     object-fit: cover;
     border-radius: 10px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--color-outline);
   }
   @media (max-width: 820px) {
     /* 10.5px badges are legible on a monitor, not in a hand. */

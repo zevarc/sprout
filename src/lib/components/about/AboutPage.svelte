@@ -203,8 +203,8 @@
   }
 
   .more a:hover {
-    color: var(--color-bud);
-    border-bottom-color: var(--color-bud);
+    color: var(--color-bud-deep);
+    border-bottom-color: var(--color-bud-deep);
   }
 
   .names {
@@ -273,8 +273,8 @@
   }
 
   .contact-links a:hover {
-    color: var(--color-bud);
-    border-bottom-color: var(--color-bud);
+    color: var(--color-bud-deep);
+    border-bottom-color: var(--color-bud-deep);
   }
 
   @media (max-width: 640px) {

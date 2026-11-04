@@ -96,7 +96,7 @@
   }
 
   .back:hover {
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   .friend-profile {
@@ -165,14 +165,14 @@
     min-height: 24px;
     padding: 6px 16px;
     border-radius: 999px;
-    background: var(--color-primary);
-    color: var(--color-on-primary);
+    background: var(--color-action-bg);
+    color: var(--color-action-ink);
     font-size: 0.86rem;
     text-decoration: none;
   }
 
   .visit:hover {
-    background: var(--color-bud-deep);
+    background: var(--color-action-bg-hover);
   }
 
   .secondary {
@@ -186,7 +186,7 @@
   }
 
   .secondary:hover {
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   .since {

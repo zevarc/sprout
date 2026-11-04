@@ -1,0 +1,235 @@
+/* ============================================================
+   Prose — markdown body typography
+   ------------------------------------------------------------
+   One source of truth for `.prose` (article body, note body).
+   Components own layout; every element *inside* the rendered
+   markdown is styled here, and only through theme tokens.
+
+   Colours are derived from the palette in `variables.css`, so a
+   site that changes `--color-bud` gets a matching link, table,
+   quote and highlight without touching this file.
+   ============================================================ */
+
+.prose {
+  font-size: 1.02rem;
+  line-height: 1.8;
+  color: var(--color-on-surface);
+  overflow-wrap: break-word;
+}
+
+/* Headings: symmetric rhythm (the old rules only set margin-top) and an
+   anchor that appears on hover so any section can be linked directly. */
+.prose :is(h2, h3, h4) {
+  position: relative;
+}
+
+.prose > :first-child {
+  margin-top: 0;
+}
+
+.prose h2 {
+  font-size: 1.55rem;
+  margin: 2.4em 0 0.7em;
+}
+
+.prose h3 {
+  font-size: 1.25rem;
+  margin: 1.9em 0 0.55em;
+}
+
+.prose h4 {
+  font-size: 1.08rem;
+  margin: 1.6em 0 0.45em;
+}
+
+.prose p {
+  margin: 1em 0;
+}
+
+.prose .heading-anchor {
+  margin-left: 0.35em;
+  color: var(--color-bud-soft);
+  font-weight: 400;
+  text-decoration: none;
+  opacity: 0;
+  border-bottom: none;
+  transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.prose :is(h2, h3, h4):hover .heading-anchor,
+.prose .heading-anchor:focus-visible {
+  opacity: 1;
+}
+
+.prose .heading-anchor:hover {
+  color: var(--color-link);
+  background: none;
+}
+
+/* Links: a real colour plus a dashed hairline underline, so they read as
+   links at rest instead of only reacting on hover. */
+.prose a {
+  color: var(--color-link);
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--color-link-line);
+  text-underline-offset: 4px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  border-bottom: 0;
+  transition: background var(--dur-fast) var(--ease-out),
+    text-decoration-color var(--dur-fast) var(--ease-out);
+}
+
+.prose a:hover {
+  color: var(--color-link);
+  background: var(--color-link-hover);
+  text-decoration-color: transparent;
+  border-bottom: 0;
+}
+
+/* Highlighted text: `==`-style emphasis written as raw `<mark>`, plus the
+   same look search results use. */
+.prose mark {
+  padding: 0.05em 0.2em;
+  border-radius: 3px;
+}
+
+/* Lists */
+.prose ul,
+.prose ol {
+  margin: 1em 0;
+  padding-left: 1.4em;
+}
+
+.prose li {
+  margin: 0.35em 0;
+}
+
+.prose li > ul,
+.prose li > ol {
+  margin: 0.35em 0;
+}
+
+.prose li::marker {
+  color: var(--color-bud-deep);
+}
+
+/* Quotes: a tinted slab with a rounded rule instead of a grey border. */
+.prose blockquote {
+  margin: 1.6em 0;
+  padding: 0.85em 1.15em;
+  border-left: 3px solid var(--color-quote-line);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--color-quote-bg);
+  color: var(--color-ink-soft);
+}
+
+.prose blockquote > :first-child {
+  margin-top: 0;
+}
+
+.prose blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* Divider (invisible before: the global reset removes the default border) */
+.prose hr {
+  height: 0;
+  margin: 2.4em 0;
+  border: 0;
+  border-top: 1px solid var(--color-divider);
+}
+
+/* Tables: rounded, tinted header, zebra rows, hairline columns, and their own
+   horizontal scroll box so a wide table never widens the page. */
+.prose .table-wrap {
+  margin: 1.6em 0;
+  overflow-x: auto;
+  border: 1px solid var(--color-table-line);
+  border-radius: var(--radius-md);
+  background: var(--color-paper);
+  -webkit-overflow-scrolling: touch;
+}
+
+.prose table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.prose th,
+.prose td {
+  min-width: 6em;
+  padding: 0.6em 1em;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-table-line);
+}
+
+.prose th {
+  background: var(--color-table-head);
+  color: var(--color-ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.prose th + th,
+.prose td + td {
+  border-left: 1px solid var(--color-table-line);
+}
+
+.prose tbody tr:nth-child(2n) td {
+  background: var(--color-table-row-alt);
+}
+
+.prose tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* Media */
+.prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 2.5rem auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-outline);
+  box-shadow: 0 4px 12px var(--color-shadow);
+  object-fit: contain;
+}
+
+.prose img + em {
+  display: block;
+  margin-top: -1.5rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--color-text-meta);
+}
+
+.prose figure {
+  margin: 2em 0;
+}
+
+.prose figcaption {
+  margin-top: 0.6em;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--color-text-meta);
+}
+
+/* Keyboard keys inside body text or headings */
+.prose kbd {
+  padding: 0.1em 0.35em;
+  border: 1px solid var(--color-outline);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--color-surface-container-low);
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}

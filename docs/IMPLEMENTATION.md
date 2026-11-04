@@ -72,8 +72,13 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 
 - `components/content/ContentListPage` (`list`/`cards`/`feed`), `ContentDetail`
   (`compact`), `components/posts/Post` (`article`), `components/home/*`.
+- `components/posts/PostToc` is the table of contents (sidebar + mobile
+  `<details>`); it owns the scroll spy (`lib/scroll-spy.js`) and its own
+  indicator, so the article page only lays out the grid.
 - Comments, search, tags, projects, about, PageLogo, LanguageSwitcher, visuals.
-- `styles/variables.css` defines the base tokens; components read tokens only.
+- `styles/variables.css` defines the base tokens; `styles/prose.css` styles
+  everything *inside* rendered markdown (`.prose`), so the two detail renderers
+  share one set of link/table/quote/code rules. Components read tokens only.
 - `lib/i18n/index.js`: `getDictionary()`, `getLink`, `localeFromPath`, `stripLocale`,
   `homePath`. Base dictionaries are `en`/`zh`; `getDictionary` deep-merges every mod's
   `i18n` fragment (from `registry.i18nFragments`) over them, so a mod can even add a
@@ -166,16 +171,20 @@ Endpoints return JSON errors (401/400/404/409/413/415/429) instead of throwing a
 
 - **markdown-it** with `html: true` for authored content and `html: false` for
   comments (`renderMarkdown` / `renderComment`).
-- Heading ids use the same `slugify` as `lib/reading.ts`, so TOC anchors match.
+- `extractHeadings` reads the headings back out of the same token stream
+  (ids included), so TOC entries cannot drift from the rendered anchors — fenced
+  code, inline HTML, entities, code spans and Setext headings are all covered.
+  `slugify` still lives in `lib/reading.ts` because markdown-it-anchor receives it.
 - Images get `loading="lazy"` and `decoding="async"`.
-- Fenced code becomes `<div class="code-block"><button class="code-copy">…</button>
-  <pre class="code-pre" data-lang="…"><code class="language-…">…</code></pre></div>`.
+- Fenced code becomes `<div class="code-block" data-lang="…">` with an icon-only
+  copy button and `<pre class="code-pre"><code class="language-…">…</code></pre>`.
   Languages are normalized through an alias map, and unknown ones become `text`.
   Supported highlights include bash, c/cpp, csharp, cmake, css, diff, go, gradle,
   groovy, ini, java, javascript, json, kotlin, makefile, markdown, objectivec,
   perl, php, python, ruby, rust, scss, sql, swift, typescript, xml, yaml.
-- The browser (`lib/highlight.js`) lazy-loads highlight.js; `lib/lightbox.js`
-  wires image zoom.
+- The browser (`lib/highlight.js`) lazy-loads highlight.js and imports **no**
+  theme stylesheet: the syntax colours are `--syntax-*` tokens in `main.css`.
+  `lib/lightbox.js` wires image zoom.
 - `rebuildBodyHtml` re-renders `body_html` without touching sources or timestamps.
 
 ---

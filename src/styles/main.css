@@ -7,6 +7,9 @@
 /* 1b. Self-hosted webfonts */
 @import './fonts.css';
 
+/* 1c. Prose (markdown body typography) */
+@import './prose.css';
+
 /* 2. Global Reset & Base */
 *,
 *::before,
@@ -20,8 +23,9 @@
 html {
   font-size: clamp(16px, 1.2vw, 18px);
   scroll-behavior: smooth;
-  /* 固定头部（logo + 语言切换）底边约 52px，锚点跳转需留出余量 */
-  scroll-padding-top: 72px;
+  /* 固定头部（logo + 语言切换）底边约 52px，锚点跳转需留出余量。
+     与 PostToc 的 OFFSET 保持一致：点到哪儿、停在哪儿、就高亮哪儿。 */
+  scroll-padding-top: 80px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-break: loose;
@@ -81,8 +85,8 @@ a {
 }
 
 a:hover {
-  border-bottom-color: var(--color-bud);
-  color: var(--color-bud);
+  border-bottom-color: var(--color-bud-deep);
+  color: var(--color-bud-deep);
 }
 
 strong {
@@ -97,17 +101,47 @@ pre {
   margin: 2rem 0;
   padding: 1rem;
   overflow-x: auto;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-outline);
   font-size: 0.95rem;
   line-height: 1.5;
 }
 
+/* Divider — the reset clears the UA border, so an unstyled <hr> is invisible. */
+hr {
+  height: 0;
+  margin: 2.4em 0;
+  border: 0;
+  border-top: 1px solid var(--color-divider);
+}
+
+/* Highlighted text: search matches and `<mark>` in prose share one look. */
+mark {
+  background: var(--color-mark-bg);
+  color: var(--color-mark-ink);
+  padding: 0.05em 0.2em;
+  border-radius: 3px;
+}
+
 /* Code blocks: emitted as escaped text by the server, highlighted in the
-   browser (see $lib/highlight.js). */
+   browser (see $lib/highlight.js). The slab is hue-tinted rather than a
+   foreign dark theme, so it belongs to the palette in both colour schemes. */
 .code-block {
   position: relative;
   margin: 2rem 0;
+}
+
+.code-block::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 0.55rem;
+  left: 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-code-faint);
+  pointer-events: none;
 }
 
 .code-block > pre {
@@ -115,11 +149,11 @@ pre {
 }
 
 .code-pre {
-  background: #0d1117;
-  color: #e6edf3;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  padding: 1rem;
+  background: var(--color-code-bg);
+  color: var(--color-code-fg);
+  border: 1px solid var(--color-code-border);
+  border-radius: var(--radius-sm);
+  padding: 2.1rem 1rem 1rem;
   overflow-x: auto;
   font-size: 0.9rem;
   line-height: 1.55;
@@ -132,32 +166,120 @@ pre {
   font-size: inherit;
 }
 
+/* Syntax palette (replaces the vendor highlight.js theme): one hue family, so
+   a snippet never changes the temperature of the page. Every colour clears
+   4.5:1 on --color-code-bg. */
+.hljs {
+  color: var(--color-code-fg);
+  background: none;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag,
+.hljs-meta .hljs-keyword {
+  color: var(--syntax-keyword);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: var(--syntax-string);
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-variable,
+.hljs-template-variable {
+  color: var(--syntax-number);
+}
+
+.hljs-title,
+.hljs-title.function_,
+.hljs-section,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: var(--syntax-function);
+}
+
+.hljs-type,
+.hljs-built_in,
+.hljs-class .hljs-title,
+.hljs-title.class_,
+.hljs-tag {
+  color: var(--syntax-type);
+}
+
+.hljs-attr,
+.hljs-property,
+.hljs-params {
+  color: var(--syntax-property);
+}
+
+.hljs-punctuation,
+.hljs-operator,
+.hljs-meta {
+  color: var(--syntax-punct);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 600;
+}
+
+/* Icon-only copy button: language-neutral, so no "Copy" flash before the
+   client relabels it. The check icon swaps in once the copy succeeds. */
 .code-copy {
   position: absolute;
-  top: 0.5rem;
+  top: 0.45rem;
   right: 0.5rem;
-  padding: 0.25rem 0.6rem;
-  font-size: 0.75rem;
-  font-family: var(--font-sans);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #c9d1d9;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.2s, background 0.2s, color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-code-chrome);
+  color: var(--color-code-chrome-ink);
+  border: 1px solid var(--color-code-border);
+  opacity: 0.75;
+  transition: opacity var(--dur-fast), background var(--dur-fast), color var(--dur-fast);
 }
 
 .code-copy:hover {
   opacity: 1;
-  background: rgba(100, 116, 139, 0.2);
+  background: var(--color-code-chrome);
+  color: var(--color-code-fg);
+}
+
+.code-copy .icon-check,
+.code-copy.copied .icon-copy {
+  display: none;
+}
+
+.code-copy.copied .icon-check {
+  display: block;
 }
 
 .code-copy.copied {
   opacity: 1;
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  border-color: var(--color-primary);
+  background: var(--color-action-bg);
+  color: var(--color-action-ink);
+  border-color: var(--color-action-bg);
 }
 
 code {
@@ -170,6 +292,7 @@ code:not(pre code) {
   padding: 0.2em 0.4em;
   border-radius: 4px;
   background: var(--color-surface-container);
+  color: var(--color-bud-deep);
 }
 
 blockquote {
@@ -198,7 +321,7 @@ textarea {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  color: var(--color-bud);
+  color: var(--color-bud-deep);
 }
 
 .page-title {
@@ -221,43 +344,44 @@ textarea {
 .card {
   background: var(--color-surface-container-low);
   border: 1px solid var(--color-paper-line);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
 }
 
 /* Pill / tag chip: status, tech tags, author badge */
 .pill {
-  border-radius: 999px;
-  background: var(--color-bud-pale);
-  color: var(--color-bud-deep);
+  border-radius: var(--radius-pill);
+  background: var(--color-pill-bg);
+  color: var(--color-pill-ink);
 }
 
 /* 7. Selection */
 ::selection {
-  background-color: var(--color-bud-soft);
-  color: var(--color-on-primary-container);
+  background-color: var(--color-selection-bg);
+  color: var(--color-selection-ink);
 }
 
 /* 8. Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-outline);
+  background: var(--color-scroll-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-outline);
+  background: var(--color-scroll-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-bud);
+  background: var(--color-scroll-thumb-hover);
 }
 
 /* 9. Focus States */
 :focus-visible {
-  outline: 2px solid var(--color-bud);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -282,7 +406,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.85);
+  background: var(--color-overlay);
   cursor: zoom-out;
   animation: lightbox-fade 0.2s ease;
 }

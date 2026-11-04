@@ -9,28 +9,46 @@
   /* ========== Layout ========== */
   --content-max-width: 760px;
   --content-padding: 24px;
+  /* Line length for long-form prose. `ch` depends on the "0" glyph, which in
+     Inter is wide (72ch ≈ 730px ≈ 100 characters), so the measure is pinned in
+     rem instead: ~640px, i.e. 75–85 characters. */
+  --prose-measure: 40rem;
 
   /* ========== Typography ========== */
   --font-serif: 'Fraunces', Georgia, 'Songti SC', serif;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
 
+  /* ========== Radius & motion ========== */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-fast: 140ms;
+  --dur-med: 220ms;
+
   /* ========== Palette (light — 嫩芽) ========== */
   --color-paper: #f1f5ee;            /* 嫩绿白纸底 */
   --color-paper-deep: #e5ece2;       /* 深一档纸 */
   --color-paper-line: #d4ded1;       /* 淡绿线框 */
   --color-ink: #29372f;              /* 深墨绿文字 */
-  --color-ink-soft: #5b6d62;         /* 次级文字 */
-  --color-ink-faint: #88978c;        /* 弱化文字 */
+  --color-ink-soft: #4e6055;         /* 次级文字（6.1:1） */
+  --color-ink-faint: #5b6b61;        /* 说明性文字（5.1:1） */
 
-  --color-bud: #5e8b74;              /* 主青绿（嫩芽） */
-  --color-bud-deep: #3f6a55;         /* 深青绿 */
+  --color-bud: #5e8b74;              /* 主青绿（嫩芽）——只做线/点/渐变，不做小字 */
+  --color-bud-deep: #3f6a55;         /* 深青绿（5.6:1，小字/链接用它） */
   --color-bud-soft: #b3cdbc;         /* 淡青绿 */
   --color-bud-pale: #dbe8de;         /* 更淡青绿底 */
+
+  /* Pills (tags, statuses) */
+  --color-pill-bg: var(--color-bud-pale);
+  --color-pill-ink: var(--color-bud-deep);
 
   --color-sprout: #d6b35c;           /* 嫩黄（点缀） */
   --color-sprout-deep: #b08a4f;      /* 暖棕（点缀） */
   --color-sprout-pale: #f3ead4;      /* 嫩黄浅底 */
+  --color-sprout-ink: color-mix(in srgb, var(--color-sprout-deep) 55%, var(--color-ink)); /* 嫩黄做文字时的深色版（5.2:1） */
 
   --grid-line: rgba(94, 139, 116, 0.07); /* 蓝图网格线 */
 
@@ -47,14 +65,84 @@
   --color-surface-container-high: #dfe7dc;
 
   --color-primary: var(--color-bud);
-  --color-on-primary: #f5f8f4;
+  --color-on-primary: #0f1411;       /* 4.8:1 on --color-primary（仍偏装饰，实心按钮用 action） */
   --color-primary-container: var(--color-bud-pale);
   --color-on-primary-container: #24402f;
 
+  /* Solid controls (buttons): a full-strength surface with readable label.
+     `--color-primary` is decorative and too light to carry white text (3.6:1). */
+  --color-action-bg: var(--color-bud-deep);
+  --color-action-ink: #f7faf6;       /* 5.9:1 on action-bg */
+  /* Mixing towards `--color-ink` darkens in light mode and lightens in dark
+     mode, which is the right hover direction in both. */
+  --color-action-bg-hover: color-mix(in srgb, var(--color-action-bg) 88%, var(--color-ink));
+
+  --color-success: var(--color-bud-deep);
+  --color-warning: var(--color-sprout-ink);
   --color-error: #b3261e;
+  --color-disabled-bg: color-mix(in srgb, var(--color-ink) 8%, var(--color-paper));
+  --color-disabled-ink: var(--color-text-faint);
 
   --color-outline: var(--color-paper-line);
+  --color-divider: color-mix(in srgb, var(--color-paper-line) 70%, transparent);
   --color-shadow: rgba(41, 55, 47, 0.14);
+
+  /* Text hierarchy — never `opacity` on text, always one of these. */
+  --color-text-meta: var(--color-ink-soft);
+  --color-text-faint: var(--color-ink-faint);
+
+  /* Prose: links are a colour, not just a hover state. */
+  --color-link: var(--color-bud-deep);
+  --color-link-line: color-mix(in srgb, var(--color-bud) 42%, transparent);
+  --color-link-hover: color-mix(in srgb, var(--color-bud) 14%, var(--color-paper));
+
+  /* Prose: quotes */
+  --color-quote-bg: color-mix(in srgb, var(--color-bud) 5%, var(--color-paper));
+  --color-quote-line: var(--color-bud-soft);
+
+  /* Prose: highlight (<mark>, search matches) */
+  --color-mark-bg: color-mix(in srgb, var(--color-sprout) 34%, var(--color-paper));
+  --color-mark-ink: var(--color-ink);
+
+  /* Prose: tables */
+  --color-table-head: color-mix(in srgb, var(--color-bud) 16%, var(--color-paper));
+  --color-table-row-alt: color-mix(in srgb, var(--color-bud) 6%, var(--color-paper));
+  --color-table-line: var(--color-paper-line);
+
+  /* Code: one hue-tinted dark slab in both colour schemes, so the palette of
+     the page never changes temperature when a post contains a snippet. */
+  --color-code-bg: color-mix(in srgb, var(--color-bud) 12%, #121713);
+  --color-code-fg: #dbe6dd;
+  --color-code-border: color-mix(in srgb, var(--color-bud) 24%, #121713);
+  --color-code-chrome: color-mix(in srgb, var(--color-bud) 18%, #121713);
+  --color-code-chrome-ink: #b9cdc1;
+  --color-code-faint: #93a49a;
+  --syntax-keyword: #9ec8ab;
+  --syntax-string: #d8c07a;
+  --syntax-number: #e3b77e;
+  --syntax-comment: #8aa093;
+  --syntax-function: #b9d2c1;
+  --syntax-type: #cbbf96;
+  --syntax-property: #cfd9d3;
+  --syntax-punct: #93a49a;
+
+  /* Table of contents */
+  --color-toc-pill: color-mix(in srgb, var(--color-bud) 12%, var(--color-paper));
+  --color-toc-badge: color-mix(in srgb, var(--color-bud) 18%, var(--color-paper));
+  --color-toc-badge-ink: var(--color-bud-deep);
+  --color-toc-active: var(--color-bud-deep);
+  --color-toc-read: var(--color-ink-soft);
+  --color-toc-unread: var(--color-ink-faint);
+  --color-toc-track: var(--color-divider);
+
+  /* Chrome */
+  --color-overlay: color-mix(in srgb, #0b120e 86%, transparent);
+  --color-scroll-track: transparent;
+  --color-scroll-thumb: color-mix(in srgb, var(--color-bud) 35%, var(--color-paper));
+  --color-scroll-thumb-hover: var(--color-bud);
+  --color-selection-bg: var(--color-bud-soft);
+  --color-selection-ink: #1f3a2c;
+  --focus-ring: var(--color-bud);
 
   /* ========== Elevation (token-only; themes may override) ========== */
   --shadow-soft: 0 2px 10px rgba(41, 55, 47, 0.08);
@@ -62,10 +150,10 @@
   --shadow-glow: 0 6px 20px rgba(94, 139, 116, 0.22);
   --shadow-card: 0 8px 26px rgba(94, 139, 116, 0.14);
 
-  /* Aliases used by components */
+  /* Legacy aliases kept for older components */
   --primary: var(--color-primary);
-  --border-color: var(--color-paper-line);
-  --text-muted: var(--color-ink-soft);
+  --border-color: var(--color-outline);
+  --text-muted: var(--color-text-meta);
 }
 
 /* ========== Dark reading theme (follows system) ========== */
@@ -78,16 +166,29 @@
     --color-paper-line: #2b3b32;
     --color-ink: #e2e9e2;
     --color-ink-soft: #93a49a;
-    --color-ink-faint: #6d7d73;
+    --color-ink-faint: #8b9a90;
 
     --color-bud: #8fb89f;
     --color-bud-deep: #6d9c84;
     --color-bud-soft: #2c4236;
     --color-bud-pale: #24362d;
 
+    --color-pill-bg: var(--color-bud-pale);
+    --color-pill-ink: var(--color-bud);
+
     --color-sprout: #d6b35c;
     --color-sprout-deep: #c9a04f;
     --color-sprout-pale: #332a16;
+
+    /* The light-mode slab (mixed with #121713) nearly merges with the dark
+       page; mix against the raised surface instead. */
+    --color-code-bg: color-mix(in srgb, var(--color-bud) 10%, var(--color-paper-deep));
+    --color-code-border: color-mix(in srgb, var(--color-bud) 22%, var(--color-paper-deep));
+    --color-code-chrome: color-mix(in srgb, var(--color-bud) 16%, var(--color-paper-deep));
+
+    /* On a tinted chip the deep green drops to 4.1:1; the lighter one clears it. */
+    --color-toc-active: var(--color-bud);
+    --color-toc-badge-ink: var(--color-bud);
 
     --color-surface: var(--color-paper);
     --color-on-surface: var(--color-ink);
@@ -100,10 +201,16 @@
     --color-primary-container: #24362d;
     --color-on-primary-container: #cfe0d4;
 
+    /* Dark uses the light bud with dark text instead of the deep bud. */
+    --color-action-bg: var(--color-bud);
+    --color-action-ink: #10221a;
+
     --color-error: #f2b8b5;
 
     --color-outline: #2b3b32;
     --color-shadow: rgba(0, 0, 0, 0.5);
+    --color-selection-bg: #3a5a48;
+    --color-selection-ink: #f0f6f1;
 
     --shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.4);
     --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -111,8 +218,8 @@
     --shadow-card: 0 8px 26px rgba(0, 0, 0, 0.45);
 
     --primary: var(--color-primary);
-    --border-color: var(--color-paper-line);
-    --text-muted: var(--color-ink-soft);
+    --border-color: var(--color-outline);
+    --text-muted: var(--color-text-meta);
 
     --grid-line: rgba(143, 184, 159, 0.08);
     --grad-bud-a: #8fb89f;
@@ -120,4 +227,3 @@
     --grad-bud-c: #c9a04f;
   }
 }
-

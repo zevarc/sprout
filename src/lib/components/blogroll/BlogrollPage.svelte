@@ -77,7 +77,7 @@
     font-size: 0.8rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    opacity: 0.6;
+    color: var(--color-text-faint);
   }
 
   .page-title {
@@ -86,7 +86,7 @@
   }
 
   .page-sub {
-    opacity: 0.7;
+    color: var(--color-text-meta);
     margin: 0;
   }
 
@@ -113,7 +113,7 @@
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    opacity: 0.6;
+    color: var(--color-text-faint);
     margin-bottom: 0.5em;
   }
 
@@ -126,7 +126,7 @@
   .today-desc {
     display: block;
     margin-top: 0.4em;
-    opacity: 0.7;
+    color: var(--color-text-meta);
     font-size: 0.95rem;
   }
 
@@ -153,7 +153,7 @@
   .num {
     font-variant-numeric: tabular-nums;
     font-size: 0.8rem;
-    opacity: 0.5;
+    color: var(--color-text-faint);
     min-width: 2em;
   }
 
@@ -170,7 +170,7 @@
   .desc {
     display: block;
     font-size: 0.9rem;
-    opacity: 0.65;
+    color: var(--color-text-meta);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -179,17 +179,17 @@
   .url {
     display: block;
     font-size: 0.75rem;
-    opacity: 0.45;
+    color: var(--color-text-faint);
   }
 
   .date {
     font-size: 0.8rem;
     font-variant-numeric: tabular-nums;
-    opacity: 0.55;
+    color: var(--color-text-faint);
     white-space: nowrap;
   }
 
   .empty {
-    opacity: 0.6;
+    color: var(--color-text-meta);
   }
 </style>

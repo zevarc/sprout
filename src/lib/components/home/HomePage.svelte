@@ -382,7 +382,7 @@
   }
 
   .float-btn:hover {
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
     border-color: var(--color-bud-soft);
     box-shadow: var(--shadow-glow);
   }
@@ -440,7 +440,7 @@
   }
 
   .site-footer a:hover {
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
   }
 
   /* ---------- Responsive ---------- */

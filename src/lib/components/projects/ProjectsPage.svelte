@@ -77,7 +77,7 @@
   .section-count {
     font-family: var(--font-mono);
     font-size: 0.7rem;
-    color: var(--color-bud);
+    color: var(--color-bud-deep);
     letter-spacing: 0.1em;
   }
 

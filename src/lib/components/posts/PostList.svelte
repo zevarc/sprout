@@ -91,8 +91,7 @@
   .post-index {
     font-family: var(--font-mono);
     font-size: 0.78rem;
-    color: var(--color-bud);
-    opacity: 0.85;
+    color: var(--color-bud-deep);
   }
 
   .post-date {
