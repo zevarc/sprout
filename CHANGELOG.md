@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased — engine / instance split
+## 0.10.0 — engine / instance split
+
+This release changes how a site relates to the engine. A site can now consume
+this repository as a package instead of copying it: it keeps identity, content
+and assets, while routes, data layer, migrations and tooling are loaded from
+here. Existing standalone deployments are unaffected — the same tree still runs
+as its own app.
 
 - **The engine no longer owns identity.** `src/site.config.js` and
   `src/sprout.config.js` moved to `src/site/config.js` and `src/site/assembly.js`,
@@ -31,7 +37,7 @@
   gate: a vendored engine copy must not hijack Vite's tsconfig discovery in the
   consuming app.
 
-## Unreleased — friend links
+### Friend links
 
 - **`/friends`** is a curated blogroll: a card wall of site name, one-line
   description, avatar, RSS and group tags, ordered by `order_index`. Cards point
