@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.1 — mobile seam
+
+- Added a bottom margin to the folded contents panel on phones: it sat directly
+  on the reading sheet's top hairline, so the two rules read as a double line.
+
 ## 0.13.0 — reading sheet and interaction states
 
 - **The article is one reading sheet.** `.post-layout` paints
