@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — reading experience
+## 0.11.0 — reading experience
 
 - **The table of contents is one component with a scroll spy.** `PostToc.svelte`
   caches heading offsets, updates once per frame, slides an indicator between
