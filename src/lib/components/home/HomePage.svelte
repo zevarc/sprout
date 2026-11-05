@@ -225,6 +225,10 @@
     font-family: var(--font-serif);
     font-weight: 400;
     font-size: clamp(1.25rem, 3.2vw, 1.6rem);
+    /* body has no line-height (inherits `normal`, ~1.2), which is tight for a
+       two- or three-line quote on a phone; the hero quote carries the brand,
+       so it gets explicit leading. */
+    line-height: 1.45;
     letter-spacing: 0.01em;
     margin: 26px 0 0;
     color: var(--color-ink);
