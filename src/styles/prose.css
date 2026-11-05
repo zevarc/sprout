@@ -189,6 +189,10 @@
   border-spacing: 0;
   font-size: 0.95rem;
   line-height: 1.6;
+  /* Inter's digits are proportional, so numeric/date columns drift row to row.
+     Only tables need this — the mono data labels (dates, counts, "01 / 02")
+     are already set in an inherently tabular face. */
+  font-variant-numeric: tabular-nums;
 }
 
 .prose th,
