@@ -15,9 +15,16 @@
   --prose-measure: 40rem;
 
   /* ========== Typography ========== */
-  --font-serif: 'Fraunces', Georgia, 'Songti SC', serif;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+  /* CJK coverage is pinned explicitly. The Latin families have no Han glyphs, so
+     every CJK character falls through to whatever comes next — and an unpinned
+     stack means SimSun on Windows, Songti SC on macOS and Noto CJK on Android,
+     i.e. three different heading faces for the same page. */
+  --font-serif: 'Fraunces', Georgia, 'Songti SC', 'Noto Serif SC', 'Source Han Serif SC',
+    'Noto Serif CJK SC', STSong, SimSun, serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC', 'Noto Sans CJK SC', 'Heiti SC',
+    sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', ui-monospace, monospace;
 
   /* ========== Radius & motion ========== */
   --radius-sm: 6px;

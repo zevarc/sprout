@@ -10,6 +10,9 @@
 /* 1c. Prose (markdown body typography) */
 @import './prose.css';
 
+/* 1d. CJK typesetting contract (zh / ja / ko) */
+@import './cjk.css';
+
 /* 2. Global Reset & Base */
 *,
 *::before,

@@ -1,0 +1,48 @@
+/* ============================================================
+   1d. CJK typesetting contract (zh / ja / ko)
+   ------------------------------------------------------------
+   `lang` is server-rendered by hooks.server.js (transformPageChunk), so
+   `:lang()` matches on the first paint — a /zh/ page never flashes the
+   Latin-only typography.
+
+   The Latin defaults in this stylesheet are wrong for square glyphs in
+   exactly three places:
+
+   1. Negative tracking is a Latin display trick. On Han characters it packs
+      the box into a solid block, so tracking returns to 0 and the headline
+      breathes through leading instead.
+   2. Han glyphs fill their em box, so the Latin 1.25 heading leading closes
+      up a two-line title; CJK reads at ~1.34.
+   3. There is no italic cut in Han typography — the browser's fake oblique
+      reads as "slanted Ming". Emphasis is carried by weight.
+
+   The font *stacks* live in variables.css, which pins the CJK families so
+   Han never depends on the UA's generic-family fallback.
+
+   `!important` is deliberate: these are locale invariants, and the tracking /
+   leading they replace are set per-component (`.post-header h1`,
+   `.page-title`, …) with Svelte's scoping class, which always out-specifies a
+   plain `:lang()` selector. `.name` is excluded — the wordmark keeps its
+   optical `line-height: 1` because it is Latin even on /zh/. */
+
+:lang(zh),
+:lang(ja),
+:lang(ko) {
+  /* Keep weight synthesis (CJK display faces usually ship 400/700 only, so the
+     600 used by headings has to be synthesised) but refuse synthetic obliques:
+     `em` must never be sheared. */
+  font-synthesis: weight;
+}
+
+:lang(zh) :is(h1, h2, h3, h4, h5, h6):not(.name),
+:lang(ja) :is(h1, h2, h3, h4, h5, h6):not(.name),
+:lang(ko) :is(h1, h2, h3, h4, h5, h6):not(.name) {
+  letter-spacing: 0 !important;
+  line-height: 1.34 !important;
+}
+
+:lang(zh) em,
+:lang(ja) em {
+  font-style: normal;
+  font-weight: 600;
+}
