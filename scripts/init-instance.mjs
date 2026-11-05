@@ -9,7 +9,7 @@
  *
  *   package.json  svelte.config.js  vite.config.ts  tsconfig.json
  *   vitest.config.js  wrangler.toml  src/app.d.ts
- *   src/site/{config.js,assembly.js,pages/blogroll.svelte}
+ *   src/site/{config.js,assembly.js}
  *   src/content/{posts,notes}/.gitkeep
  *
  * 生成之后：把引擎放到 `<target>/packages/sprout`（推荐 git submodule），
@@ -356,23 +356,6 @@ export default {
 	content,
 	commentablePages
 };
-`
-);
-
-write(
-	'src/site/pages/blogroll.svelte',
-	`<script>
-  /**
-   * Page overlay for /blogroll — replace the import to restyle the page. The
-   * route and its loader stay in the engine; the props are
-   * { blogs, picks, latest }.
-   */
-  import BlogrollPage from '$lib/components/blogroll/BlogrollPage.svelte';
-
-  const props = $props();
-</script>
-
-<BlogrollPage {...props} />
 `
 );
 

@@ -9,7 +9,7 @@
 import { features as assembledFeatures } from '$lib/engine/registry';
 
 /** Capability ids the engine knows how to honour. */
-export const KNOWN_FEATURES = ['comments', 'members', 'analytics', 'timeline', 'blogroll'] as const;
+export const KNOWN_FEATURES = ['comments', 'members', 'analytics', 'timeline'] as const;
 export type FeatureId = (typeof KNOWN_FEATURES)[number];
 
 const enabled = new Set<string>(assembledFeatures ?? []);

@@ -19,7 +19,7 @@ pnpm db:console:local -- "SELECT …"
 node scripts/init-instance.mjs ../my-site   # 生成一个只有身份/内容/资产的实例骨架
 ```
 
-其它脚本：`content:export|restore|import|verify`、`blogs:sync`、`notify:indexnow`、
+其它脚本：`content:export|restore|import|verify`、`notify:indexnow`、
 `check:links` / `check:sitemap`（都需要一个正在运行的站点，`BASE_URL=…`）。
 
 没有 ESLint/Prettier；格式跟着现有文件走（**tab 缩进**、单引号、`.ts` 文件里行尾分号）。
@@ -30,7 +30,7 @@ node scripts/init-instance.mjs ../my-site   # 生成一个只有身份/内容/�
 |---|---|
 | `src/site/config.js` | 「我是谁」：name/url/author/locales/brand |
 | `src/site/assembly.js` | 「我由什么构成」：contentTypes、features、home、theme、mods、privateRoutes、content |
-| `src/site/pages/` | 页面级视觉覆盖（路由与 loader 在引擎，实例只换渲染组件；目前是 `/blogroll`） |
+| `src/site/pages/` | 页面级视觉覆盖（路由与 loader 在引擎，实例只换渲染组件） |
 | `scripts/lib/site.mjs` | 脚本按 cwd（或 `SITE_DIR`）解析实例配置 —— 引擎脚本因此能服务任意实例 |
 | `src/lib/engine/` | 装配合并、registry、feature gate、启动期校验、主题 |
 | `src/lib/content/` | 共享 schema 类型、领域类型、类型 helper、node → view |

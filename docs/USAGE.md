@@ -493,14 +493,13 @@ the list. `migrations/0004_friends.sql` creates the two tables — run
    values last).
 5. Publish. There is no rebuild step.
 
-The public list is deliberately **not** filtered by locale — a blogroll is one
-list for the whole site. Entries store the locale they were authored in only so
+The public list is deliberately **not** filtered by locale — the friend list is
+one list for the whole site. Entries store the locale they were authored in only so
 their `/friends/<slug>` profile page gets the right prefix.
 
 ### Applications
 
-The form renders when `friend_applications` exists (the migration is the opt-in,
-like `/blogroll`). Submitting never publishes anything:
+The form renders when `friend_applications` exists (the migration is the opt-in). Submitting never publishes anything:
 
 - Honeypot field `website`; one `pending` row per site URL (partial unique index);
   3 requests per salted IP hash per 24 hours.

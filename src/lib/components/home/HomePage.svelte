@@ -133,9 +133,6 @@
     {#if hasFeature('timeline')}
       <a href={`/${getLink('timeline', lang)}`}>{t.nav.timeline}</a>
     {/if}
-    {#if hasFeature('blogroll')}
-      <a href={`/${getLink('blogroll', lang)}`}>{t.nav.blogroll}</a>
-    {/if}
     <a href={`/${tagsPath}`}>{t.nav.tags}</a>
     <a href={`/${aboutPath}`}>{t.nav.about}</a>
     <a href={`mailto:${site.contact.email}`}>{t.about.contact.title}</a>

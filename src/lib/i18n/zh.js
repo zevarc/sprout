@@ -20,7 +20,6 @@ export const zh = {
     about: '关于',
     tags: '标签',
     timeline: '时间线',
-    blogroll: '博客发现',
     friends: '友链',
   },
   home: {

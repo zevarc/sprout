@@ -10,7 +10,7 @@ export const prerender = false;
 /**
  * The curated friend-link page. It overrides the generic `[type]` list for the
  * `friend` kind: cards point outward, and the application form is appended
- * below. The list is intentionally not filtered by locale — a blogroll is one
+ * below. The list is intentionally not filtered by locale — the friend list is one
  * list for the whole site (see `FriendView`).
  */
 export async function load({ platform, url }) {

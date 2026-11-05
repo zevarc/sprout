@@ -28,8 +28,7 @@ my-site/                       # the app: a SvelteKit project root
 │  ├─ app.d.ts                 # platform bindings (D1Database, R2Bucket, secrets)
 │  ├─ site/
 │  │  ├─ config.js             # 「我是谁」      → $site/config
-│  │  ├─ assembly.js           # 「我由什么构成」 → $site/assembly
-│  │  └─ pages/blogroll.svelte # optional page overlay
+│  │  └─ assembly.js           # 「我由什么构成」 → $site/assembly
 │  ├─ content/{posts,notes}/   # markdown sources
 │  └─ lib/…                    # optional: site-only components
 ├─ static/                     # logo, share card, robots, images
@@ -116,7 +115,7 @@ vendored copy never hijacks Vite's tsconfig discovery inside the app.
 | `static/fonts` | — | gone: fonts are bundled from `lib/assets/fonts` |
 | `src/site/config.js` | instance | identity |
 | `src/site/assembly.js` | instance | types, features, home, theme, mods, private routes |
-| `src/site/pages/**` | instance | optional page overlays (`/blogroll` today) |
+| `src/site/pages/**` | instance | optional page overlays (none out of the box) |
 | `src/content/**` | instance | markdown sources |
 | `src/app.d.ts` | instance | platform bindings — keep in sync with the engine's |
 | `wrangler.toml`, `.dev.vars*`, `static/*`, `.github/**` | instance | deployment — `migrations_dir` goes **inside** `[[d1_databases]]`, that is where wrangler reads it |
@@ -156,20 +155,21 @@ that wants different About paragraphs overrides the whole `about` arrays.
 ## 5. Page overlays
 
 A route and its `load` stay in the engine; the rendering is a component the site
-may replace. `/blogroll` is the first such seam:
+may replace. No overlay ships out of the box — the seam exists for sites that
+want a bespoke page without forking a route:
 
 ```svelte
-<!-- src/site/pages/blogroll.svelte -->
+<!-- src/site/pages/<name>.svelte — the route imports this file -->
 <script>
-	import BlogrollPage from '$lib/components/blogroll/BlogrollPage.svelte';
+	import DefaultPage from '$lib/components/<name>/DefaultPage.svelte';
 	const props = $props();
 </script>
 
-<BlogrollPage {...props} />
+<DefaultPage {...props} />
 ```
 
-Replace the import (keep `blogs` / `picks` / `latest` as props) to restyle it.
-Engine upgrades never touch this file; the loader keeps its shape.
+Replace the import (keep the route's props) to restyle it. Engine upgrades never
+touch this file; the loader keeps its shape.
 
 A *new* route cannot be added from the instance — `kit.files.routes` is one
 directory. Adding a page is an engine change; adding a **design** is an overlay.

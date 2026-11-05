@@ -43,7 +43,6 @@ pnpm content:verify   # proves the live DB and the mirror still match
 | **Image upload** | Content-addressed keys in R2, served from your own `/media/<key>` route |
 | **Locales** | `site.locales` drives everything; `en` + `zh` out of the box, single-language sites need no `/zh` tree |
 | **Portable** | Standard SQLite, relative media keys, append-only event log, full export contract |
-| **Blogroll** | Daily-discovered independent blogs pulled from a Zevprobe instance (opt-in) |
 | **Friends** | Curated friend links at `/friends`, with a public application form and an admin review queue |
 | **Admin UI** | `/admin`: editor (autosave, split preview, pre-publish checks), uploads, moderation, stats, members |
 

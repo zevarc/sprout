@@ -249,7 +249,7 @@ export async function listProjects(
 
 /**
  * A friend link, as the `/friends` cards need it. The public list is
- * deliberately language-agnostic: a blogroll is one list for the whole site, so
+ * deliberately language-agnostic: the friend list is one list for the whole site, so
  * entries are not filtered by the current locale.
  */
 export interface FriendView {

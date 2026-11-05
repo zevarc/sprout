@@ -37,7 +37,7 @@ function text(value: unknown, max: number): string | null {
  * POST /api/friends/apply — a public friend-link request.
  *
  * The endpoint exists only when the site declares the `friend` kind *and* the
- * application table is present (the migration is the opt-in, like `/blogroll`).
+ * application table is present (the migration is the opt-in).
  * Nothing is published here: an admin has to approve the request first.
  */
 export const POST: RequestHandler = async (event) => {

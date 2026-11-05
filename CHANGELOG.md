@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.15.0 — retire the blogroll
+
+- **The `/blogroll` capability is gone**, together with everything that fed it:
+  `routes/blogroll/`, `lib/components/blogroll/BlogrollPage.svelte`,
+  `lib/server/repositories/blogs.ts`, `scripts/blogs-sync.mjs`, `scripts/mock-d1.mjs`
+  and the `blogs:sync` script. The daily discovery service behind it was
+  retired: the blogs it surfaced were not worth the pipeline.
+- **`blogroll` left `KNOWN_FEATURES`** and the `nav.blogroll` dictionary keys are
+  removed; the home page no longer renders that entry.
+- **Schema:** `0003_discovered_blogs.sql` is deleted (new instances never create
+  the tables) and `0005_drop_discovered_blogs.sql` drops `discovered_blogs`,
+  `discovered_picks` and `sync_state` on instances that ran it.
+- The page-overlay seam stays (instance owned, `src/site/pages/`), but no
+  overlay ships out of the box.
+
 ## 0.14.0 — one language switch, one site map
 
 - **The home page no longer has its own language switcher.** It used a

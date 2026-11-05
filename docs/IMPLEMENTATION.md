@@ -27,7 +27,6 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
 | `lib/engine/features.ts` | `hasFeature(id)`, `listFeatures()`, `KNOWN_FEATURES` |
 | `lib/engine/validate.ts` | `validateConfig()` / `assertValidConfig()` |
 | `lib/engine/theme.ts` | `PRESETS`, `resolveTheme()`, `themeCss()` |
-| `lib/components/blogroll/BlogrollPage.svelte` | Default rendering for `/blogroll`; the route renders `$site/pages/blogroll.svelte`, which by default wraps this component (page overlay seam) |
 | `scripts/lib/site.mjs` | Resolves the instance a script runs against (`SITE_DIR` → cwd → `src/site/{config,assembly}.js`) |
 | `hooks.js` | Universal `reroute()` (locale prefix → root tree, matching only) |
 | `hooks.server.js` | html lang/dir, private-route guard, security headers, theme injection, noindex |
@@ -80,7 +79,7 @@ Architecture principles: [ARCHITECTURE](./ARCHITECTURE.md).
   one-card-per-item.
 - The home page renders the same `LanguageSwitcher` (top-right) and `BackToTop`
   as every other page; its footer is the complete site map (types, search,
-  timeline, blogroll, tags, about, contact, RSS).
+  timeline, tags, about, contact, RSS).
 - Comments, search, tags, projects, about, PageLogo, LanguageSwitcher, visuals.
 - `styles/variables.css` defines the base tokens; `styles/prose.css` styles
   everything *inside* rendered markdown (`.prose`), so the two detail renderers

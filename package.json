@@ -1,7 +1,7 @@
 {
 	"name": "sprout",
 	"type": "module",
-	"version": "0.14.0",
+	"version": "0.15.0",
 	"description": "A Cloudflare-native, data-portable personal content platform — blog, notes, moments and comments on SvelteKit + D1 + R2.",
 	"license": "MIT",
 	"repository": {
@@ -48,7 +48,6 @@
 		"content:export": "node scripts/export.mjs",
 		"content:restore": "node scripts/restore.mjs",
 		"content:verify": "node scripts/verify-mirror.mjs",
-		"blogs:sync": "node scripts/blogs-sync.mjs",
 		"content:migrate-v2-to-v3": "node scripts/migrate-v2-to-v3.mjs",
 		"content:migrate-v3-to-v4": "node scripts/migrate-v3-to-v4.mjs"
 	},

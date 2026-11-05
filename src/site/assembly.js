@@ -56,7 +56,7 @@ export const contentTypes = {
 		schemaType: 'SocialMediaPosting',
 		fields: []
 	},
-	// 友情链接：站点自己维护的友链列表，与 `/blogroll`（外部发现服务）互不相干。
+	// 友情链接：站点自己维护的友链列表。
 	// 列表页是 `/friends` 的静态路由（覆盖通用列表页），详情页仍由 `[type]` 提供。
 	friend: {
 		type: 'friend',

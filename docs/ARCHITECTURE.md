@@ -98,7 +98,6 @@ non-default locale prefixes **for matching**. The effective routes:
 | `/notes/[slug]` | Note detail (generic detail) | public |
 | `/projects`, `/projects/[slug]` | Bespoke project list/detail | public |
 | `/friends`, `/friends/[slug]` | Friend-link cards + application form (static override); generic detail | public |
-| `/blogroll` | Discovered blogs (opt-in; 404 without the tables) | public |
 | `/tags`, `/tags/[tag]` | Tag archive | public |
 | `/about`, `/search` | Static pages | public |
 | `/timeline` | Merged timeline | public (public entries; add `/timeline` to `privateRoutes` for members-only) |
@@ -150,8 +149,8 @@ simply do not win for those paths.
 A *site* cannot add routes (there is one `kit.files.routes` directory, and it
 belongs to the engine). Design differences ride on a **page overlay**: the route
 and its `load` stay in the engine and render `$site/pages/<name>.svelte`, whose
-default implementation is the engine's own component. `/blogroll` is the first
-overlay; replacing that file restyles the page without forking the route.
+default implementation is the engine's own component. Replacing that file
+restyles the page without forking the route.
 
 ---
 
@@ -285,7 +284,7 @@ src/
   site/                 instance-owned, read through the `$site` alias
     config.js           identity
     assembly.js         assembly (types, features, home, theme, mods)
-    pages/              optional page overlays (blogroll today)
+    pages/              optional page overlays
   content/              content sources (instance-owned)
   lib/
     engine/             assembly · registry · features · validate · theme
