@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.16.0 — an error page that belongs to the site
+
+- **`+error.svelte` exists.** A miss, an `error(404)` from a detail loader and any
+  other `error(4xx/5xx)` previously fell through to Kit's built-in page: an
+  English `<h1>404</h1><p>Not found</p>` in a layout that only contributes
+  `<head>` — no brand, no navigation, no way out. The engine now renders its own:
+  the brand watermark, an `ERROR RECORD` kicker, a mono `HTTP 404 · /path` record
+  line, a serif headline and three exits (home, search, the first list type).
+- **Copy is dictionary, not markup.** Four buckets — `notFound` (404), `denied`
+  (401/403), `broken` (5xx), `other` — live under `error.*` in `lib/i18n/*`, so an
+  instance rewrites them through `mods[].i18n` without forking a route. The bucket
+  mapping is `lib/components/error/copy.js`, covered by `tests/error-page.test.js`.
+- **`noindex, nofollow` on every error response.** A typo, a revoked link or a
+  private path must never be indexed.
+- The locale comes from `url.pathname`, so a miss under `/zh/…` stays Chinese;
+  the visible record line shows the path without its query string.
+
 ## 0.15.0 — a removal pass
 
 - **One experimental capability is gone**, together with everything that fed it:

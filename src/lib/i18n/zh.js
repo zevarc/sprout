@@ -6,6 +6,27 @@ export const zh = {
     switchLanguage: '切换到 {name}',
     empty: '还没有内容。',
   },
+  // `+error.svelte` 的文案。四档覆盖引擎会抛出的所有状态码；
+  // 实例通过 `mods[].i18n` 改写，不需要 fork 路由。
+  error: {
+    kicker: '异常记录',
+    code: 'HTTP {status}',
+    title: {
+      notFound: '这一页漂走了',
+      denied: '这里不对你开放',
+      broken: '站点这块出了故障',
+      other: '出了点状况',
+    },
+    body: {
+      notFound: '地址可能过期了，也可能从来没有过。什么都没丢——发过的东西都还在索引里。',
+      denied: '这个地址存在，但不公开。如果这不该发生，可能是链接被撤销了。',
+      broken: '渲染这一页时失败了。通常再试一次就好；如果还不行，日志里有记录。',
+      other: '这次请求没能完成。',
+    },
+    home: '回首页索引',
+    search: '搜索存档',
+    latest: '读最新一篇',
+  },
   feed: {
     // 频道标题后缀 + 该语言的 RSS <language> 标签。
     label: '博客',

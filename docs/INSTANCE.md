@@ -150,6 +150,12 @@ on those two files. Don't.
 The engine's dictionaries are the *baseline* (demo copy included) — an instance
 that wants different About paragraphs overrides the whole `about` arrays.
 
+The error page is copy too: `+error.svelte` renders `error.kicker`, four
+`error.title.*` / `error.body.*` buckets (`notFound`, `denied`, `broken`,
+`other`) and the three exits (`home`, `search`, `latest`). Override those keys
+instead of forking the route — the bucket mapping lives in
+`lib/components/error/copy.js` and is covered by `tests/error-page.test.js`.
+
 ---
 
 ## 5. Page overlays

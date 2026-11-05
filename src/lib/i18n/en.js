@@ -6,6 +6,30 @@ export const en = {
     switchLanguage: 'Switch to {name}',
     empty: 'Nothing here yet.',
   },
+  // Copy for `+error.svelte`. Four buckets cover every status the engine
+  // raises; an instance rewrites these through `mods[].i18n`, no route fork.
+  error: {
+    kicker: 'Error record',
+    code: 'HTTP {status}',
+    title: {
+      notFound: 'This page drifted off',
+      denied: 'Not yours to open',
+      broken: 'Something broke on our end',
+      other: 'Something went sideways',
+    },
+    body: {
+      notFound:
+        'The address may be stale, or it never existed. Nothing is lost — everything published is still listed.',
+      denied:
+        'This address exists but is not public. If that is unexpected, the link may have been revoked.',
+      broken:
+        'The page failed while rendering. Trying again in a moment usually works; if it does not, the log has it.',
+      other: 'The request could not be completed.',
+    },
+    home: 'Back to the index',
+    search: 'Search the archive',
+    latest: 'Read the latest',
+  },
   feed: {
     // Channel-title suffix and the RSS <language> tag for this locale.
     label: 'Blog',

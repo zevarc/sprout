@@ -107,9 +107,14 @@ non-default locale prefixes **for matching**. The effective routes:
 | `/sitemap.xml` | Site-wide, all locales | public |
 | `/media/[...key]` | R2 objects | node visibility |
 | `/api/**` | JSON endpoints | per endpoint |
+| any unmatched URL, any `error(4xx/5xx)` | `+error.svelte` — engine shell: locale from the URL, status + path line, three exits; `noindex` | public |
 
 Non-default locales are prefixes (`/zh/posts/x`, `/zh/feed.xml`, `/zh/og/x.svg`).
 `api/**`, `media/**` and `sitemap.xml` stay at the root.
+
+`+error.svelte` is the only page that renders without a loader — it reads
+`$page.status` and `$page.url.pathname`, so a miss under `/zh/…` stays Chinese
+even though `reroute` rewrote the path for matching.
 
 ### The locale mechanism
 
