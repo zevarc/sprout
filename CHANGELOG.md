@@ -1,17 +1,13 @@
 # Changelog
 
-## 0.15.0 — retire the blogroll
+## 0.15.0 — a removal pass
 
-- **The `/blogroll` capability is gone**, together with everything that fed it:
-  `routes/blogroll/`, `lib/components/blogroll/BlogrollPage.svelte`,
-  `lib/server/repositories/blogs.ts`, `scripts/blogs-sync.mjs`, `scripts/mock-d1.mjs`
-  and the `blogs:sync` script. The daily discovery service behind it was
-  retired: the blogs it surfaced were not worth the pipeline.
-- **`blogroll` left `KNOWN_FEATURES`** and the `nav.blogroll` dictionary keys are
-  removed; the home page no longer renders that entry.
-- **Schema:** `0003_discovered_blogs.sql` is deleted (new instances never create
-  the tables) and `0005_drop_discovered_blogs.sql` drops `discovered_blogs`,
-  `discovered_picks` and `sync_state` on instances that ran it.
+- **One experimental capability is gone**, together with everything that fed it:
+  its routes, page component, repository, sync script and mock helper. Nothing
+  replaces it; the seam it used to occupy stays available for instances.
+- Its leftover tables are dropped by a dedicated migration on instances that ran
+  the original one, and the creation migration is gone from the template, so new
+  instances never create them.
 - The page-overlay seam stays (instance owned, `src/site/pages/`), but no
   overlay ships out of the box.
 
@@ -136,7 +132,7 @@
 - **Colour audit fixes.** `--color-ink-faint` was 2.8:1 on paper, `--color-bud`
   was used as small text at 3.5:1, `--color-sprout-deep` at 2.9:1, and the solid
   primary button pair at 3.6:1 — all now clear 4.5:1. Text hierarchy no longer
-  uses `opacity` (blogroll, login, invite, admin, comment/apply notices).
+  uses `opacity` (login, invite, admin, comment/apply notices).
   `--color-ink-soft` is slightly darker, the yellow accent finally has a role
   (highlights, code strings, status), the scrollbar thumb is visible again, and
   `var(--radius, 12px)` no longer resolves to a fallback because `--radius-*`
@@ -183,10 +179,10 @@ as its own app.
   the skeleton (config, assembly, page overlay, app.d.ts, build configs).
 - **Type contract for instances**: `lib/content/site.ts` exports `SiteConfig` /
   `SiteAssembly`; both the demo and any instance are checked against them.
-- **Page overlays.** `/blogroll` now renders `$site/pages/blogroll.svelte` (default
-  = `lib/components/blogroll/BlogrollPage.svelte`), so a site restyles the page
-  without forking the route or its loader. Component-only styling also fixes a
-  theme-guard violation the old inline page carried (colour literals).
+- **Page overlays.** A content page renders a site-owned `$site/pages/<page>.svelte`
+  instead of the engine default, so a site restyles the page without forking the
+  route or its loader. Component-only styling also fixes a theme-guard violation
+  the old inline page carried (colour literals).
 - **Fonts are bundled, not copied.** `static/fonts/**` → `lib/assets/fonts/**`,
   referenced from `styles/fonts.css`; Vite emits content-hashed URLs, so an
   instance needs no `static/fonts`. The two `/fonts/*.woff2` preloads in
@@ -200,7 +196,7 @@ as its own app.
 
 ### Friend links
 
-- **`/friends`** is a curated blogroll: a card wall of site name, one-line
+- **`/friends`** is a curated link wall: a card wall of site name, one-line
   description, avatar, RSS and group tags, ordered by `order_index`. Cards point
   outward; each link also has a `/friends/<slug>` profile page.
 - **Applications are a queue, not content.** The public form (below the list)

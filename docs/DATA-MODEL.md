@@ -592,8 +592,7 @@ Every question is settled here. There is nothing left to choose.
 
 This appendix mirrors `migrations/0001_init.sql`. Later changes are append-only
 migrations and are authoritative there, not copied here: `0002_pages.sql`,
-`0004_friends.sql` (`friends`, `friends_fts`, `friend_applications`),
-`0005_drop_discovered_blogs.sql` (retired blogroll tables).
+`0004_friends.sql` (`friends`, `friends_fts`, `friend_applications`).
 
 ```sql
 -- ============================================================
