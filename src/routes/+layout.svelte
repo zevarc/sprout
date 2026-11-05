@@ -1,5 +1,12 @@
 <script>
   import favicon from '$lib/assets/favicon.svg'
+  // Preload the two faces the first screen actually needs. `@font-face` URLs are
+  // only discovered once the stylesheet is parsed, which serialises an extra
+  // round trip: measured on 4G the hero sat in Georgia for ~0.95s before
+  // Fraunces arrived. Italic + JetBrains Mono stay request-on-use (they are
+  // not on the first screen), so this is not a "preload everything" entry.
+  import frauncesLatin from '$lib/assets/fonts/fraunces-latin.woff2?url'
+  import interLatin from '$lib/assets/fonts/inter-latin.woff2?url'
   import '../styles/main.css';
   import { page } from '$app/stores';
   import { afterNavigate } from '$app/navigation';
@@ -105,6 +112,8 @@
 
 <svelte:head>
 		<link rel="icon" href={favicon} type="image/svg+xml" />
+		<link rel="preload" href={frauncesLatin} as="font" type="font/woff2" crossorigin="anonymous" />
+		<link rel="preload" href={interLatin} as="font" type="font/woff2" crossorigin="anonymous" />
 		{#if site.logo}
 			<link rel="apple-touch-icon" href={site.logo} />
 		{/if}

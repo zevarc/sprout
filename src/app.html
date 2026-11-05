@@ -7,7 +7,9 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<!-- Fonts are self-hosted and bundled through Vite ($lib/assets/fonts,
 		     see src/styles/fonts.css), so they arrive with hashed URLs and long
-		     cache headers. No /fonts/* preload: those files are not in static/. -->
+		     cache headers. There is no /fonts/* here to preload: the two faces the
+		     first screen needs are preloaded from routes/+layout.svelte, which is
+		     the only place that can see Vite's hashed asset URLs. -->
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
