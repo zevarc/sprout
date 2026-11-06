@@ -28,6 +28,19 @@ const SOURCES = [
 	{ dir: 'src/content/notes', type: 'note' }
 ];
 
+/** `--skip-covers` for stores whose media bucket is not reachable from here. */
+const SKIP_COVERS = process.argv.includes('--skip-covers');
+
+/** MIME types the admin media endpoint accepts. */
+const MIME = {
+	webp: 'image/webp',
+	png: 'image/png',
+	jpg: 'image/jpeg',
+	jpeg: 'image/jpeg',
+	gif: 'image/gif',
+	svg: 'image/svg+xml'
+};
+
 /** Frontmatter keys that map to columns, not declared fields. */
 const CORE_KEYS = new Set(['title', 'description', 'date', 'updated', 'draft', 'tags']);
 
@@ -84,18 +97,99 @@ function slugFromFile(file, fallbackLang) {
 	return { slug: base, lang: fallbackLang };
 }
 
-/** Everything that is not a core key becomes a declared field. */
-function extraFields(data) {
+/**
+ * Everything that is not a core key becomes a declared field — but only if the
+ * type declares it. Migration sources keep their old generator's front matter
+ * (`cover`, `slug`, `summary`…), and the API rejects unknown columns, so sending
+ * them would abort the whole import over metadata that is not representable.
+ *
+ * @param {Record<string, unknown>} data
+ * @param {Set<string> | null} declared keys the type actually has
+ * @param {(key: string) => void} [onIgnored]
+ */
+function extraFields(data, declared, onIgnored) {
 	const fields = {};
 	for (const [key, value] of Object.entries(data)) {
-		if (!CORE_KEYS.has(key)) fields[key] = value;
+		if (CORE_KEYS.has(key)) continue;
+		if (declared && !declared.has(key)) {
+			onIgnored?.(key);
+			continue;
+		}
+		fields[key] = value;
 	}
 	return fields;
 }
 
+/**
+ * The instance's declared fields, per type. Missing file (or a bare engine
+ * checkout) means "send everything", i.e. the previous behaviour.
+ * @returns {Promise<Record<string, Set<string>> | null>}
+ */
+async function declaredFields() {
+	try {
+		const { contentTypes } = await import(join(ROOT, 'src/site/assembly.js'));
+		/** @type {Record<string, Set<string>>} */
+		const out = {};
+		for (const [type, def] of Object.entries(contentTypes ?? {})) {
+			out[type] = new Set((def.fields ?? []).map((field) => field.key));
+		}
+		return out;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Upload a `cover:` path and bind it as the asset's cover.
+ *
+ * `cover` is **not** a column: a cover is `asset_media.role = 'cover'`
+ * (docs/DATA-MODEL.md §4.10), so it goes through the media endpoint — the same
+ * one the admin UI uses. Media is content-addressed (sha256), so a repeated
+ * import re-binds the same object instead of uploading a duplicate.
+ *
+ * @param {string} assetId
+ * @param {string} coverPath site-relative path, e.g. `/images/cover/x.webp`
+ * @param {string} title used as the image's alt text
+ * @returns {Promise<'bound' | 'missing' | 'external' | 'failed'>}
+ */
+async function attachCover(assetId, coverPath, title) {
+	const value = String(coverPath);
+	if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) return 'external';
+
+	const file = join(ROOT, 'static', value.replace(/^\//, ''));
+	/** @type {Buffer} */
+	let buffer;
+	try {
+		buffer = readFileSync(file);
+	} catch {
+		return 'missing';
+	}
+	const ext = file.split('.').pop()?.toLowerCase() ?? '';
+	const type = MIME[ext];
+	if (!type) return 'missing';
+
+	const form = new FormData();
+	form.append('file', new Blob([buffer], { type }), file.split('/').pop() ?? 'cover');
+	form.append('assetId', assetId);
+	form.append('role', 'cover');
+	form.append('position', '0');
+	form.append('alt', title);
+
+	const res = await fetch(`${API}/api/admin/media`, {
+		method: 'POST',
+		headers: { Authorization: `Bearer ${TOKEN}` },
+		body: form
+	});
+	return res.ok ? 'bound' : 'failed';
+}
+
 async function main() {
 	const lang = process.env.IMPORT_LANG ?? 'zh';
-	const nodes = [];
+	const declared = await declaredFields();
+	/** @type {Map<string, number>} */
+	const ignored = new Map();
+	/** @type {{ payload: Record<string, unknown>, cover: string | null }[]} */
+	const jobs = [];
 
 	for (const source of SOURCES) {
 		const dir = join(ROOT, source.dir);
@@ -111,34 +205,52 @@ async function main() {
 			const slugged = slugFromFile(file, lang);
 			const date = toIsoDate(data.date) ?? new Date().toISOString();
 			const draft = data.draft === true;
-			nodes.push({
-				type: source.type,
-				slug: slugged.slug,
-				lang: slugged.lang,
-				groupId: groupFor(`${source.type}:${slugged.slug}`),
-				title: String(data.title ?? slugged.slug),
-				summary: String(data.description ?? ''),
-				bodyMd: body.trimStart(),
-				status: draft ? 'draft' : 'published',
-				publishedAt: date,
-				tags: Array.isArray(data.tags) ? data.tags : [],
-				fields: extraFields(data)
+			// A cover is media, not a field — unless the type really declares one.
+			const declaresCover = declared?.[source.type]?.has('cover') ?? false;
+			const cover =
+				!declaresCover && typeof data.cover === 'string' && data.cover.trim()
+					? data.cover.trim()
+					: null;
+			if (cover) delete data.cover;
+			const fields = extraFields(
+				data,
+				declared?.[source.type] ?? null,
+				(key) => ignored.set(key, (ignored.get(key) ?? 0) + 1)
+			);
+			jobs.push({
+				cover,
+				payload: {
+					type: source.type,
+					slug: slugged.slug,
+					lang: slugged.lang,
+					groupId: groupFor(`${source.type}:${slugged.slug}`),
+					title: String(data.title ?? slugged.slug),
+					summary: String(data.description ?? ''),
+					bodyMd: body.trimStart(),
+					status: draft ? 'draft' : 'published',
+					publishedAt: date,
+					tags: Array.isArray(data.tags) ? data.tags : [],
+					fields
+				}
 			});
 		}
 	}
 
-	const selected = ONLY ? nodes.filter((n) => n.type === ONLY) : nodes;
+	const selected = ONLY ? jobs.filter((job) => job.payload.type === ONLY) : jobs;
 
 	// Translations are derived from `groupId` at read time, so batching is safe
 	// and no relation rows are written.
 	const BATCH = Number(process.env.IMPORT_BATCH ?? 8);
 	let total = 0;
+	/** @type {{ bound: number, missing: string[], external: string[], failed: string[] }} */
+	const covers = { bound: 0, missing: [], external: [], failed: [] };
+
 	for (let i = 0; i < selected.length; i += BATCH) {
 		const chunk = selected.slice(i, i + BATCH);
 		const res = await fetch(`${API}/api/admin/import`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
-			body: JSON.stringify({ nodes: chunk, replace: REPLACE })
+			body: JSON.stringify({ nodes: chunk.map((job) => job.payload), replace: REPLACE })
 		});
 
 		if (!res.ok) {
@@ -148,9 +260,38 @@ async function main() {
 		}
 		const result = await res.json();
 		total += result.count ?? 0;
+
+		// `ids` is aligned with the batch order, which is why covers are bound
+		// here and not in a second pass keyed on slugs.
+		const ids = /** @type {string[]} */ (result.ids ?? []);
+		if (!SKIP_COVERS) {
+			for (let j = 0; j < chunk.length; j++) {
+				const { cover, payload } = chunk[j];
+				const id = ids[j];
+				if (!cover || !id) continue;
+				const outcome = await attachCover(id, cover, String(payload.title ?? ''));
+				if (outcome === 'bound') covers.bound += 1;
+				else covers[outcome].push(`${payload.type}/${payload.slug}.${payload.lang}`);
+			}
+		}
+
 		process.stdout.write(`\r  imported ${total}/${selected.length}…`);
 	}
 
+	if (covers.bound > 0 || covers.missing.length || covers.external.length || covers.failed.length) {
+		console.log(`  covers bound: ${covers.bound}`);
+		for (const [kind, list] of [
+			['cover file not found', covers.missing],
+			['cover is a remote URL (skipped)', covers.external],
+			['cover upload failed', covers.failed]
+		]) {
+			if (list.length) console.warn(`  ${kind}: ${list.join(', ')}`);
+		}
+	}
+	if (ignored.size > 0) {
+		const list = [...ignored].map(([key, n]) => `${key} (${n})`).join(', ');
+		console.warn(`  ignored front-matter keys the type does not declare: ${list}`);
+	}
 	console.log(`\nImported ${total} nodes → ${API}`);
 }
 
