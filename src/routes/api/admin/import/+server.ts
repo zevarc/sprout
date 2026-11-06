@@ -13,7 +13,43 @@ import { getContentType } from '$lib/content/registry';
 import { validateFields, normalizeTags } from '$lib/engine/fields';
 import { invalidateAll } from '$lib/server/cache';
 import { site } from '$lib/site';
-import type { NewAsset } from '$lib/content/types';
+import type { ContentNode, NewAsset } from '$lib/content/types';
+
+/**
+ * True when re-importing this node would write exactly what is already stored.
+ *
+ * A migration is often re-run: a new environment, a retry, a typo fix in one file.
+ * Letting every run rewrite every row re-dates the whole site: `updated_at`
+ * feeds `dateModified` and sitemap `<lastmod>`, so a no-op import would claim
+ * that all 59 posts changed today — a freshness signal that stops meaning
+ * anything.
+ */
+function sameContent(
+	existing: ContentNode,
+	input: NewAsset,
+	tags: string[],
+	fields: Record<string, unknown>
+): boolean {
+	const stamp = (value: string | null | undefined) =>
+		value ? new Date(value).toISOString() : null;
+	const sorted = (value: Record<string, unknown>) =>
+		JSON.stringify(
+			Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
+		);
+	const sameTags = [...(existing.tags ?? [])].sort().join('\u0000') === [...tags].sort().join('\u0000');
+
+	return (
+		(existing.title ?? '') === (input.title ?? '') &&
+		(existing.summary ?? '') === (input.summary ?? '') &&
+		existing.bodyMd === input.bodyMd &&
+		existing.status === (input.status ?? existing.status) &&
+		existing.visibility === (input.visibility ?? existing.visibility) &&
+		stamp(existing.publishedAt) === stamp(input.publishedAt ?? existing.publishedAt) &&
+		stamp(existing.occurredAt) === stamp(input.occurredAt ?? existing.occurredAt) &&
+		sameTags &&
+		sorted(existing.fields ?? {}) === sorted(fields)
+	);
+}
 
 export const prerender = false;
 
@@ -62,15 +98,21 @@ export const POST: RequestHandler = async (event) => {
 
 		const lang = input.lang ?? site.defaultLocale;
 		const existing = await getAssetBySlug(db, input.type, input.slug, lang);
+		const tags = normalizeTags(input.tags);
 
 		if (existing) {
 			if (payload.replace) await deleteAsset(db, existing.id);
 			else {
-				await updateAsset(db, existing.id, {
-					...input,
-					fields: validated.value,
-					tags: normalizeTags(input.tags)
-				});
+				if (!sameContent(existing, input, tags, validated.value)) {
+					await updateAsset(db, existing.id, {
+						...input,
+						// Grouping is expressed through `assets.group_id` (and the link
+						// endpoint); an import must not re-key it on every run.
+						groupId: existing.groupId,
+						fields: validated.value,
+						tags
+					});
+				}
 				imported.push(existing.id);
 				continue;
 			}
@@ -81,7 +123,7 @@ export const POST: RequestHandler = async (event) => {
 			lang,
 			authorId: input.authorId ?? owner.id,
 			fields: validated.value,
-			tags: normalizeTags(input.tags)
+			tags
 		});
 		imported.push(created.id);
 	}
