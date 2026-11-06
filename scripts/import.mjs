@@ -18,6 +18,7 @@
  *     can carry type-specific attributes (e.g. `rating`, `ageMonths`); keys the
  *     type does not declare are reported and skipped instead of failing the batch
  */
+import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -158,15 +159,20 @@ async function declaredFields() {
  * import re-binds the same object instead of uploading a duplicate.
  *
  * @param {string} assetId
- * @param {string} coverPath site-relative path, e.g. `/images/cover/x.webp`
+ * @param {string} coverPath source path: `/foo.webp` is a published asset under
+ *   `static/`, anything else is a repo-relative source file (e.g.
+ *   `src/content/media/covers/x.webp`, which is not shipped as an asset)
  * @param {string} title used as the image's alt text
- * @returns {Promise<'bound' | 'missing' | 'external' | `failed ${number}: ${string}`>}
+ * @param {string | null} currentKey the cover object key the node already has
+ * @returns {Promise<'bound' | 'unchanged' | 'missing' | 'external' | `failed ${number}: ${string}`>}
  */
-async function attachCover(assetId, coverPath, title) {
+async function attachCover(assetId, coverPath, title, currentKey) {
 	const value = String(coverPath);
 	if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) return 'external';
 
-	const file = join(ROOT, 'static', value.replace(/^\//, ''));
+	const file = value.startsWith('/')
+		? join(ROOT, 'static', value.slice(1))
+		: join(ROOT, value);
 	/** @type {Buffer} */
 	let buffer;
 	try {
@@ -177,6 +183,11 @@ async function attachCover(assetId, coverPath, title) {
 	const ext = file.split('.').pop()?.toLowerCase() ?? '';
 	const type = MIME[ext];
 	if (!type) return 'missing';
+
+	// Media is content-addressed: if the asset's cover key already starts with
+	// this file's hash, the object on the server is this exact file.
+	const sha256 = createHash('sha256').update(buffer).digest('hex');
+	if (currentKey && currentKey.startsWith(`${sha256}.`)) return 'unchanged';
 
 	const form = new FormData();
 	form.append('file', new Blob([buffer], { type }), file.split('/').pop() ?? 'cover');
@@ -254,8 +265,8 @@ async function main() {
 	// and no relation rows are written.
 	const BATCH = Number(process.env.IMPORT_BATCH ?? 8);
 	let total = 0;
-	/** @type {{ bound: number, missing: string[], external: string[], failed: string[] }} */
-	const covers = { bound: 0, missing: [], external: [], failed: [] };
+	/** @type {{ bound: number, unchanged: number, missing: string[], external: string[], failed: string[] }} */
+	const covers = { bound: 0, unchanged: 0, missing: [], external: [], failed: [] };
 
 	for (let i = 0; i < selected.length; i += BATCH) {
 		const chunk = selected.slice(i, i + BATCH);
@@ -276,14 +287,16 @@ async function main() {
 		// `ids` is aligned with the batch order, which is why covers are bound
 		// here and not in a second pass keyed on slugs.
 		const ids = /** @type {string[]} */ (result.ids ?? []);
+		const keys = /** @type {(string | null)[]} */ (result.covers ?? []);
 		if (!SKIP_COVERS) {
 			for (let j = 0; j < chunk.length; j++) {
 				const { cover, payload } = chunk[j];
 				const id = ids[j];
 				if (!cover || !id) continue;
-				const outcome = await attachCover(id, cover, String(payload.title ?? ''));
+				const outcome = await attachCover(id, cover, String(payload.title ?? ''), keys[j] ?? null);
 				const where = `${payload.type}/${payload.slug}.${payload.lang}`;
 				if (outcome === 'bound') covers.bound += 1;
+				else if (outcome === 'unchanged') covers.unchanged += 1;
 				else if (outcome.startsWith('failed')) covers.failed.push(`${where} (${outcome.slice(7)})`);
 				else covers[outcome].push(where);
 			}
@@ -292,8 +305,14 @@ async function main() {
 		process.stdout.write(`\r  imported ${total}/${selected.length}…`);
 	}
 
-	if (covers.bound > 0 || covers.missing.length || covers.external.length || covers.failed.length) {
-		console.log(`  covers bound: ${covers.bound}`);
+	if (
+		covers.bound > 0 ||
+		covers.unchanged > 0 ||
+		covers.missing.length ||
+		covers.external.length ||
+		covers.failed.length
+	) {
+		console.log(`  covers bound: ${covers.bound}, already current: ${covers.unchanged}`);
 		for (const [kind, list] of [
 			['cover file not found', covers.missing],
 			['cover is a remote URL (skipped)', covers.external],

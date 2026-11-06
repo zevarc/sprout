@@ -15,6 +15,12 @@ import { invalidateAll } from '$lib/server/cache';
 import { site } from '$lib/site';
 import type { ContentNode, NewAsset } from '$lib/content/types';
 
+/** The asset's current cover object key (`<sha256>.<ext>`), if it has one. */
+function coverKey(node: ContentNode): string | null {
+	if (!node.coverMediaId) return null;
+	return node.media?.find((m) => m.id === node.coverMediaId)?.r2Key ?? null;
+}
+
 /**
  * True when re-importing this node would write exactly what is already stored.
  *
@@ -74,6 +80,8 @@ export const POST: RequestHandler = async (event) => {
 
 	const nodes = payload.nodes ?? [];
 	const imported: string[] = [];
+	/** Aligned with `ids`: the cover object key the node ended up with. */
+	const covers: (string | null)[] = [];
 	const owner = await ensureOwner(db);
 
 	for (const input of nodes) {
@@ -114,6 +122,7 @@ export const POST: RequestHandler = async (event) => {
 					});
 				}
 				imported.push(existing.id);
+				covers.push(coverKey(existing));
 				continue;
 			}
 		}
@@ -126,8 +135,11 @@ export const POST: RequestHandler = async (event) => {
 			tags
 		});
 		imported.push(created.id);
+		covers.push(null);
 	}
 
 	await invalidateAll(event.url.origin);
-	return json({ ok: true, count: imported.length, ids: imported });
+	// `covers` lets a client skip re-uploading a cover it can see is already the
+	// same object (media is content-addressed, so the key starts with the hash).
+	return json({ ok: true, count: imported.length, ids: imported, covers });
 };
