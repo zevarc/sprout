@@ -22,6 +22,7 @@
   const {children}=$props()
 
   const htmlLang = $derived(localeFromPath($page.url.pathname));
+  const t = $derived(getDictionary(htmlLang));
   const brandCopy = $derived(site.brand[htmlLang] ?? site.brand[site.defaultLocale]);
   // 分享卡：社交平台不吃 SVG，用站点的 PNG（site.config 的 ogImage）。
   const share = shareImage(site.name);
@@ -126,12 +127,49 @@
 			<meta property="og:image:alt" content={share.alt} />
 		{/if}
 		<meta name="twitter:card" content="summary_large_image" />
-		<meta name="twitter:title" content={site.name} />
-		<meta name="twitter:description" content={brandCopy.seoDescription} />
 		{#if !isPostPage}
+			<meta name="twitter:title" content={site.name} />
+			<meta name="twitter:description" content={brandCopy.seoDescription} />
 			<meta name="twitter:image" content={share.url} />
 			<meta name="twitter:image:alt" content={share.alt} />
 		{/if}
 </svelte:head>
 
+<!-- First tab stop on every page: fixed chrome (logo, language switch) would
+     otherwise force keyboard users to tab through the entire head of each page.
+     Targets the `#main` landmark each page shell declares. -->
+<a class="skip-link" href="#main">{t.common.skipToContent}</a>
+
 {@render children()}
+
+<style>
+  .skip-link {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    z-index: 2000;
+    padding: 10px 18px;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    background: var(--color-action-bg);
+    color: var(--color-action-ink);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    border: none;
+    /* Off-screen instead of `display: none`, so it stays focusable. */
+    transform: translate(-50%, -120%);
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+
+  .skip-link:focus-visible {
+    transform: translate(-50%, 0);
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skip-link {
+      transition: none;
+    }
+  }
+</style>

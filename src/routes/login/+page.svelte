@@ -2,8 +2,13 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import PageLogo from '$lib/components/PageLogo.svelte';
+  import { getDictionary, localeFromPath } from '$lib/i18n/index.js';
   import { site } from '$lib/site';
   import { pageTitle } from '$lib/seo';
+
+  const lang = $derived(localeFromPath($page.url.pathname));
+  const t = $derived(getDictionary(lang));
+  const l = $derived(t.login);
 
   let token = $state('');
   let error = $state('');
@@ -28,9 +33,9 @@
         body: JSON.stringify({ token })
       });
       if (res.ok) await goto(next);
-      else error = '登录失败，请检查令牌。';
+      else error = l.failed;
     } catch {
-      error = '登录失败，请稍后再试。';
+      error = l.failedLater;
     } finally {
       busy = false;
     }
@@ -38,25 +43,25 @@
 </script>
 
 <svelte:head>
-  <title>{pageTitle('登录')}</title>
+  <title>{pageTitle(l.title)}</title>
   <meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
 <PageLogo href="/" />
 
-<main class="login-page">
-  <h1>进入 {site.name}</h1>
-  <p class="hint">该区域需要登录后查看。</p>
+<main id="main" class="login-page">
+  <h1>{l.heading.replace('{name}', site.name)}</h1>
+  <p class="hint">{l.hint}</p>
   <form onsubmit={submit}>
     <input
       type="password"
       bind:value={token}
-      placeholder="访问令牌"
+      placeholder={l.token}
       autocomplete="current-password"
-      aria-label="访问令牌"
+      aria-label={l.token}
     />
-    <button type="submit" disabled={busy || !token}>{busy ? '登录中…' : '登录'}</button>
-    {#if error}<span class="error">{error}</span>{/if}
+    <button type="submit" disabled={busy || !token}>{busy ? l.submitting : l.submit}</button>
+    {#if error}<span class="error" role="alert">{error}</span>{/if}
   </form>
 </main>
 

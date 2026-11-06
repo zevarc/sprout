@@ -34,7 +34,7 @@
 <LanguageSwitcher />
 <PageLogo href={home} />
 
-<main class="friend-page">
+<main id="main" class="friend-page">
   <a class="back" href={listPath}>← {t.nav.friends}</a>
 
   <article class="card friend-profile">

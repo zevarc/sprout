@@ -54,6 +54,8 @@
   <meta property="og:image:width" content={String(share.width)} />
   <meta property="og:image:height" content={String(share.height)} />
   <meta property="og:image:alt" content={share.alt} />
+  <meta name="twitter:title" content={post.title} />
+  <meta name="twitter:description" content={post.description} />
   <meta name="twitter:image" content={share.url} />
   <meta name="twitter:image:alt" content={share.alt} />
   {#if site.locales.length > 1 && translations.length > 0}
@@ -69,7 +71,7 @@
 <LanguageSwitcher links={switcherLinks} />
 <PageLogo href={homePath(lang)} />
 
-<main class="compact-page">
+<main id="main" class="compact-page">
   <article>
     <header class="content-head">
       <h1>{post.title}</h1>

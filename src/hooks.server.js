@@ -26,7 +26,34 @@ const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Frame-Options': 'DENY',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()'
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  // The site only answers on HTTPS; HSTS keeps the first request of a session
+  // from being downgraded. `includeSubDomains` is deliberately absent until
+  // every subdomain of the configured host is known to be HTTPS-only.
+  'Strict-Transport-Security': 'max-age=31536000',
+  /**
+   * Conservative CSP: no third-party origins at all. `'unsafe-inline'` is still
+   * required for SvelteKit's bootstrap script and for the JSON-LD blocks the
+   * pages emit, so this is source-restriction (blocks injected external
+   * scripts/frames) rather than full XSS mitigation — nonce/hash is the next
+   * step. Inline styles stay allowed because components set `style=` for
+   * scroll progress and theme preview.
+   */
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    // Comment avatars come from GitHub; article/media images are same-origin.
+    "img-src 'self' data: https:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "media-src 'self'",
+    "manifest-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    "object-src 'none'"
+  ].join('; ')
 };
 
 /**

@@ -5,6 +5,10 @@
 		<!-- viewport-fit=cover + env(safe-area-inset-*) lets fixed controls respect
 		     notches and the home indicator instead of being letterboxed. -->
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<!-- Reveal animations start from `opacity: 0` only when JavaScript is
+		     running. Without this class the content is visible on first paint, so a
+		     blocked/slow bundle never leaves the page blank. -->
+		<script>document.documentElement.classList.add('js')</script>
 		<!-- Fonts are self-hosted and bundled through Vite ($lib/assets/fonts,
 		     see src/styles/fonts.css), so they arrive with hashed URLs and long
 		     cache headers. There is no /fonts/* here to preload: the two faces the

@@ -45,7 +45,7 @@
                 class="project-link"
                 href={project.website}
                 target="_blank"
-                rel="noopener"
+                rel="noopener noreferrer"
                 aria-label={`${project.title} — ${t.projects.websiteLabel}`}
               ><span aria-hidden="true">↗</span></a>
             {/if}
@@ -54,7 +54,7 @@
                 class="project-link"
                 href={project.repoUrl}
                 target="_blank"
-                rel="noopener"
+                rel="noopener noreferrer"
                 aria-label={`${project.title} — ${t.projects.githubLabel}`}
               >github</a>
             {/if}
@@ -81,12 +81,18 @@
   .projects-container {
     max-width: 900px;
     margin: 0 auto;
-    opacity: 0;
-    transform: translateY(24px);
-    transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .projects-container.visible {
+  /* Progressive enhancement: the reveal needs JS, the content does not. */
+  :global(html.js) .projects-container {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  :global(html.js) .projects-container.visible {
     opacity: 1;
     transform: translateY(0);
   }
@@ -253,6 +259,13 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    :global(html.js) .projects-container,
+    .projects-container {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+
     .project-card {
       animation: none;
       opacity: 1;

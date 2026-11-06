@@ -62,6 +62,8 @@
   <meta property="og:image:width" content={String(share.width)} />
   <meta property="og:image:height" content={String(share.height)} />
   <meta property="og:image:alt" content={share.alt} />
+  <meta name="twitter:title" content={project.title} />
+  <meta name="twitter:description" content={project.description} />
   <meta name="twitter:image" content={share.url} />
   <meta name="twitter:image:alt" content={share.alt} />
   {@html `<script type="application/ld+json">${jsonLd}</script>`}
@@ -71,7 +73,7 @@
 <LanguageSwitcher links={switcherLinks} />
 <PageLogo href={home} />
 
-<main class="project-page">
+<main id="main" class="project-page">
   <a class="back" href={`/${projectsPath}`}>← {t.nav.projects}</a>
 
   <header class="project-head">
@@ -92,10 +94,10 @@
     {/if}
     <div class="links">
       {#if project.website}
-        <a href={project.website} target="_blank" rel="noopener">↗ {project.website.replace(/^https?:\/\//, '')}</a>
+        <a href={project.website} target="_blank" rel="noopener noreferrer">↗ {project.website.replace(/^https?:\/\//, '')}</a>
       {/if}
       {#if project.repoUrl}
-        <a href={project.repoUrl} target="_blank" rel="noopener">github</a>
+        <a href={project.repoUrl} target="_blank" rel="noopener noreferrer">github</a>
       {/if}
     </div>
   </header>

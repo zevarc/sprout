@@ -44,7 +44,7 @@
 <LanguageSwitcher />
 <PageLogo href={home} />
 
-<main class="error-page">
+<main id="main" class="error-page">
   <div class="watermark" aria-hidden="true">
     <BrandMark size={320} />
   </div>

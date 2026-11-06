@@ -74,6 +74,7 @@
   <meta property="og:title" content={brand.seoTitle} />
   <meta property="og:description" content={brand.seoDescription} />
   <meta property="og:type" content="website" />
+  <meta property="og:url" content={`${site.url}${home}`} />
   <link rel="canonical" href={`${site.url}${home}`} />
   {#each site.locales as loc}
     <link rel="alternate" hreflang={loc.code} href={`${site.url}${localeHome(loc.code)}`} />
@@ -121,22 +122,28 @@
     </div>
   </header>
 
-  {#each sections as section, i (i)}
-    <HomeSection {section} items={section.items ?? []} {lang} />
-  {/each}
+  <main id="main" class="home-main">
+    {#each sections as section, i (i)}
+      <HomeSection {section} items={section.items ?? []} {lang} />
+    {/each}
+  </main>
 
   <footer class="site-footer">
-    {#each navTypes as nav (nav.type)}
-      <a href={`/${nav.path}`}>{nav.label}</a>
-    {/each}
-    <a href={`/${searchPath}`}>{t.search.title}</a>
-    {#if hasFeature('timeline')}
-      <a href={`/${getLink('timeline', lang)}`}>{t.nav.timeline}</a>
-    {/if}
-    <a href={`/${tagsPath}`}>{t.nav.tags}</a>
-    <a href={`/${aboutPath}`}>{t.nav.about}</a>
-    <a href={`mailto:${site.contact.email}`}>{t.about.contact.title}</a>
-    <a href={`/${getLink('feed.xml', lang)}`}>RSS</a>
+    <!-- The footer *is* this site's navigation, so it is a landmark rather than a
+         pile of links in a div. -->
+    <nav class="site-footer-nav" aria-label={t.nav.siteMap}>
+      {#each navTypes as nav (nav.type)}
+        <a href={`/${nav.path}`}>{nav.label}</a>
+      {/each}
+      <a href={`/${searchPath}`}>{t.search.title}</a>
+      {#if hasFeature('timeline')}
+        <a href={`/${getLink('timeline', lang)}`}>{t.nav.timeline}</a>
+      {/if}
+      <a href={`/${tagsPath}`}>{t.nav.tags}</a>
+      <a href={`/${aboutPath}`}>{t.nav.about}</a>
+      <a href={`mailto:${site.contact.email}`}>{t.about.contact.title}</a>
+      <a href={`/${getLink('feed.xml', lang)}`}>RSS</a>
+    </nav>
   </footer>
 </div>
 
@@ -299,6 +306,14 @@
     }
   }
 
+  /* The hero keeps its own full-height block; the sections below live in the
+     `main` landmark. */
+  .home-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1 0 auto;
+  }
+
   /* ---------- Footer ---------- */
   .site-footer a {
     display: inline-flex;
@@ -307,15 +322,18 @@
   }
 
   .site-footer {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 22px;
     padding: 0 clamp(20px, 5vw, 48px) 56px;
     font-family: var(--font-mono);
     font-size: 0.72rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+  }
+
+  .site-footer-nav {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 22px;
   }
 
   .site-footer a {

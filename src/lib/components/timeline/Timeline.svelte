@@ -1,6 +1,6 @@
 <script>
   import { getContentType, labelText } from '$lib/content/registry';
-  import { formatDate, formatMonth } from '$lib/i18n/index.js';
+  import { formatDate, formatMonth, getDictionary } from '$lib/i18n/index.js';
   import { site } from '$lib/site';
 
   /**
@@ -11,6 +11,8 @@
    * }}
    */
   let { entries = [], authors = {}, lang = site.defaultLocale } = $props();
+
+  const t = $derived(getDictionary(lang));
 
   /** @param {string} type */
   function typeLabel(type) {
@@ -43,7 +45,7 @@
 </script>
 
 {#if entries.length === 0}
-  <p class="empty">还没有记录。</p>
+  <p class="empty">{t.common.empty}</p>
 {:else}
   <div class="timeline">
     {#each groups as group (group.key)}
@@ -60,7 +62,7 @@
                   <span class="badge author">{authors[entry.authorId]}</span>
                 {/if}
                 {#if entry.visibility === 'private'}
-                  <span class="badge private">private</span>
+                  <span class="badge private">{t.common.private}</span>
                 {/if}
               </a>
 

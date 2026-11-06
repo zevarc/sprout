@@ -34,7 +34,7 @@
 <LanguageSwitcher />
 <PageLogo href={home} />
 
-<main class="friends-page">
+<main id="main" class="friends-page">
   <header class="page-head">
     <p class="kicker">{t.nav.friends}</p>
     <h1 class="page-title">{t.friends.title}</h1>

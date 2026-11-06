@@ -756,7 +756,7 @@
 <PageLogo href="/" />
 <svelte:window onkeydown={onKeydown} />
 
-<main class="admin">
+<main id="main" class="admin">
   <header class="head">
     <h1>内容控制台</h1>
     {#if role === 'owner'}

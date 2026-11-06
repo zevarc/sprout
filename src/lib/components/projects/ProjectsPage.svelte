@@ -15,6 +15,7 @@
 <svelte:head>
   <title>{pageTitle(t.seo.projects.label)}</title>
   <meta name="description" content={t.seo.projects.description} />
+  <meta property="og:url" content={`${site.url}/${getLink('projects', lang)}`} />
   <link rel="canonical" href={`${site.url}/${getLink('projects', lang)}`} />
   {#each site.locales as loc}
     <link rel="alternate" hreflang={loc.code} href={`${site.url}/${getLink('projects', loc.code)}`} />
@@ -25,7 +26,7 @@
 <LanguageSwitcher />
 <PageLogo href={home} />
 
-<main class="projects-page">
+<main id="main" class="projects-page">
   <header class="page-head">
     <p class="kicker">{t.nav.projects}</p>
     <h1 class="page-title">{t.projects.title}</h1>

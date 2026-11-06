@@ -82,7 +82,7 @@
                 {#each section.fields as field}
                   {#if item.fields?.[field] != null && item.fields[field] !== ''}
                     {#if isUrl(item.fields[field])}
-                      <a class="card-field link" href={String(item.fields[field])} target="_blank" rel="noopener">
+                      <a class="card-field link" href={String(item.fields[field])} target="_blank" rel="noopener noreferrer">
                         {fieldView(item, field).label}
                       </a>
                     {:else}
@@ -123,12 +123,19 @@
     max-width: 900px;
     margin: 0 auto;
     padding: 110px clamp(20px, 5vw, 48px) 40px;
-    opacity: 0;
-    transform: translateY(24px);
+    opacity: 1;
+    transform: none;
     transition: opacity 0.7s ease, transform 0.7s ease;
   }
 
-  .section.visible {
+  /* Progressive enhancement: only the reveal needs JS. Without it (no bundle,
+     hydration failure) the sections are simply visible. */
+  :global(html.js) .section {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  :global(html.js) .section.visible {
     opacity: 1;
     transform: none;
   }
@@ -373,6 +380,8 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    /* Beats `:global(html.js) .section` (same specificity, later in the file). */
+    :global(html.js) .section,
     .section {
       opacity: 1;
       transform: none;

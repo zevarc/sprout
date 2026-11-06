@@ -65,7 +65,7 @@
 <LanguageSwitcher />
 <PageLogo href={home} />
 
-<main class="about-page">
+<main id="main" class="about-page">
   <header class="page-head">
     <p class="kicker">{t.about.kicker}</p>
     <h1 class="page-title">{t.about.title}</h1>
@@ -121,7 +121,7 @@
     <p class="contact-links">
       <a href={`mailto:${site.contact.email}`}>{site.contact.email}</a>
       <span aria-hidden="true">·</span>
-      <a href={site.contact.github} target="_blank" rel="noopener">{t.about.contact.githubLabel}</a>
+      <a href={site.contact.github} target="_blank" rel="noopener noreferrer">{t.about.contact.githubLabel}</a>
       <span aria-hidden="true">·</span>
       <a href={`/${getLink('feed.xml', lang)}`}>{t.about.contact.rssLabel}</a>
     </p>

@@ -177,8 +177,15 @@
     {#if !identity.actor}
       <div class="row">
         <label>
-          <span class="label">{c.name}</span>
-          <input type="text" bind:value={name} maxlength="60" autocomplete="nickname" />
+          <span class="label">{c.name} *</span>
+          <input
+            type="text"
+            bind:value={name}
+            maxlength="60"
+            autocomplete="nickname"
+            required
+            aria-describedby="comment-required-hint"
+          />
         </label>
         <label>
           <span class="label">{c.email}</span>
@@ -197,11 +204,21 @@
       <textarea bind:value={body} rows="4" maxlength="4000" required></textarea>
     </label>
 
+    <!-- Explains the disabled submit button, which keyboard/screen-reader users
+         would otherwise meet with no reason given. -->
+    <p id="comment-required-hint" class="hint">{c.requiredHint}</p>
+
     <div class="actions">
       <button type="submit" disabled={submitting || !body.trim() || (!identity.actor && !name.trim())}>
         {submitting ? c.submitting : c.submit}
       </button>
-      {#if notice}<span class="notice" class:is-error={noticeIsError}>{notice}</span>{/if}
+      {#if notice}
+        {#if noticeIsError}
+          <span class="notice is-error" role="alert">{notice}</span>
+        {:else}
+          <span class="notice" role="status">{notice}</span>
+        {/if}
+      {/if}
     </div>
   </form>
 </section>
@@ -322,6 +339,10 @@
   .hint {
     font-size: 0.78rem;
     color: var(--color-ink-faint);
+  }
+
+  .comment-form .hint {
+    margin: 0;
   }
 
   .linkish {

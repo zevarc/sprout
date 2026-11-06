@@ -15,7 +15,7 @@
 
 <PageLogo href="/" />
 
-<main class="timeline-page">
+<main id="main" class="timeline-page">
   <header class="page-head">
     <p class="kicker">{site.name}</p>
     <h1 class="page-title">Timeline</h1>

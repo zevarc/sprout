@@ -25,7 +25,7 @@
 <LanguageSwitcher />
 <PageLogo href={home} />
 
-<main class="posts-page">
+<main id="main" class="posts-page">
   <header class="page-head">
     <p class="kicker">{t.nav.posts}</p>
     <h1 class="page-title">{t.posts.title}</h1>

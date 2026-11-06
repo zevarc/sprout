@@ -4,6 +4,8 @@ export const zh = {
   language: 'English',
   common: {
     switchLanguage: '切换到 {name}',
+    skipToContent: '跳到主内容',
+    private: '私密',
     empty: '还没有内容。',
   },
   // `+error.svelte` 的文案。四档覆盖引擎会抛出的所有状态码；
@@ -42,6 +44,7 @@ export const zh = {
     tags: '标签',
     timeline: '时间线',
     friends: '友链',
+    siteMap: '站点地图',
   },
   home: {
     selectedWriting: '最新文章',
@@ -74,6 +77,8 @@ export const zh = {
     placeholder: '搜索这个类别…',
     category: '类别',
     empty: '没有找到结果',
+    loading: '搜索中…',
+    resultCount: '{count} 条结果',
   },
   comments: {
     title: '评论',
@@ -93,6 +98,7 @@ export const zh = {
     githubHint: '可选，登录后不用每次填昵称',
     actingAs: '以 {name} 身份评论',
     signOut: '退出',
+    requiredHint: '昵称和评论内容为必填项。',
   },
   moments: {
     title: '动态',
@@ -193,7 +199,29 @@ export const zh = {
       rssLabel: 'RSS',
     },
   },
+  lightbox: {
+    close: '关闭',
+    preview: '图片预览',
+  },
+  login: {
+    title: '登录',
+    heading: '进入 {name}',
+    hint: '该区域需要登录后查看。',
+    token: '访问令牌',
+    submit: '登录',
+    submitting: '登录中…',
+    failed: '登录失败，请检查令牌。',
+    failedLater: '登录失败，请稍后再试。',
+  },
   seo: {
+    note: {
+      label: '笔记',
+      description: '短笔记：看到的、想到的、值得记下的片段。'
+    },
+    moment: {
+      label: '动态',
+      description: '短动态：此刻在做的事、在看的书、在想的念头。'
+    },
     about: {
       label: '关于',
       description: '谁在写、为什么建这个站，以及它换过的名字。'

@@ -81,7 +81,7 @@
 <LanguageSwitcher />
 <PageLogo href={home} />
 
-<div class="search-page">
+<main id="main" class="search-page">
   <header class="search-head">
     <p class="kicker">{t.search.title}</p>
     <h1 class="search-title">{t.search.title}</h1>
@@ -108,23 +108,29 @@
     </select>
   </div>
 
-  {#if loading}
-    <p class="search-status">…</p>
-  {:else if results.length > 0}
-    <ul class="search-results">
-      {#each results as r (r.id)}
-        <li class="search-result">
-          <a href={`/${r.url}`} class="search-link">
-            <span class="result-title">{r.title}</span>
-            <span class="result-excerpt">{r.excerpt}</span>
-          </a>
-        </li>
-      {/each}
-    </ul>
-  {:else if searched}
-    <p class="search-empty">{t.search.empty}</p>
-  {/if}
-</div>
+  <!-- Results replace each other without a page load, so the region owns the
+       announcement: without it a screen reader stays silent on "no results"
+       and on every keystroke's new hit list. -->
+  <div class="search-live" aria-live="polite" aria-atomic="false">
+    {#if loading}
+      <p class="search-status">{t.search.loading}</p>
+    {:else if results.length > 0}
+      <p class="visually-hidden">{t.search.resultCount.replace('{count}', String(results.length))}</p>
+      <ul class="search-results">
+        {#each results as r (r.id)}
+          <li class="search-result">
+            <a href={`/${r.url}`} class="search-link">
+              <span class="result-title">{r.title}</span>
+              <span class="result-excerpt">{r.excerpt}</span>
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {:else if searched}
+      <p class="search-empty">{t.search.empty}</p>
+    {/if}
+  </div>
+</main>
 
 <style>
   .search-page {

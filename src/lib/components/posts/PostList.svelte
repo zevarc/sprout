@@ -40,12 +40,18 @@
 
 <style>
   .post-list {
-    opacity: 0;
-    transform: translateY(16px);
+    opacity: 1;
+    transform: none;
     transition: opacity 0.6s ease, transform 0.6s ease;
   }
 
-  .post-list.visible {
+  /* Only the reveal depends on JS; without it the list is just visible. */
+  :global(html.js) .post-list {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  :global(html.js) .post-list.visible {
     opacity: 1;
     transform: none;
   }
@@ -144,9 +150,11 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    :global(html.js) .post-list,
     .post-list {
       opacity: 1;
       transform: none;
+      transition: none;
     }
 
     .post-row::before {

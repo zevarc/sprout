@@ -21,6 +21,17 @@
   const heading = $derived(labelText(type.label, lang, type.type));
   const home = $derived(homePath(lang));
   const basePath = $derived(`/${getLink(type.route.replace(/^\//, ''), lang)}`);
+  const brand = $derived(site.brand[lang] ?? site.brand[site.defaultLocale]);
+  /** Dictionary copy is keyed by kind (`post`) or by route (`posts`). */
+  const seoEntry = $derived(t.seo?.[type.type] ?? t.seo?.[type.route.replace(/^\//, '')]);
+  /**
+   * Every list page needs its own description: a kind without a dictionary
+   * entry (a site-declared type) still gets a sentence instead of shipping a
+   * head with no `description` at all.
+   */
+  const description = $derived(
+    seoEntry?.description ?? `${heading} — ${brand?.seoDescription ?? site.name}`
+  );
 
   /** @param {any} entry */
   function images(entry) {
@@ -30,6 +41,10 @@
 
 <svelte:head>
   <title>{pageTitle(heading)}</title>
+  <meta name="description" content={description} />
+  <meta property="og:title" content={pageTitle(heading)} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={`${site.url}${basePath}`} />
   <link rel="canonical" href={`${site.url}${basePath}`} />
   <!-- A list page exists in every locale: without this a crawler treats the
        copies as unrelated pages instead of translations. -->
@@ -51,7 +66,7 @@
 
 <PageLogo href={home} />
 
-<main class="content-page">
+<main id="main" class="content-page">
   <header class="page-head">
     <p class="kicker">{type.route.replace(/^\//, '')}</p>
     <h1 class="page-title">{heading}</h1>

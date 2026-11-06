@@ -55,7 +55,7 @@
 
 <PageLogo href="/" />
 
-<main class="invite-page">
+<main id="main" class="invite-page">
   <h1>加入 {site.name}</h1>
 
   {#if phase === 'loading'}

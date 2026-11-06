@@ -39,6 +39,7 @@
 <svelte:head>
   <title>{pageTitle(tag ?? t.tags.title)}</title>
   <meta name="description" content={tag ? `${tag} — ${t.tags.subtitle}` : t.tags.subtitle} />
+  <meta property="og:url" content={canonical} />
   <link rel="canonical" href={canonical} />
   {#if site.locales.length > 1 && altLocales.length > 0}
     {#each altLocales as code}
@@ -62,7 +63,7 @@
 <LanguageSwitcher />
 <PageLogo href={home} />
 
-<main class="tags-page">
+<main id="main" class="tags-page">
   <header class="page-head">
     <p class="kicker">{t.tags.kicker}</p>
     <h1 class="page-title">{tag ?? t.tags.title}</h1>

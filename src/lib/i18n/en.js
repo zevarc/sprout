@@ -4,6 +4,8 @@ export const en = {
   language: '中文',
   common: {
     switchLanguage: 'Switch to {name}',
+    skipToContent: 'Skip to content',
+    private: 'Private',
     empty: 'Nothing here yet.',
   },
   // Copy for `+error.svelte`. Four buckets cover every status the engine
@@ -45,6 +47,7 @@ export const en = {
     tags: 'Tags',
     timeline: 'Timeline',
     friends: 'Friends',
+    siteMap: 'Site map',
   },
   home: {
     selectedWriting: 'Latest writing',
@@ -77,6 +80,8 @@ export const en = {
     placeholder: 'Search this category…',
     category: 'Category',
     empty: 'No results found',
+    loading: 'Searching…',
+    resultCount: '{count} results',
   },
   comments: {
     title: 'Comments',
@@ -96,6 +101,7 @@ export const en = {
     githubHint: 'optional — no need to retype your name',
     actingAs: 'Commenting as {name}',
     signOut: 'Sign out',
+    requiredHint: 'A name and a comment are required.',
   },
   moments: {
     title: 'Moments',
@@ -198,7 +204,29 @@ export const en = {
       rssLabel: 'RSS',
     },
   },
+  lightbox: {
+    close: 'Close',
+    preview: 'Image preview',
+  },
+  login: {
+    title: 'Sign in',
+    heading: 'Enter {name}',
+    hint: 'This area requires signing in.',
+    token: 'Access token',
+    submit: 'Sign in',
+    submitting: 'Signing in…',
+    failed: 'Sign-in failed. Check the token.',
+    failedLater: 'Sign-in failed. Try again later.',
+  },
   seo: {
+    note: {
+      label: 'Notes',
+      description: 'Short notes: fragments of what I see, think and reflect on.'
+    },
+    moment: {
+      label: 'Moments',
+      description: 'Short updates — what I am doing, reading or thinking about right now.'
+    },
     about: {
       label: 'About',
       description: 'Who writes here, why the site exists, and the names it has had.'

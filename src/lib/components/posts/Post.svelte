@@ -81,6 +81,8 @@
     <meta property="og:image:width" content={String(share.width)} />
     <meta property="og:image:height" content={String(share.height)} />
     <meta property="og:image:alt" content={share.alt} />
+    <meta name="twitter:title" content={post.title} />
+    <meta name="twitter:description" content={post.description} />
     <meta name="twitter:image" content={share.url} />
     <meta name="twitter:image:alt" content={share.alt} />
     <meta property="og:url" content={`${site.url}/${post.url}`} />
@@ -118,7 +120,7 @@
   </details>
 {/if}
 
-<div class="post-layout">
+<main id="main" class="post-layout">
   <article class="post-article">
     <header class="post-header">
         <div class="post-watermark" aria-hidden="true">
@@ -158,9 +160,9 @@
             {/if}
         </div>
     </header>
-    <main class="prose post-content">
+    <div class="prose post-content">
         {@html post.bodyHtml}
-    </main>
+    </div>
 
     {#if related.length > 0}
       <section class="related">
@@ -195,7 +197,7 @@
       />
     </aside>
   {/if}
-</div>
+</main>
 
 <BackToTop label={t.posts.backToTop} />
 
