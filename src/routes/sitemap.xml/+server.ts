@@ -13,9 +13,38 @@ function lastmodOf(view: PostView): string {
 	return new Date(view.updated).toISOString().slice(0, 10);
 }
 
+function escapeXml(value: string): string {
+	return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Raster only: image sitemap validators are not consistent about SVG, and a
+ * cover that Search Console rejects is worse than no image entry.
+ */
+const IMAGE_EXT = /\.(avif|gif|jpe?g|png|webp)$/i;
+
+/**
+ * `<image:image>` for one URL. Only the asset's cover is declared: body images
+ * live in the markdown as `/images/...` paths that are not media rows, so they
+ * cannot be attributed to an asset here without guessing.
+ */
+function imageTags(images: string[] | undefined): string {
+	if (!images?.length) return '';
+	return images
+		.map(
+			(src) =>
+				`\n        <image:image>\n            <image:loc>${escapeXml(src)}</image:loc>\n        </image:image>`
+		)
+		.join('');
+}
+
 function url(locale: string, path: string): string {
 	const prefix = locale === site.defaultLocale ? '' : `/${locale}`;
-	return `${SITE_URL}${prefix}${path ? `/${path}` : '/'}`;
+	// The homepage is the only pathless route; it must not grow a trailing slash
+	// (`/zh/` 308-redirects to `/zh`, and a sitemap that lists redirects is a
+	// "Page with redirect" report waiting to happen).
+	if (!path) return `${SITE_URL}${prefix || '/'}`;
+	return `${SITE_URL}${prefix}/${path}`;
 }
 
 /**
@@ -25,8 +54,14 @@ function url(locale: string, path: string): string {
  * translation group is what tells a crawler these pages are alternates of each
  * other rather than unrelated pages. Only public routes are ever passed here.
  */
-function entry(pathsByLocale: Record<string, string>, lastmod?: string): string {
-	const locales = LOCALES.filter((l) => pathsByLocale[l]);
+function entry(
+	pathsByLocale: Record<string, string>,
+	lastmod?: string,
+	imagesByLocale?: Record<string, string[]>
+): string {
+	// `''` is a real path here (the homepage), so membership is tested against
+	// `undefined`, not truthiness.
+	const locales = LOCALES.filter((l) => typeof pathsByLocale[l] === 'string');
 	if (locales.length === 0) return '';
 	// The default locale owns the unprefixed URL, whatever order `site.locales` is in.
 	const primary = locales.includes(site.defaultLocale) ? site.defaultLocale : locales[0];
@@ -48,7 +83,7 @@ function entry(pathsByLocale: Record<string, string>, lastmod?: string): string 
 		.map(
 			(locale) => `
     <url>
-        <loc>${url(locale, pathsByLocale[locale])}</loc>${lastmodTag}${alts}
+        <loc>${url(locale, pathsByLocale[locale])}</loc>${lastmodTag}${alts}${imageTags(imagesByLocale?.[locale])}
     </url>`
 		)
 		.join('');
@@ -76,18 +111,25 @@ export async function GET({ platform }) {
 		const base = type.route.replace(/^\//, '');
 		// Group by translation id: one entry per group, carrying each locale's own
 		// slug.
-		const byGroup = new Map<string, { paths: Record<string, string>; lastmod: string }>();
+		const byGroup = new Map<
+			string,
+			{ paths: Record<string, string>; lastmod: string; images: Record<string, string[]> }
+		>();
 		for (const locale of LOCALES) {
 			const views = await listViews(db, { types: [type.type], lang: locale, limit: 200 });
 			for (const view of views) {
-				const group = byGroup.get(view.groupId) ?? { paths: {}, lastmod: '' };
+				const group = byGroup.get(view.groupId) ?? { paths: {}, lastmod: '', images: {} };
 				group.paths[locale] = `${base}/${view.slug}`;
+				// An `<image:loc>` belongs to the URL it sits under, so each locale
+				// declares its own translation's cover (they usually share one object).
+				group.images[locale] =
+					view.cover && IMAGE_EXT.test(view.cover) ? [`${SITE_URL}${view.cover}`] : [];
 				const stamp = lastmodOf(view);
 				if (stamp > group.lastmod) group.lastmod = stamp;
 				byGroup.set(view.groupId, group);
 			}
 		}
-		for (const group of byGroup.values()) urls.push(entry(group.paths, group.lastmod));
+		for (const group of byGroup.values()) urls.push(entry(group.paths, group.lastmod, group.images));
 	}
 
 	// A tag exists only in the locales that actually carry it, so a tag page is
