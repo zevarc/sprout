@@ -10,14 +10,24 @@
  *
  * Frontmatter contract (v3):
  *   - `title`, `description`, `date`, `updated`, `draft`, `tags` are core
+ *   - `cover` is not a column: the file under `static/` is uploaded and bound as
+ *     `asset_media.role='cover'` (docs/DATA-MODEL.md §4.10). It stays in the
+ *     markdown so a fresh environment can bootstrap its covers from source,
+ *     exactly like `tags` bootstraps `tag` rows.
  *   - any other key is passed through as a declared field (`fields`), so a site
- *     can carry type-specific attributes (e.g. `rating`, `ageMonths`)
+ *     can carry type-specific attributes (e.g. `rating`, `ageMonths`); keys the
+ *     type does not declare are reported and skipped instead of failing the batch
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = process.cwd();
 const API = process.env.API_URL ?? 'http://localhost:5173';
+/**
+ * SvelteKit's CSRF guard rejects form POSTs that do not declare the site's own
+ * origin, and this script runs outside a browser. Mirror `restore.mjs`.
+ */
+const ORIGIN = new URL(API).origin;
 const TOKEN = process.env.ADMIN_TOKEN ?? '';
 const REPLACE = process.argv.includes('--replace');
 /** Optional: `--only=project` limits the import to one content type. */
@@ -150,7 +160,7 @@ async function declaredFields() {
  * @param {string} assetId
  * @param {string} coverPath site-relative path, e.g. `/images/cover/x.webp`
  * @param {string} title used as the image's alt text
- * @returns {Promise<'bound' | 'missing' | 'external' | 'failed'>}
+ * @returns {Promise<'bound' | 'missing' | 'external' | `failed ${number}: ${string}`>}
  */
 async function attachCover(assetId, coverPath, title) {
 	const value = String(coverPath);
@@ -177,10 +187,12 @@ async function attachCover(assetId, coverPath, title) {
 
 	const res = await fetch(`${API}/api/admin/media`, {
 		method: 'POST',
-		headers: { Authorization: `Bearer ${TOKEN}` },
+		headers: { Authorization: `Bearer ${TOKEN}`, Origin: ORIGIN },
 		body: form
 	});
-	return res.ok ? 'bound' : 'failed';
+	if (res.ok) return 'bound';
+	const detail = (await res.text()).slice(0, 120).replace(/\s+/g, ' ').trim();
+	return `failed ${res.status}${detail ? `: ${detail}` : ''}`;
 }
 
 async function main() {
@@ -270,8 +282,10 @@ async function main() {
 				const id = ids[j];
 				if (!cover || !id) continue;
 				const outcome = await attachCover(id, cover, String(payload.title ?? ''));
+				const where = `${payload.type}/${payload.slug}.${payload.lang}`;
 				if (outcome === 'bound') covers.bound += 1;
-				else covers[outcome].push(`${payload.type}/${payload.slug}.${payload.lang}`);
+				else if (outcome.startsWith('failed')) covers.failed.push(`${where} (${outcome.slice(7)})`);
+				else covers[outcome].push(where);
 			}
 		}
 
